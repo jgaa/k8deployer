@@ -6,6 +6,7 @@
 #include <sstream>
 
 #include <boost/algorithm/string.hpp>
+#include <boost/filesystem.hpp>
 
 #include "restc-cpp/RequestBuilder.h"
 #include "restc-cpp/IteratorFromJsonSerializer.h"
@@ -28,6 +29,9 @@ Cluster::Cluster(const Config &cfg, const string &arg, RestClient &client)
 void Cluster::run()
 {
     startEventsLoop();
+    createComponents();
+
+    // TODO: Start deploying stuff...
 }
 
 void Cluster::startProxy()
@@ -84,6 +88,21 @@ void Cluster::startEventsLoop()
         }
 
     });
+}
+
+void Cluster::createComponents()
+{
+    assert(!rootComponent_);
+
+    if (!boost::filesystem::is_regular_file(cfg_.definitionFile)) {
+        LOG_ERROR << "Not a file: " << cfg_.definitionFile;
+        throw runtime_error("Not a file: "s + cfg_.definitionFile);
+    }
+
+    ifstream ifs{cfg_.definitionFile};
+    rootComponent_ = make_unique<Component>();
+    restc_cpp::SerializeFromJson(*rootComponent_, ifs);
+    rootComponent_->init();
 }
 
 void Cluster::parseArgs(const std::string& args)

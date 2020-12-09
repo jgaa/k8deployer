@@ -5,6 +5,7 @@
 #include <map>
 #include "k8deployer/PortForward.h"
 #include "k8deployer/Config.h"
+#include "k8deployer/Component.h"
 
 namespace k8deployer {
 
@@ -33,6 +34,7 @@ public:
 
 private:
     void startEventsLoop();
+    void createComponents();
     void parseArgs(const std::string& args);
     std::pair<std::string, std::string> split(const std::string& str, char ch) const;
 
@@ -42,6 +44,7 @@ private:
     restc_cpp::RestClient& client_;
     std::string kubeconfig_; // Empty for default (no arguments)
     const Config& cfg_;
+    std::unique_ptr<Component> rootComponent_;
 };
 
 
