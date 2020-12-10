@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cassert>
+
 #include "restc-cpp/restc-cpp.h"
 #include "k8deployer/Config.h"
 #include "k8deployer/Cluster.h"
@@ -29,6 +31,11 @@ public:
 
     static const Config& config() noexcept {
         return instance().cfg_;
+    }
+
+    static restc_cpp::RestClient& client() noexcept {
+        assert(instance().client_);
+        return *instance().client_;
     }
 
 private:

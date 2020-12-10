@@ -32,7 +32,14 @@ void Cluster::run()
     startEventsLoop();
     createComponents();
 
-    // TODO: Start deploying stuff...
+    if (cfg_.command == "deploy") {
+        deploy();
+    } else  {
+        LOG_ERROR << "Unknown command: " << cfg_.command;
+    }
+
+    // TODO: Shut things done
+    client_.CloseWhenReady();
 }
 
 void Cluster::startProxy()
@@ -53,6 +60,18 @@ string Cluster::getVars() const
         out << n << '=' << v;
     }
     return out.str();
+}
+
+string Cluster::getUrl() const
+{
+    return "http://127.0.0.1:"s
+            + to_string(portFwd_->getPort());
+}
+
+void Cluster::deploy()
+{
+    setState(State::EXECUTING);
+    rootComponent_->deploy();
 }
 
 void Cluster::startEventsLoop()
@@ -79,14 +98,24 @@ void Cluster::startEventsLoop()
         sp.name_mapping = &mapping;
 
         IteratorFromJsonSerializer<k8api::EventStream> events{*reply, &sp, true};
-        for(const auto& item : events) {
-            // This gets called asynchrounesly for each event we get from the server
-            const auto& event = item.object;
-            LOG_TRACE << name() << " got event: " << event.metadata.name
-                      << " [" << event.reason
-                      << "] " << event.message;
-        }
 
+        try {
+            for(const auto& item : events) {
+                // This gets called asynchrounesly for each event we get from the server
+                const auto& event = item.object;
+                LOG_DEBUG << name() << " got event: " << event.metadata.name
+                          << " [" << event.reason
+                          << "] " << event.message;
+            }
+        } catch (const exception& ex) {
+            LOG_ERROR << "Caught exception from event-loop: " << ex.what();
+
+            // If we get an exception before we are shutting down, it's an error
+            // TODO: Try to recover if we are in PROCESSING state
+            if (state() < State::ERROR) {
+                setState(State::ERROR);
+            }
+        }
     });
 }
 
@@ -102,7 +131,7 @@ void Cluster::createComponents()
 
 
     ifstream ifs{cfg_.definitionFile};
-    rootComponent_ = make_unique<Component>();
+    rootComponent_ = make_unique<Component>(*this);
     restc_cpp::SerializeFromJson(*rootComponent_, ifs);
     rootComponent_->init();
 }

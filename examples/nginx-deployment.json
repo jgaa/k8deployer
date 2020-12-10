@@ -1,9 +1,8 @@
 {
-    "name":"nginx",
+    "name":"nginx-deployment",
     "kind":"Deployment",
     "labels":["nginx","nginx-tag","nginx-teste"],
     "args": {
         "image":"nginx",
-        "replicas":"4",
-        "serviceType":"NodePort"
+        "port":"8080"
 }

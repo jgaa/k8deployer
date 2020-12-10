@@ -12,6 +12,14 @@ namespace k8deployer {
 class Cluster
 {
 public:
+    enum class State {
+        INIT,
+        EXECUTING,
+        SHUTDOWN,
+        DONE,
+        ERROR
+    };
+
     using vars_t = std::map<std::string, std::string>;
     Cluster(const Config& cfg, const std::string& arg, restc_cpp::RestClient& client);
 
@@ -31,13 +39,24 @@ public:
     }
 
     std::string getVars() const;
+    void setState(State state) {
+        state_ = state;
+    }
+    State state() const noexcept {
+        return state_;
+    }
+
+    // Get the URL to the api server in the cluster
+    std::string getUrl() const;
 
 private:
+    void deploy();
     void startEventsLoop();
     void createComponents();
     void parseArgs(const std::string& args);
     std::pair<std::string, std::string> split(const std::string& str, char ch) const;
 
+    State state_ = State::INIT;
     std::string name_;
     std::unique_ptr<PortForward> portFwd_;
     vars_t variables_;
