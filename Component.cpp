@@ -67,7 +67,7 @@ private:
 void Component::init()
 {
     initChildren();
-    component_ = K8Component::create({kind, name, tags, mergeArgs()});
+    component_ = K8Component::create({kind, name, labels, mergeArgs()});
 }
 
 void Component::initChildren()

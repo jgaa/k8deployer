@@ -6,23 +6,27 @@
 #include <map>
 #include <deque>
 
+#include <boost/fusion/adapted.hpp>
+
+#include "k8deployer/Config.h"
+
 namespace k8deployer {
 
 using conf_t = std::map<std::string, std::string>;
+using labels_t = std::vector<std::string>;
 
 class K8Component {
 public:
     struct CreateArgs {
         std::string kind;
         std::string name;
-        conf_t tags;
+        labels_t labels;
         conf_t args;
     };
 
     using ptr_t = std::shared_ptr<K8Component>;
 
     virtual ~K8Component() = default;
-
     virtual std::string name() const = 0;
     virtual void deploy() = 0;
     virtual void undeploy() = 0;
@@ -38,6 +42,8 @@ public:
  */
 class Component {
 public:
+    using childrens_t = std::deque<Component>;
+
     enum class State {
         PRE,
         CREATING,
@@ -46,14 +52,22 @@ public:
         FAILED
     };
 
+    // When to create a child, relative to the parent
+    enum class ParentRelation {
+        INDEPENDENT,
+        BEFORE,
+        AFTER
+    };
+
     std::string name;
     std::string kind;
-    conf_t tags;
+    labels_t labels;
     conf_t defaultArgs; // Added to args and childrens args, unless overridden
     conf_t args;
+    std::string parentRelation; // Can be set from config
 
-    // A component cannot be created on k8 until all it's children are in ready state
-    std::deque<Component> children;
+    // Related components owned by this; like volumes or configmaps or service.
+    childrens_t children;
 
     // Call only on root node.
     void init();
@@ -69,7 +83,17 @@ private:
     std::string k8state_; // From the event-loop
     Component *parent_ = {};
     K8Component::ptr_t component_;
+    ParentRelation parentRelation_ = ParentRelation::AFTER;
 };
-
-
 } // ns
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::Component,
+                          (std::string, name)
+                          (std::string, kind)
+                          (k8deployer::labels_t, labels)
+                          (k8deployer::conf_t, defaultArgs)
+                          (k8deployer::conf_t, args)
+                          (std::string, parentRelation)
+                          (k8deployer::Component::childrens_t, children)
+                          );
+

@@ -32,7 +32,7 @@ int main(int argc, char* argv[]) {
                     "Comand; one of: deploy, delete, redeploy, describe, status")(
                     "kubeconfig,k",
                     po::value<decltype(config.kubeconfigs)>(&config.kubeconfigs),
-                    "One or more kubeconfigs to clusters to deploy the definition"
+                    "One or more kubeconfigs to clusters to deploy the definition. "
                     "Optional syntax: kubefile:var=value,var=value...");
 
         po::options_description cmdline_options;

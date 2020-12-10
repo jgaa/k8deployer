@@ -11,6 +11,7 @@
 #include "restc-cpp/RequestBuilder.h"
 #include "restc-cpp/IteratorFromJsonSerializer.h"
 
+#include "k8deployer/logging.h"
 #include "k8deployer/Cluster.h"
 #include "k8deployer/k8/Event.h"
 
@@ -56,14 +57,13 @@ string Cluster::getVars() const
 
 void Cluster::startEventsLoop()
 {
+    LOG_DEBUG << "Starting event-loops";
     client_.Process([this](Context& ctx) {
         const auto url = "http://127.0.0.1:"s + to_string(portFwd_->getPort())
                 + "/api/v1/events";
 
-
         auto prop = make_shared<Request::Properties>();
         prop->recvTimeout = (60 * 60 * 24) * 1000;
-
 
         auto reply = RequestBuilder(ctx)
                 .Get(url)
@@ -92,12 +92,14 @@ void Cluster::startEventsLoop()
 
 void Cluster::createComponents()
 {
-    assert(!rootComponent_);
+    LOG_DEBUG << name()<< ": Creating components from " << cfg_.definitionFile;
 
+    assert(!rootComponent_);
     if (!boost::filesystem::is_regular_file(cfg_.definitionFile)) {
-        LOG_ERROR << "Not a file: " << cfg_.definitionFile;
+        LOG_ERROR << name() << ": Not a file: " << cfg_.definitionFile;
         throw runtime_error("Not a file: "s + cfg_.definitionFile);
     }
+
 
     ifstream ifs{cfg_.definitionFile};
     rootComponent_ = make_unique<Component>();

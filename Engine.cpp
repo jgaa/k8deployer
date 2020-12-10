@@ -6,6 +6,8 @@ using namespace std;
 
 namespace k8deployer {
 
+Engine *Engine::instance_;
+
 void Engine::run()
 {
     // Create cluster instances
