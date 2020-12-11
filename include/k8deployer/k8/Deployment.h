@@ -86,7 +86,9 @@ struct NodeSelector {
 
 struct NodeAffinity {
     preffered_scheduling_terms_t preferredDuringSchedulingIgnoredDuringExecution;
-    NodeSelector requiredDuringSchedulingIgnoredDuringExecution;
+
+    // TODO: Must be optional. k8api does not allow an empty object here
+    //NodeSelector requiredDuringSchedulingIgnoredDuringExecution;
 };
 
 struct LabelSelectorRequirement {
@@ -340,7 +342,7 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::NodeSelector,
 
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::NodeAffinity,
     (k8deployer::k8api::preffered_scheduling_terms_t, preferredDuringSchedulingIgnoredDuringExecution)
-    (k8deployer::k8api::NodeSelector, requiredDuringSchedulingIgnoredDuringExecution)
+    //(k8deployer::k8api::NodeSelector, requiredDuringSchedulingIgnoredDuringExecution)
 );
 
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::LabelSelectorRequirement,
@@ -479,7 +481,7 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::HostAlias,
 );
 
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::PodSpec,
-    //(k8deployer::k8api::Affinity, affinity)
+    (k8deployer::k8api::Affinity, affinity)
     (k8deployer::k8api::containers_t, containers)
     (bool, enableServiceLinks)
     (std::string, hostname)
@@ -501,7 +503,7 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::PodTemplateSpec,
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::DeploymentSpec,
     (size_t, replicas)
     (k8deployer::k8api::LabelSelector, selector)
-    //(k8deployer::k8api::DeploymentStrategy, strategy)
+    (k8deployer::k8api::DeploymentStrategy, strategy)
     (k8deployer::k8api::PodTemplateSpec, template_), //, NB:
 );
 
