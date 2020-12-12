@@ -26,7 +26,7 @@ add_executable(${PROJECT_NAME}
     include/k8deployer/Engine.h
     Cluster.cpp
     include/k8deployer/Cluster.h
-    include/k8deployer/k8/Deployment.h
+    include/k8deployer/k8/k8api.h
     include/k8deployer/k8/Event.h
     Component.cpp
     include/k8deployer/Component.h

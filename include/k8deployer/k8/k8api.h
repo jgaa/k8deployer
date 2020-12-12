@@ -1,5 +1,10 @@
 #pragma once
 
+/*! A subset of the kubernetes API that we use, or plan to use, in the near future
+ *
+ * https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.20/
+ */
+
 #include <string>
 #include <vector>
 #include <map>
@@ -34,7 +39,8 @@ struct ContainerPort {
     unsigned int hostPort =0;
     std::string protocol;
 };
-using container_ports_t = std::vector<ContainerPort>;
+using
+container_ports_t = std::vector<ContainerPort>;
 
 struct Container {
     std::string name;
@@ -276,6 +282,40 @@ struct Deployment {
     DeploymentSpec spec;
 };
 
+struct ServicePort {
+    std::string appProtocol;
+    std::string name;
+    int nodePort = 0;
+    int port = 0;
+    std::string protocol;
+    std::string targetPort;
+};
+
+using service_ports_t = std::vector<ServicePort>;
+
+struct ServiceSpec {
+    std::string clusterIP;
+    string_list_t clusterIPs;
+    string_list_t externalIPs;
+    std::string externalName;
+    std::string externalTrafficPolicy;
+    string_list_t ipFamilies;
+    std::string ipFamilyPolicy;
+    string_list_t loadBalancerSourceRanges;
+    service_ports_t ports;
+    labels_t selector;
+    //std::string sessionAffinity;
+    string_list_t topologyKeys;
+    std::string type;  // ExternalName, *ClusterIP, NodePort, and LoadBalancer
+};
+
+struct Service {
+    std::string apiVersion = "v1";
+    std::string kind = "Service";
+    ObjectMeta metadata;
+    ServiceSpec spec;
+};
+
 } // ns
 
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::Selector,
@@ -515,3 +555,33 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::Deployment,
     (k8deployer::k8api::DeploymentSpec, spec)
 );
 
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::ServicePort,
+    (std::string, appProtocol)
+    (std::string, name)
+    (int, nodePort)
+    (int, port)
+    (std::string, protocol)
+    (std::string, targetPort)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::ServiceSpec,
+    (std::string, clusterIP)
+    (k8deployer::k8api::string_list_t, clusterIPs)
+    (k8deployer::k8api::string_list_t, externalIPs)
+    (std::string, externalName)
+    (std::string, externalTrafficPolicy)
+    (k8deployer::k8api::string_list_t, ipFamilies)
+    (std::string, ipFamilyPolicy)
+    (k8deployer::k8api::string_list_t, loadBalancerSourceRanges)
+    (k8deployer::k8api::service_ports_t, ports)
+    (k8deployer::k8api::labels_t, selector)
+    (k8deployer::k8api::string_list_t, topologyKeys)
+    (std::string, type)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::Service,
+    (std::string, apiVersion)
+    (std::string, kind)
+    (k8deployer::k8api::ObjectMeta, metadata)
+    (ServiceSpec, spec)
+);

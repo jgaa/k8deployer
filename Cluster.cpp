@@ -103,7 +103,7 @@ void Cluster::startEventsLoop()
             for(const auto& item : events) {
                 // This gets called asynchrounesly for each event we get from the server
                 const auto& event = item.object;
-                LOG_DEBUG << name() << " got event: " << event.metadata.name
+                LOG_DEBUG << name() << ": got event: " << event.metadata.name
                           << " [" << event.reason
                           << "] " << event.message;
             }
@@ -131,7 +131,7 @@ void Cluster::createComponents()
 
 
     ifstream ifs{cfg_.definitionFile};
-    rootComponent_ = make_unique<Component>(*this);
+    rootComponent_ = make_unique<RootComponent>(*this);
     restc_cpp::SerializeFromJson(*rootComponent_, ifs);
     rootComponent_->init();
 }

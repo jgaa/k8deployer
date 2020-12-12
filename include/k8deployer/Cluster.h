@@ -63,7 +63,7 @@ private:
     restc_cpp::RestClient& client_;
     std::string kubeconfig_; // Empty for default (no arguments)
     const Config& cfg_;
-    std::unique_ptr<Component> rootComponent_;
+    std::unique_ptr<RootComponent> rootComponent_;
 };
 
 

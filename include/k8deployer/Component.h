@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include <string>
 #include <memory>
 #include <vector>
@@ -13,7 +14,8 @@
 #include "restc-cpp/SerializeJson.h"
 
 #include "k8deployer/Config.h"
-#include "k8deployer/k8/Deployment.h"
+#include "k8deployer/k8/k8api.h"
+#include "k8deployer/k8/Event.h"
 
 namespace k8deployer {
 
@@ -78,6 +80,93 @@ public:
         FAILED
     };
 
+    /*! A task
+     *
+     * The root component owns all tasks, and is responsible to iterate over
+     * them and execute those that are in READY state, or ABORT all
+     * if the overall work-flow is failing.
+     *
+     * The workflow is that each task is scheduled for execution
+     * when it is ready.
+     *
+     * It's executed by calling it's function. the function is
+     * responsible for changing the tasks state until it it DONE
+     * or FAILED.
+     */
+    class Task {
+    public:
+        enum class TaskState {
+            PRE,
+            BLOCKED,
+            READY,
+            EXECUTING,
+            WAITING, // Waiting for events to update it's status
+            DONE,
+            ABORTED,
+            FAILED
+        };
+
+        // Used both for execution and monitoring
+        using fn_t = std::function<void (Task&, const k8api::Event *)>;
+
+        using ptr_t = std::shared_ptr<Task>;
+        using wptr_t = std::weak_ptr<Task>;
+
+        Task(Component& component, std::string name, fn_t fn, TaskState initial = TaskState::PRE)
+            : component_{component}, name_{std::move(name)}, fn_{std::move(fn)}
+            , state_{initial}
+        {}
+
+        TaskState state() const noexcept {
+            return state_;
+        }
+
+        void setState(TaskState state);
+
+        /*! Update the state depending on current state and dependicies.
+         *
+         * \return true if the state was changed
+         */
+        bool evaluate();
+\
+        /*! All tasks in EXECUTING or WAITING state get's the events
+         *
+         * \return true if the state was changed
+         */
+        bool onEvent(const k8api::Event& event);
+
+        const std::string& name() const noexcept {
+            return name_;
+        }
+
+    private:
+        // All dependencies must be DONE before the task goes in READY state
+        std::deque<wptr_t> dependencies_;
+
+        Component& component_;
+        const std::string name_;
+        fn_t fn_; // What this task has to do
+        TaskState state_ = TaskState::PRE;
+    };
+
+    using tasks_t = std::deque<Task::ptr_t>;
+
+    // Since Component is initialized and populated by the json serializer, we can't
+    // use overloading to deal with the different kind of components.
+    // So, we use WorkFlow to contain the logic specific for these.
+    class WorkFlow {
+        public:
+        virtual ~WorkFlow();
+
+        virtual void init() = 0;
+        virtual void prepare() = 0;
+        virtual void execute() = 0;
+    };
+
+    WorkFlow& workflow() noexcept {
+        assert(workflow_);
+        return *workflow_;
+    }
 
     Component() = default;
     Component(Cluster& cluster)
@@ -86,6 +175,8 @@ public:
     Component(Component& parent, Cluster& cluster)
         : parent_{&parent}, cluster_{&cluster}
     {}
+
+    virtual ~Component() = default;
 
     // When to create a child, relative to the parent
     enum class ParentRelation {
@@ -103,14 +194,10 @@ public:
 
     // Can be populated by configuration, but normally we will do it
     k8api::Deployment deployment;
+    k8api::Service service;
 
     // Related components owned by this; like volumes or configmaps or service.
     childrens_t children;
-
-    // Call only on root node.
-    void init();
-
-    void deploy();
 
     Kind getKind() const noexcept {
         return kind_;
@@ -130,13 +217,23 @@ public:
         return *cluster_;
     }
 
-private:
+protected:
+    void init_();
+    void prepare_();
+    void deployComponent();
+    void prepareComponent();
     void validate();
     void buildDependencies();
     void buildDeploymentDependencies();
     bool hasKindAsChild(Kind kind) const;
     void prepareDeploy();
+    void prepareService();
     void initChildren();
+    tasks_t buildDeployDeploymentTasks();
+    tasks_t buildDeployServiceTasks();
+
+    // Build the DeployTasks list for this component
+    tasks_t buildDeployTasks();
 
     // Adds a child - does not call `init()`.
     Component& addChild(const std::string& name, Kind kind);
@@ -153,7 +250,27 @@ private:
     ParentRelation parentRelation_ = ParentRelation::AFTER;
     Kind kind_ = Kind::APP;
     conf_t effectiveArgs_;
+    std::unique_ptr<WorkFlow> workflow_;
 };
+
+class RootComponent: public Component {
+public:
+    RootComponent(Cluster& cluster)
+        : Component(cluster)
+    {}
+
+    void init();
+    void prepare();
+    void execute();
+
+private:
+    void buildTasks();
+
+    tasks_t tasks_;
+};
+
+
+
 } // ns
 
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::Component,

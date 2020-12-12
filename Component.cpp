@@ -6,7 +6,7 @@
 #include "k8deployer/logging.h"
 #include "k8deployer/Component.h"
 #include "k8deployer/Cluster.h"
-#include "k8deployer/k8/Deployment.h"
+#include "k8deployer/k8/k8api.h"
 #include "k8deployer/Engine.h"
 
 using namespace std;
@@ -136,7 +136,7 @@ string toString(const Kind &kind)
     throw runtime_error("Unknown Kind enum value.");
 }
 
-void Component::init()
+void Component::init_()
 {
     kind_ = toKind(kind);
     effectiveArgs_ = mergeArgs();
@@ -145,14 +145,38 @@ void Component::init()
     component_ = K8Component::create({*this, getKind(), name, labels, effectiveArgs_});
 }
 
-void Component::deploy()
+void RootComponent::init()
 {
-    buildDependencies();
-    prepareDeploy();
+    init_();
+}
 
-    // TODO: Check if any of the new components exists, and bail out if they do
+void RootComponent::prepare()
+{
+    prepare_();
+    buildTasks();
+}
 
-    component_->deploy();
+void Component::prepare_()
+{
+    // TODO: Walk the tree
+    prepareComponent();
+
+    for(auto& child : children) {
+        child.prepare_();
+    }
+}
+
+void RootComponent::deploy()
+{
+    //
+}
+
+void RootComponent::buildTasks()
+{
+    if (Engine::config().command == "deploy") {
+
+        tasks_ = buildDeployTasks();
+    }
 }
 
 string Component::logName() const noexcept
@@ -254,7 +278,7 @@ void Component::buildDeploymentDependencies()
 
         auto& service = addChild(name + "-svc", Kind::SERVICE);
         service.labels.push_back(labels.at(0)); // selector
-        service.init();
+        service.init_();
     }
 }
 
@@ -303,6 +327,10 @@ void Component::prepareDeploy()
         if (auto port = getArg("port")) {
             k8api::ContainerPort p;
             p.containerPort = static_cast<uint16_t>(stoul(*port));
+            p.name = "default";
+            if (auto v = getArg("protocol")) {
+                p.protocol = *v;
+            }
             container.ports.emplace_back(p);
         }
 
@@ -311,12 +339,85 @@ void Component::prepareDeploy()
 
 }
 
+void Component::prepareService()
+{
+    service.metadata.name = name;
+
+    // TODO: Fix and add labels
+    if (labels.empty()) {
+        labels.push_back(name);
+    }
+    const auto selector = getArg("selector",  labels.at(0));
+
+    service.metadata.labels.try_emplace("app", selector);
+    service.spec.selector.try_emplace("app", selector);
+
+    if (auto v = getArg("type")) {
+        service.spec.type = *v;
+    }
+
+    if (service.spec.ports.empty() && parent_) {
+        // Enumerate the owner objects ports and add each one
+
+        // TODO: Deal with StatefulSet
+        const auto& containers = parent_->deployment.spec.template_.spec.containers;
+        size_t count = 0;
+        for(const auto& cont: containers) {
+            ++count;
+            for(const auto& port : cont.ports) {
+                k8api::ServicePort sp;
+                sp.name = port.name;
+                if (name.empty()) {
+                    name = "port-"s + to_string(count);
+                }
+                sp.protocol = port.protocol;
+                if (port.name.empty()) {
+                    sp.port = port.containerPort;
+                } else {
+                    sp.targetPort = port.name;
+                }
+                sp.nodePort = getIntArg("nodePort", 0);
+            }
+        }
+    }
+}
+
 void Component::initChildren()
 {
     for(auto& child: children) {
         child.parent_ = this;
         child.cluster_ = cluster_;
-        child.init();
+        child.init_();
+    }
+}
+
+Component::tasks_t Component::buildDeployDeploymentTasks()
+{
+    /* Deployment
+     *  TODO: Deal with ConfigMap's and secrets
+     *  TODO: Deal with volumes?
+     *
+     *  - Apply deployment
+     *
+     * There is no direct dependency between the Deployment and it's service
+     */
+
+    auto task = make_shared<Task>(*this, name, [&](Task& task) {
+        task.setState(Task::TaskState::EXECUTING);
+        component_->deploy();
+        task.setState(Task::TaskState::WAITING);
+    });
+}
+
+Component::tasks_t Component::buildDeployTasks()
+{
+    switch(getKind()) {
+    case Kind::APP:
+        return {};
+    case Kind::DEPLOYMENT:
+        return buildDeployDeploymentTasks();
+    case Kind::SERVICE:
+        return buildDeployServiceTasks();
     }
 }
 
@@ -364,4 +465,27 @@ K8Component::ptr_t K8Component::create(const K8Component::CreateArgs &ca)
     throw runtime_error("Unknown kind: "s + toString(ca.kind));
 }
 
+void k8deployer::Component::deployComponent()
+{
+    assert(component_);
+    component_->deploy();
 }
+
+void k8deployer::Component::prepareComponent()
+{
+    buildDependencies();
+
+    switch (getKind()) {
+    case Kind::DEPLOYMENT:
+        prepareDeploy();
+        break;
+    case Kind::SERVICE:
+        prepareService();
+        break;
+    case Kind::APP:
+        ; // Do nothing
+        break;
+    }
+}
+
+} // ns
