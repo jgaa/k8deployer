@@ -17,9 +17,33 @@ void Engine::run()
 
     startPortForwardig();
 
-    // Start actions
+    std::deque<future<void>> futures;
+
     for(auto& cluster : clusters_) {
-        cluster->run();
+        futures.push_back(cluster->prepare());
+    }
+
+    for(auto& f : futures) {
+        // TODO: Catch exceptions and deal with setup errore before we start doing something
+        f.get();
+    }
+
+    futures.clear();
+
+    for(auto& cluster : clusters_) {
+        futures.push_back(cluster->execute());
+    }
+
+    for(auto& f : futures) {
+        // TODO: Catch exceptions and deal with errors, potentially, try to roll back
+        f.get();
+    }
+
+    LOG_INFO << "Done. Shutting down proxies.";
+    try {
+        client_->GetIoService().stop();
+    } catch (const exception& ex) {
+        LOG_WARN << "Caugtht exception from asio shutdown: " << ex.what();
     }
 
     client_->CloseWhenReady();

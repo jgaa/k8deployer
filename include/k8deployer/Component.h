@@ -40,37 +40,39 @@ std::string toJson(const T& obj) {
 }
 
 using conf_t = std::map<std::string, std::string>;
-using labels_t = std::vector<std::string>;
+using labels_t = std::map<std::string, std::string>;
 
-class K8Component {
-public:
-    struct CreateArgs {
-        Component& component;
-        Kind kind;
-        std::string name;
-        labels_t labels;
-        conf_t args;
-    };
+struct ComponentData {
+    virtual ~ComponentData() = default;
 
-    using ptr_t = std::shared_ptr<K8Component>;
+    std::string name;
+    labels_t labels;
+    conf_t defaultArgs; // Added to args and childrens args, unless overridden
+    conf_t args;
 
-    virtual ~K8Component() = default;
-    virtual std::string name() const = 0;
-    virtual void deploy() = 0;
-    virtual void undeploy() = 0;
-    virtual std::string id() = 0;
-    virtual bool isThis(const std::string& ref) const = 0;
+    // Can be populated by configuration, but normally we will do it
+    k8api::Deployment deployment;
+    k8api::Service service;
+};
 
-    static ptr_t create(const CreateArgs& ca);
+struct ComponentDataDef : public ComponentData {
+    // Related components owned by this; like volumes or configmaps or service.
+
+    std::string kind;
+    std::string parentRelation;
+
+    using childrens_t = std::deque<ComponentDataDef>;
+    childrens_t children;
 };
 
 /*! Tree of components to work with.
  *
- * The tree of components are read directly from json configuration
  */
-class Component {
+class Component : protected ComponentData,
+        public std::enable_shared_from_this<Component> {
 public:
-    using childrens_t = std::deque<Component>;
+    using ptr_t = std::shared_ptr<Component>;
+    using childrens_t = std::deque<Component::ptr_t>;
 
     enum class State {
         PRE,
@@ -103,11 +105,23 @@ public:
             WAITING, // Waiting for events to update it's status
             DONE,
             ABORTED,
-            FAILED
+            FAILED,
+            DEPENDENCY_FAILED
         };
 
-        // Used both for execution and monitoring
-        using fn_t = std::function<void (Task&, const k8api::Event *)>;
+        /*! State machine, used both for execution and monitoring
+         *
+         * It is called for execution when the Task is in READY state,
+         * and again for each k8 event received while it's in EXECUTING
+         * or WAITING state.
+         *
+         * \param task The calling Task
+         * \param event nullptr if the task is in READY state, in which case
+         *      the task is executed and the state updated.
+         *      Pointer to an event if it is called in EXECUTING or WAITING
+         *      state.
+         */
+        using fn_t = std::function<void (Task& task, const k8api::Event *event)>;
 
         using ptr_t = std::shared_ptr<Task>;
         using wptr_t = std::weak_ptr<Task>;
@@ -121,23 +135,49 @@ public:
             return state_;
         }
 
+        bool isMonitoring() const noexcept {
+            return state_ == TaskState::EXECUTING || state_ == TaskState::WAITING;
+        }
+
+        bool isDone() const noexcept {
+            return state_ >= TaskState::DONE;
+        }
+
         void setState(TaskState state);
 
         /*! Update the state depending on current state and dependicies.
          *
+         * If in BLOCKED state, the Task will change it's state to READY when
+         * it determines that it is unblocked.
+         *
          * \return true if the state was changed
          */
         bool evaluate();
+
+        void execute() {
+            assert(state_ == TaskState::READY);
+            fn_(*this, {});
+        }
 \
         /*! All tasks in EXECUTING or WAITING state get's the events
          *
          * \return true if the state was changed
          */
-        bool onEvent(const k8api::Event& event);
+        bool onEvent(const k8api::Event& event) {
+            const auto startState = state_;
+            fn_(*this, &event);
+            return state_ != startState;
+        }
 
         const std::string& name() const noexcept {
             return name_;
         }
+
+        Component& component() {
+            return component_;
+        }
+
+        static const std::string& toString(const TaskState& state);
 
     private:
         // All dependencies must be DONE before the task goes in READY state
@@ -151,53 +191,19 @@ public:
 
     using tasks_t = std::deque<Task::ptr_t>;
 
-    // Since Component is initialized and populated by the json serializer, we can't
-    // use overloading to deal with the different kind of components.
-    // So, we use WorkFlow to contain the logic specific for these.
-    class WorkFlow {
-        public:
-        virtual ~WorkFlow();
 
-        virtual void init() = 0;
-        virtual void prepare() = 0;
-        virtual void execute() = 0;
-    };
-
-    WorkFlow& workflow() noexcept {
-        assert(workflow_);
-        return *workflow_;
-    }
-
-    Component() = default;
-    Component(Cluster& cluster)
-        : cluster_{&cluster}
-    {}
-    Component(Component& parent, Cluster& cluster)
-        : parent_{&parent}, cluster_{&cluster}
+    Component(const Component::ptr_t& parent, Cluster& cluster, const ComponentData& data)
+        : ComponentData(data), parent_{parent}, cluster_{&cluster}
     {}
 
     virtual ~Component() = default;
 
-    // When to create a child, relative to the parent
+    // When to execute a child, relative to the parent
     enum class ParentRelation {
         INDEPENDENT,
         BEFORE,
         AFTER
     };
-
-    std::string name;
-    std::string kind;
-    labels_t labels;
-    conf_t defaultArgs; // Added to args and childrens args, unless overridden
-    conf_t args;
-    std::string parentRelation; // Can be set from config
-
-    // Can be populated by configuration, but normally we will do it
-    k8api::Deployment deployment;
-    k8api::Service service;
-
-    // Related components owned by this; like volumes or configmaps or service.
-    childrens_t children;
 
     Kind getKind() const noexcept {
         return kind_;
@@ -210,76 +216,94 @@ public:
     std::optional<std::string> getArg(const std::string& name) const;
     std::string getArg(const std::string& name, const std::string& defaultVal) const;
     int getIntArg(const std::string& name, int defaultVal) const;
-    size_t getSizetArg(const std::string& name, size_t defaultVal) const;
+    size_t getSizetArg(const std::string &name, size_t defaultVal) const;
 
     Cluster& cluster() noexcept {
         assert(cluster_);
         return *cluster_;
     }
 
+    static ptr_t populateTree(const ComponentDataDef &def, Cluster& cluster);
+
+    // Called on the root component
+    // Let clusters prepare themselves to de deployed in parallell
+    virtual std::future<void> prepareDeploy();
+
+    // Called on the root component
+    // Let clusters deploy themselfs in parallell
+    std::future<void> deploy();
+
+    // Called on the root component
+    void onEvent(const std::shared_ptr<k8api::Event>& event);
+
+    labels_t::value_type getSelector();
+
 protected:
-    void init_();
-    void prepare_();
-    void deployComponent();
-    void prepareComponent();
+    void processEvent(const k8api::Event& event);
+
+    // Recursively add tasks to the task list
+    virtual void addTasks(tasks_t& tasks);
+
+    static Component::ptr_t createComponent(const ComponentDataDef &def,
+                                     const Component::ptr_t& parent,
+                                     Cluster& cluster);
+
+    static Component::ptr_t populate(const ComponentDataDef &def,
+                                     Cluster& cluster,
+                                     const Component::ptr_t& parent);
+
+    std::future<void> dummyReturnFuture() const;
+    void init();
+    void prepare();
     void validate();
-    void buildDependencies();
-    void buildDeploymentDependencies();
     bool hasKindAsChild(Kind kind) const;
-    void prepareDeploy();
-    void prepareService();
     void initChildren();
-    tasks_t buildDeployDeploymentTasks();
-    tasks_t buildDeployServiceTasks();
 
     // Build the DeployTasks list for this component
     tasks_t buildDeployTasks();
 
-    // Adds a child - does not call `init()`.
-    Component& addChild(const std::string& name, Kind kind);
+    ptr_t addChild(const std::string& name, Kind kind, const labels_t& labels);
     conf_t mergeArgs() const;
 
     // Get a path to root, where the current node is first in the list
     std::vector<const Component *> getPathToRoot() const;
+    const Component *parentPtr() const;
+    void runTasks();
+    bool allTasksAreDone() const noexcept {
+        return state_ >= State::DONE;
+    }
 
-    State state_ = State::PRE; // From our logic
+    void setState(State state) {
+        state_ = state;
+    }
+
+    bool isDone() const noexcept {
+        return state_ >= State::DONE;
+    }
+
+    State state_{State::PRE}; // From our logic
     std::string k8state_; // From the event-loop
-    Component *parent_ = {};
+    std::weak_ptr<Component> parent_;
     Cluster *cluster_ = {};
-    K8Component::ptr_t component_;
     ParentRelation parentRelation_ = ParentRelation::AFTER;
     Kind kind_ = Kind::APP;
     conf_t effectiveArgs_;
-    std::unique_ptr<WorkFlow> workflow_;
+    childrens_t children_;
+    std::unique_ptr<tasks_t> tasks_;
+    std::unique_ptr<std::promise<void>> executionPromise_;
 };
-
-class RootComponent: public Component {
-public:
-    RootComponent(Cluster& cluster)
-        : Component(cluster)
-    {}
-
-    void init();
-    void prepare();
-    void execute();
-
-private:
-    void buildTasks();
-
-    tasks_t tasks_;
-};
-
-
 
 } // ns
 
-BOOST_FUSION_ADAPT_STRUCT(k8deployer::Component,
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::ComponentDataDef,
                           (std::string, name)
-                          (std::string, kind)
                           (k8deployer::labels_t, labels)
                           (k8deployer::conf_t, defaultArgs)
                           (k8deployer::conf_t, args)
+                          (k8deployer::k8api::Deployment, deployment)
+                          (k8deployer::k8api::Service, service)
+                          (std::string, kind)
                           (std::string, parentRelation)
-                          (k8deployer::Component::childrens_t, children)
+                          (k8deployer::ComponentDataDef::childrens_t, children)
                           );
 

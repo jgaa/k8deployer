@@ -1,8 +1,13 @@
 {
     "name":"nginx-deployment",
     "kind":"Deployment",
-    "labels":["nginx","nginx-tag","nginx-teste"],
+    "labels": {
+        "app":"nginx",
+        "some-tag":"nginx-tag",
+        "teste":"nginx-teste"
+        },
     "args": {
         "image":"nginx",
         "port":"8080"
+    }
 }

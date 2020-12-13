@@ -15,6 +15,7 @@
 #include "k8deployer/Cluster.h"
 #include "k8deployer/k8/Event.h"
 
+
 namespace k8deployer {
 
 using namespace std;
@@ -25,21 +26,6 @@ Cluster::Cluster(const Config &cfg, const string &arg, RestClient &client)
     : client_{client}, cfg_{cfg}
 {
     parseArgs(arg);
-}
-
-void Cluster::run()
-{
-    startEventsLoop();
-    createComponents();
-
-    if (cfg_.command == "deploy") {
-        deploy();
-    } else  {
-        LOG_ERROR << "Unknown command: " << cfg_.command;
-    }
-
-    // TODO: Shut things done
-    client_.CloseWhenReady();
 }
 
 void Cluster::startProxy()
@@ -68,10 +54,23 @@ string Cluster::getUrl() const
             + to_string(portFwd_->getPort());
 }
 
-void Cluster::deploy()
+std::future<void> Cluster::prepare()
+{
+    setState(State::INIT);
+    LOG_INFO << name () << " Preparing ...";
+    setCmds();
+    startEventsLoop();
+    createComponents();
+    assert(prepareCmd_);
+    return prepareCmd_();
+}
+
+std::future<void> Cluster::execute()
 {
     setState(State::EXECUTING);
-    rootComponent_->deploy();
+    LOG_INFO << name () << " Executing ...";
+    assert(executeCmd_);
+    return executeCmd_();
 }
 
 void Cluster::startEventsLoop()
@@ -106,6 +105,11 @@ void Cluster::startEventsLoop()
                 LOG_DEBUG << name() << ": got event: " << event.metadata.name
                           << " [" << event.reason
                           << "] " << event.message;
+
+                if (rootComponent_) {
+                    auto ep = make_shared<k8api::Event>(event);
+                    rootComponent_->onEvent(ep);
+                }
             }
         } catch (const exception& ex) {
             LOG_ERROR << "Caught exception from event-loop: " << ex.what();
@@ -130,11 +134,29 @@ void Cluster::createComponents()
     }
 
 
+    // Load component definitions
     ifstream ifs{cfg_.definitionFile};
-    rootComponent_ = make_unique<RootComponent>(*this);
-    restc_cpp::SerializeFromJson(*rootComponent_, ifs);
-    rootComponent_->init();
+    ComponentDataDef def;
+    restc_cpp::SerializeFromJson(def, ifs);
+
+    // Create the tree of components from the definition
+    rootComponent_ = Component::populateTree(def, *this);
 }
+
+void Cluster::setCmds()
+{
+    if (cfg_.command == "deploy") {
+        executeCmd_ = [this] {
+            return rootComponent_->deploy();
+        };
+        prepareCmd_ = [this] {
+            return rootComponent_->prepareDeploy();
+        };
+    } else  {
+        LOG_ERROR << "Unknown command: " << cfg_.command;
+    }
+}
+
 
 void Cluster::parseArgs(const std::string& args)
 {

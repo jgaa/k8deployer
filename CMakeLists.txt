@@ -30,7 +30,14 @@ add_executable(${PROJECT_NAME}
     include/k8deployer/k8/Event.h
     Component.cpp
     include/k8deployer/Component.h
+    AppComponent.cpp
+    include/k8deployer/AppComponent.h
+    DeploymentComponent.cpp
+    include/k8deployer/DeploymentComponent.h
+    ServiceComponent.cpp
+    include/k8deployer/ServiceComponent.h
     )
+
 add_dependencies(${PROJECT_NAME} externalRestcCpp)
 set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 17)
 

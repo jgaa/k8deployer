@@ -583,5 +583,5 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::Service,
     (std::string, apiVersion)
     (std::string, kind)
     (k8deployer::k8api::ObjectMeta, metadata)
-    (ServiceSpec, spec)
+    (k8deployer::k8api::ServiceSpec, spec)
 );
