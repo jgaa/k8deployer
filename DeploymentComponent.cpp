@@ -16,6 +16,10 @@ std::future<void> DeploymentComponent::prepareDeploy()
 {
     deployment.metadata.name = name;
 
+    if (deployment.metadata.namespace_.empty()) {
+        deployment.metadata.namespace_ = Engine::config().ns;
+    }
+
     auto selector = getSelector();
 
     deployment.metadata.labels.try_emplace(selector.first, selector.second);
@@ -77,8 +81,9 @@ void DeploymentComponent::addTasks(Component::tasks_t& tasks)
                       << " evaluating event: " << event->message;
 
             auto key = name + "-";
-            if (event->kind == "pod"
-                //&& event->metadata._namespace ==
+            if (event->involvedObject.kind == "Pod"
+                && event->involvedObject.name.substr(0, key.size()) == key
+                && event->metadata.namespace_ == deployment.metadata.namespace_
                 && event->metadata.name.substr(0, key.size()) == key
                 && event->reason == "Created") {
 
@@ -88,6 +93,7 @@ void DeploymentComponent::addTasks(Component::tasks_t& tasks)
 
                 LOG_DEBUG << "A pod with my name was created. I am assuming it relates to me";
                 if (++podsStarted_ >= deployment.spec.replicas) {
+                    task.setState(Task::TaskState::DONE);
                     setState(State::DONE);
                 }
             }
@@ -118,7 +124,7 @@ void DeploymentComponent::doDeploy()
 {
     auto url = cluster_->getUrl()
             + "/apis/apps/v1/namespaces/"
-            + Engine::config().ns
+            + deployment.metadata.namespace_
             + "/deployments";
 
     Engine::client().Process([this, url](Context& ctx) {
@@ -130,11 +136,8 @@ void DeploymentComponent::doDeploy()
         LOG_TRACE << "Payload: " << toJson(deployment);
 
         try {
-            JsonFieldMapping mappings;
-            mappings.entries.push_back({"template_", "template"});
-            mappings.entries.push_back({"operator_", "operator"});
             auto reply = RequestBuilder{ctx}.Post(url)
-               .Data(deployment, &mappings)
+               .Data(deployment, jsonFieldMappings())
                .Execute();
 
             LOG_DEBUG << logName()

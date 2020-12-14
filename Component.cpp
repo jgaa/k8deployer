@@ -305,6 +305,9 @@ void Component::processEvent(const k8api::Event& event)
     bool changed = false;
     for(auto& task : *tasks_) {
         changed = task->onEvent(event) ? true : changed;
+        if (changed) {
+            LOG_TRACE << logName() << " Task " << task->name() << " changed state. Will schedule a re-run of the tasks.";
+        }
     }
 
     if (changed) {
@@ -701,6 +704,18 @@ const string &Component::Task::toString(const Component::Task::TaskState &state)
                                             "DEPENDENCY_FAILED"};
 
     return names.at(static_cast<size_t>(state));
+}
+
+const JsonFieldMapping *jsonFieldMappings()
+{
+    static const JsonFieldMapping mappings = {
+        {"namespace_", "namespace"},
+        {"template_", "template"},
+        {"operator_", "operator"},
+        {"continue_", "continue"}
+    };
+
+    return &mappings;
 }
 
 //K8Component::ptr_t K8Component::create(const K8Component::CreateArgs &ca)

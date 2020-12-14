@@ -15,7 +15,6 @@
 
 #include "k8deployer/Config.h"
 #include "k8deployer/k8/k8api.h"
-#include "k8deployer/k8/Event.h"
 
 namespace k8deployer {
 
@@ -38,6 +37,8 @@ std::string toJson(const T& obj) {
     restc_cpp::SerializeToJson(obj, out);
     return out.str();
 }
+
+const restc_cpp::JsonFieldMapping *jsonFieldMappings();
 
 using conf_t = std::map<std::string, std::string>;
 using labels_t = std::map<std::string, std::string>;

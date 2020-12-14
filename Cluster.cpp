@@ -13,8 +13,19 @@
 
 #include "k8deployer/logging.h"
 #include "k8deployer/Cluster.h"
-#include "k8deployer/k8/Event.h"
+#include "k8deployer/k8/k8api.h"
 
+namespace k8deployer {
+struct EventStream {
+    std::string type;
+    k8api::Event object;
+};
+} // ns
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::EventStream,
+                          (std::string, type)
+                          (k8deployer::k8api::Event, object)
+                          );
 
 namespace k8deployer {
 
@@ -91,18 +102,18 @@ void Cluster::startEventsLoop()
                 .Execute();
 
         // 'namespace' is a reserved word in C++, so we have to map it
-        JsonFieldMapping mapping;
-        mapping.entries.emplace_back("_namespace", "namespace");
         serialize_properties_t sp;
-        sp.name_mapping = &mapping;
+        sp.name_mapping = jsonFieldMappings();
 
-        IteratorFromJsonSerializer<k8api::EventStream> events{*reply, &sp, true};
+        IteratorFromJsonSerializer<EventStream> events{*reply, &sp, true};
 
         try {
             for(const auto& item : events) {
                 // This gets called asynchrounesly for each event we get from the server
                 const auto& event = item.object;
-                LOG_DEBUG << name() << ": got event: " << event.metadata.name
+                LOG_DEBUG << name() << ": got event: "
+                          << event.metadata.namespace_ << '.'
+                          << event.metadata.name
                           << " [" << event.reason
                           << "] " << event.message;
 

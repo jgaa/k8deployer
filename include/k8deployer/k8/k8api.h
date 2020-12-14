@@ -27,9 +27,72 @@ struct EnvVar {
 };
 using env_vars_t = std::vector<EnvVar>;
 
+struct OwnerReference {
+    std::string apiVersion;
+    bool blockOwnerDeletion = false;
+    bool controller = false;
+    std::string kind;
+    std::string uid;
+};
+
+using owner_references_t = std::vector<OwnerReference>;
+
 struct ObjectMeta {
     std::string name;
+    std::string namespace_;
+    key_values_t annotations;
     labels_t labels;
+    std::string clusterName;
+    string_list_t finalizers;
+    std::string generateName;
+    int generation = 0;
+    owner_references_t ownerReferences;
+    std::string selfLink;
+    std::string uid;
+};
+
+struct ObjectReference {
+    std::string apiVersion;
+    std::string fieldPath;
+    std::string kind;
+    std::string name;
+    std::string namespace_;
+    std::string resourceVersion;
+    std::string uid;
+};
+
+struct Event {
+    std::string action;
+    std::string apiVersion;
+    size_t count = 0;
+    //MicroTime eventTime;
+    std::string firstTimestamp;
+    std::string lastTimestamp;
+    std::string kind;
+    std::string message;
+    std::string reason;
+    std::string type;
+    std::string reportingComponent;
+    std::string reportingInstance;
+    ObjectMeta metadata;
+    ObjectReference involvedObject;
+    ObjectReference related;
+};
+
+using events_t = std::vector<Event>;
+
+struct ListMeta {
+    std::string continue_;
+    int remainingItemCount = 0;
+    std::string resourceVersion;
+    std::string selfLink;
+};
+
+struct EventList {
+    std::string apiVersion = "v1";
+    events_t items;
+    std::string kind;
+    ListMeta metadata;
 };
 
 struct ContainerPort {
@@ -329,8 +392,61 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::EnvVar,
 
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::ObjectMeta,
     (std::string, name)
+    (std::string, namespace_)
+    (k8deployer::k8api::key_values_t, annotations)
     (k8deployer::k8api::labels_t, labels)
+    (std::string, clusterName)
+    (k8deployer::k8api::string_list_t, finalizers)
+    (std::string, generateName)
+    (int, generation)
+    (k8deployer::k8api::owner_references_t, ownerReferences)
+    (std::string, selfLink)
+    (std::string, uid)
 );
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::ObjectReference,
+    (std::string, apiVersion)
+    (std::string, fieldPath)
+    (std::string, kind)
+    (std::string, name)
+    (std::string, namespace_)
+    (std::string, resourceVersion)
+    (std::string, uid)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::Event,
+    (std::string, action)
+    (std::string, apiVersion)
+    (size_t, count)
+    //MicroTime, eventTime)
+    (std::string, firstTimestamp)
+    (std::string, lastTimestamp)
+    (std::string, kind)
+    (std::string, message)
+    (std::string, reason)
+    (std::string, type)
+    (std::string, reportingComponent)
+    (std::string, reportingInstance)
+    (k8deployer::k8api::ObjectMeta, metadata)
+    (k8deployer::k8api::ObjectReference, involvedObject)
+    (k8deployer::k8api::ObjectReference, related)
+);
+
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::ListMeta,
+(std::string, continue_) // NB
+(int, remainingItemCount)
+(std::string, resourceVersion)
+(std::string, selfLink)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::EventList,
+(std::string, apiVersion)
+(k8deployer::k8api::events_t, items)
+(std::string, kind)
+(k8deployer::k8api::ListMeta, metadata)
+);
+
 
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::ContainerPort,
     (std::string, name)
