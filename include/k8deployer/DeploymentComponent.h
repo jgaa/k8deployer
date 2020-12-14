@@ -9,7 +9,9 @@ class DeploymentComponent : public Component
 public:
     DeploymentComponent(const Component::ptr_t& parent, Cluster& cluster, const ComponentData& data)
         : Component(parent, cluster, data)
-    {}
+    {
+        kind_ = Kind::DEPLOYMENT;
+    }
 
     std::future<void> prepareDeploy() override;
 

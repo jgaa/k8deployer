@@ -1,5 +1,5 @@
 {
-    "name":"nginx-deployment",
+    "name":"nginx",
     "kind":"Deployment",
     "labels": {
         "app":"nginx",
@@ -8,6 +8,8 @@
         },
     "args": {
         "image":"nginx",
-        "port":"8080"
+        "port":"8080",
+        "service.enabled":"true",
+        "service.type":"NodePort"
     }
 }

@@ -111,7 +111,7 @@ void Cluster::startEventsLoop()
             for(const auto& item : events) {
                 // This gets called asynchrounesly for each event we get from the server
                 const auto& event = item.object;
-                LOG_DEBUG << name() << ": got event: "
+                LOG_TRACE << name() << ": got event: "
                           << event.metadata.namespace_ << '.'
                           << event.metadata.name
                           << " [" << event.reason

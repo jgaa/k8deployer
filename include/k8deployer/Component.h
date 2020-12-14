@@ -69,7 +69,7 @@ struct ComponentDataDef : public ComponentData {
 /*! Tree of components to work with.
  *
  */
-class Component : protected ComponentData,
+class Component : public ComponentData,
         public std::enable_shared_from_this<Component> {
 public:
     using ptr_t = std::shared_ptr<Component>;
@@ -96,7 +96,7 @@ public:
      * responsible for changing the tasks state until it it DONE
      * or FAILED.
      */
-    class Task {
+    class Task : public std::enable_shared_from_this<Task> {
     public:
         enum class TaskState {
             PRE,
@@ -263,7 +263,8 @@ protected:
     // Build the DeployTasks list for this component
     tasks_t buildDeployTasks();
 
-    ptr_t addChild(const std::string& name, Kind kind, const labels_t& labels);
+    ptr_t addChild(const std::string& name, Kind kind, const labels_t& labels,
+                   const conf_t& args);
     conf_t mergeArgs() const;
 
     // Get a path to root, where the current node is first in the list
@@ -274,9 +275,7 @@ protected:
         return state_ >= State::DONE;
     }
 
-    void setState(State state) {
-        state_ = state;
-    }
+    void setState(State state);
 
     bool isDone() const noexcept {
         return state_ >= State::DONE;

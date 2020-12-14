@@ -14,7 +14,9 @@ namespace k8deployer {
 
 std::future<void> DeploymentComponent::prepareDeploy()
 {
-    deployment.metadata.name = name;
+    if (deployment.metadata.name.empty()) {
+        deployment.metadata.name = name;
+    }
 
     if (deployment.metadata.namespace_.empty()) {
         deployment.metadata.namespace_ = Engine::config().ns;
@@ -103,6 +105,8 @@ void DeploymentComponent::addTasks(Component::tasks_t& tasks)
     });
 
     tasks.push_back(task);
+
+    Component::addTasks(tasks);
 }
 
 
@@ -116,7 +120,17 @@ void DeploymentComponent::buildDependencies()
     const auto serviceEnabled = getBoolArg("service.enabled");
     if (!hasKindAsChild(Kind::SERVICE) && (serviceEnabled && *serviceEnabled)) {
         LOG_DEBUG << logName() << "Adding Service.";
-        addChild(name + "-svc", Kind::SERVICE, labels);
+
+        conf_t svcargs;
+        // Since we create the service, give it a copy of relevant arguments..
+        for(const auto [k, v] : args) {
+            static const array<string, 2> relevant = {"service.nodePort", "service.type"};
+            if (find(relevant.begin(), relevant.end(), k) != relevant.end()) {
+                svcargs[k] = v;
+            }
+        }
+
+        addChild(name + "-svc", Kind::SERVICE, labels, svcargs);
     }
 }
 
@@ -141,7 +155,7 @@ void DeploymentComponent::doDeploy()
                .Execute();
 
             LOG_DEBUG << logName()
-                  << "Deployment gave response: "
+                  << "Applying gave response: "
                   << reply->GetResponseCode() << ' '
                   << reply->GetHttpResponse().reason_phrase;
             return;
