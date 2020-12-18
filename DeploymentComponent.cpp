@@ -44,6 +44,8 @@ std::future<void> DeploymentComponent::prepareDeploy()
         k8api::Container container;
         container.name = name;
         container.image = getArg("image", name);
+        container.args = getArgAsStringList("pod.args", ""s);
+        container.command = getArgAsStringList("pod.command", ""s);
 
         if (auto port = getArg("port")) {
             k8api::ContainerPort p;

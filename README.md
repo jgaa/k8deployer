@@ -26,8 +26,8 @@ For now, an experimental kubernetes deployer in C++
     - [ ] Verify
 
 - [ ] Configmap
-    - [ ] Create from configuration
-    - [ ] create from file
+    - [x] Create from configuration
+    - [x] create from file
     - [ ] Delete
     - [ ] Update
     - [ ] Verify

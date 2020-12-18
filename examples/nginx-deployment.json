@@ -6,6 +6,7 @@
         "port":"8080",
         "service.enabled":"true",
         "service.type":"NodePort",
-        "config.fromFile":"examples/nginx.conf"
-    }
+        "config.fromFile":"examples/nginx.conf,examples/index.html",
+        "pod.command":"nginx -c /config/nginx.conf"
+    },
 }

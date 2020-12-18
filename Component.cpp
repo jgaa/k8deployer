@@ -2,6 +2,8 @@
 #include <map>
 #include <algorithm>
 
+#include <boost/algorithm/string.hpp>
+
 #include "restc-cpp/RequestBuilder.h"
 
 #include "k8deployer/logging.h"
@@ -106,6 +108,23 @@ std::optional<string> Component::getArg(const string &name) const
     }
 
     return {};
+}
+
+k8api::string_list_t Component::getArgAsStringList(const string &name, const string &defaultVal) const
+{
+    auto val = getArg(name, defaultVal);
+    k8api::string_list_t list;
+    boost::split(list, val, boost::is_any_of(" "));
+
+    k8api::string_list_t rval;
+    for(const auto& segment : list) {
+        if (segment.empty()) {
+            continue;
+        }
+        rval.push_back(segment);
+    }
+
+    return rval;
 }
 
 string Component::getArg(const string &name, const string &defaultVal) const

@@ -225,6 +225,7 @@ public:
 
     std::optional<bool> getBoolArg(const std::string& name) const;
     std::optional<std::string> getArg(const std::string& name) const;
+    k8api::string_list_t getArgAsStringList(const std::string& name, const std::string& defaultVal) const;
     std::string getArg(const std::string& name, const std::string& defaultVal) const;
     int getIntArg(const std::string& name, int defaultVal) const;
     size_t getSizetArg(const std::string &name, size_t defaultVal) const;
