@@ -92,7 +92,7 @@ std::future<void> ServiceComponent::prepareDeploy()
 
 void ServiceComponent::addTasks(Component::tasks_t &tasks)
 {
-    auto task = make_shared<Task>(*this, name, [&](Task& task, const k8api::Event *event) {
+    auto task = make_shared<Task>(*this, name, [&](Task& task, const k8api::Event */*event*/) {
 
         // Execution?
         if (task.state() == Task::TaskState::READY) {

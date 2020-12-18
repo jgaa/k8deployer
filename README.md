@@ -14,13 +14,20 @@ For now, an experimental kubernetes deployer in C++
 ## Todo for initial beta
 
 - [ ] Deployment
-    - [ ] Create
+    - [x] Create
     - [ ] Delete
     - [ ] Update
     - [ ] Verify
 
 - [ ] Service
-    - [ ] Create
+    - [x] Create
+    - [ ] Delete
+    - [ ] Update
+    - [ ] Verify
+
+- [ ] Configmap
+    - [ ] Create from configuration
+    - [ ] create from file
     - [ ] Delete
     - [ ] Update
     - [ ] Verify
@@ -36,12 +43,16 @@ For now, an experimental kubernetes deployer in C++
     - [ ] Update
     - [ ] Verify
 
+- [ ] Namespaces
+    - [ ] Create
+    - [ ] Delete
+
 - [ ] Storage reservation pools
     - [ ] Figure out what to do
 
 - [ ] Event-driven work-flow.
-    - [ ] Relate events to components.
-    - [ ] Update component state from events
+    - [x] Relate events to components.
+    - [x] Update component state from events
     - [ ] Trigger next action(s) from state changes
 
 - [ ] Error handling

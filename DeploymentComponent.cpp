@@ -73,7 +73,7 @@ void DeploymentComponent::addTasks(Component::tasks_t& tasks)
         // Execution?
         if (task.state() == Task::TaskState::READY) {
             task.setState(Task::TaskState::EXECUTING);
-            doDeploy();
+            doDeploy(task.weak_from_this());
             task.setState(Task::TaskState::WAITING);
         }
 
@@ -132,16 +132,61 @@ void DeploymentComponent::buildDependencies()
 
         addChild(name + "-svc", Kind::SERVICE, labels, svcargs);
     }
+
+    // Check for config-files --> ConfigMap
+    if (auto fileNames = getArg("config.fromFile")) {
+        LOG_DEBUG << logName() << "Adding ConfigMap.";
+
+        conf_t svcargs;
+        for(const auto [k, v] : args) {
+            static const array<string, 1> relevant = {"config.fromFile"};
+            if (find(relevant.begin(), relevant.end(), k) != relevant.end()) {
+                svcargs[k] = v;
+            }
+        }
+
+        auto cf = addChild(name + "-conf", Kind::CONFIGMAP, {}, svcargs);
+        cf->prepareDeploy(); // We need the fully initialized ConfigMap in order to map the volume
+
+        // Add the configmap as a volume to the first pod
+        k8api::PodSpec *podspec = {};
+        podspec = &deployment.spec.template_.spec;
+
+        k8api::Volume volume;
+        volume.name = cf->configmap.metadata.name;
+        volume.configMap.name = cf->configmap.metadata.name;
+
+        for(auto& [k, _] : cf->configmap.binaryData) {
+            k8api::KeyToPath ktp;
+            ktp.key = k;
+            ktp.path = k;
+            ktp.mode = 0440;
+            volume.configMap.items.push_back(ktp);
+        }
+
+        podspec->volumes.push_back(volume);
+
+        // Now, add the mount point to the containers so they can use it
+        // Assume `/config` for auto-added volumes from "config.fromFile"
+        k8api::VolumeMount vm;
+        vm.name = volume.name;
+        vm.mountPath = "/config";
+        vm.readOnly = true;
+
+        for(auto& container: podspec->containers) {
+            container.volumeMounts.push_back(vm);
+        }
+    }
 }
 
-void DeploymentComponent::doDeploy()
+void DeploymentComponent::doDeploy(std::weak_ptr<Task> task)
 {
     auto url = cluster_->getUrl()
             + "/apis/apps/v1/namespaces/"
             + deployment.metadata.namespace_
             + "/deployments";
 
-    Engine::client().Process([this, url](Context& ctx) {
+    Engine::client().Process([this, url, task](Context& ctx) {
 
         LOG_DEBUG << logName()
                   << "Sending Deployment "
@@ -164,12 +209,16 @@ void DeploymentComponent::doDeploy()
                      << "Request failed: " << err.http_response.status_code
                      << ' ' << err.http_response.reason_phrase
                      << ": " << err.what();
+
         } catch(const std::exception& ex) {
             LOG_WARN << logName()
                      << "Request failed: " << ex.what();
         }
 
-        // TODO: Deal with errors
+        if (auto taskInstance = task.lock()) {
+            taskInstance->setState(Task::TaskState::FAILED);
+        }
+        setState(State::FAILED);
 
     });
 }

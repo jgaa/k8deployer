@@ -105,6 +105,18 @@ struct ContainerPort {
 using
 container_ports_t = std::vector<ContainerPort>;
 
+
+struct VolumeMount {
+    std::string mountPath;
+    std::string mountPropagation;
+    std::string name;
+    bool readOnly = false;
+    std::string subPath;
+    std::string subPathExpr;
+};
+
+using volume_mounts_t = std::vector<VolumeMount>;
+
 struct Container {
     std::string name;
     string_list_t args;
@@ -113,6 +125,7 @@ struct Container {
     std::string image;
     std::string imagePullPolicy;
     container_ports_t ports;
+    volume_mounts_t volumeMounts;
 };
 
 using containers_t = std::vector<Container>;
@@ -295,10 +308,11 @@ struct EmptyDirVolumeSource {
 struct Volume {
     std::string name;
     ConfigMapVolumeSource configMap;
-    EmptyDirVolumeSource emptyDir;
-    HostPathVolumeSource hostPath;
-    NFSVolumeSource nfs;
-    PersistentVolumeClaimVolumeSource persistentVolumeClaim;
+    // TODO: Make optional
+    //EmptyDirVolumeSource emptyDir;
+    //HostPathVolumeSource hostPath;
+    //NFSVolumeSource nfs;
+    //PersistentVolumeClaimVolumeSource persistentVolumeClaim;
 };
 
 using volumes_t = std::vector<Volume>;
@@ -379,6 +393,15 @@ struct Service {
     ServiceSpec spec;
 };
 
+struct ConfigMap {
+    std::string apiVersion = "v1";
+    std::string kind = "ConfigMap";
+    ObjectMeta metadata;
+    bool immutable = false;
+    key_values_t data;
+    key_values_t binaryData; // base64 encoded
+};
+
 } // ns
 
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::Selector,
@@ -456,6 +479,15 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::ContainerPort,
     (std::string, protocol)
 );
 
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::VolumeMount,
+    (std::string, mountPath)
+    (std::string, mountPropagation)
+    (std::string, name)
+    (bool, readOnly)
+    (std::string, subPath)
+    (std::string, subPathExpr)
+)
+
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::Container,
     (std::string, name)
     (k8deployer::k8api::string_list_t, args)
@@ -464,6 +496,7 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::Container,
     (std::string, image)
     (std::string, imagePullPolicy)
     (k8deployer::k8api::container_ports_t, ports)
+    (k8deployer::k8api::volume_mounts_t, volumeMounts)
 );
 
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::RollingUpdateDeployment,
@@ -625,10 +658,10 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::EmptyDirVolumeSource,
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::Volume,
     (std::string, name)
     (k8deployer::k8api::ConfigMapVolumeSource, configMap)
-    (k8deployer::k8api::EmptyDirVolumeSource, emptyDir)
-    (k8deployer::k8api::HostPathVolumeSource, hostPath)
-    (k8deployer::k8api::NFSVolumeSource, nfs)
-    (k8deployer::k8api::PersistentVolumeClaimVolumeSource, persistentVolumeClaim)
+    //(k8deployer::k8api::EmptyDirVolumeSource, emptyDir)
+    //(k8deployer::k8api::HostPathVolumeSource, hostPath)
+    //(k8deployer::k8api::NFSVolumeSource, nfs)
+    //(k8deployer::k8api::PersistentVolumeClaimVolumeSource, persistentVolumeClaim)
 );
 
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::HostAlias,
@@ -700,4 +733,13 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::Service,
     (std::string, kind)
     (k8deployer::k8api::ObjectMeta, metadata)
     (k8deployer::k8api::ServiceSpec, spec)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::ConfigMap,
+    (std::string, apiVersion)
+    (std::string, kind)
+    (k8deployer::k8api::ObjectMeta, metadata)
+    (bool, immutable)
+    (k8deployer::k8api::key_values_t, data)
+    (k8deployer::k8api::key_values_t, binaryData) // base64 encoded
 );

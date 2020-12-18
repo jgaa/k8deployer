@@ -1,15 +1,11 @@
 {
     "name":"nginx",
     "kind":"Deployment",
-    "labels": {
-        "app":"nginx",
-        "some-tag":"nginx-tag",
-        "teste":"nginx-teste"
-        },
     "args": {
         "image":"nginx",
         "port":"8080",
         "service.enabled":"true",
-        "service.type":"NodePort"
+        "service.type":"NodePort",
+        "config.fromFile":"examples/nginx.conf"
     }
 }

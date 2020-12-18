@@ -9,6 +9,7 @@
 #include "k8deployer/AppComponent.h"
 #include "k8deployer/DeploymentComponent.h"
 #include "k8deployer/ServiceComponent.h"
+#include "k8deployer/ConfigMapComponent.h"
 #include "k8deployer/Cluster.h"
 #include "k8deployer/k8/k8api.h"
 #include "k8deployer/Engine.h"
@@ -23,7 +24,8 @@ namespace {
 
 const map<string, Kind> kinds = {{"App", Kind::APP},
                                  {"Deployment", Kind::DEPLOYMENT},
-                                 {"Service", Kind::SERVICE}
+                                 {"Service", Kind::SERVICE},
+                                 {"ConfigMap", Kind::CONFIGMAP}
                                 };
 } // anonymous ns
 
@@ -48,6 +50,31 @@ void Component::init()
     effectiveArgs_ = mergeArgs();
     initChildren();
     validate();
+}
+
+std::string Base64Encode(const std::string &in) {
+    // Silence the cursed clang-tidy...
+    constexpr auto magic_4 = 4;
+    constexpr auto magic_6 = 6;
+    constexpr auto magic_8 = 8;
+    constexpr auto magic_3f = 0x3F;
+
+    static const string alphabeth {"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"};
+    string out;
+
+    int val = 0;
+    int valb = -magic_6;
+    for (const uint8_t c : in) {
+        val = (val<<magic_8) + c;
+        valb += magic_8;
+        while (valb>=0) {
+            out.push_back(alphabeth[(val>>valb)&magic_3f]);
+            valb-=magic_6;
+        }
+    }
+    if (valb>-magic_6) out.push_back(alphabeth[((val<<magic_8)>>(valb+magic_8))&magic_3f]);
+    while (out.size()%magic_4) out.push_back('=');
+    return out;
 }
 
 string Component::logName() const noexcept
@@ -134,7 +161,37 @@ std::future<void> Component::deploy()
     tasks_ = make_unique<tasks_t>();
     addTasks(*tasks_);
 
-    // TODO: Set dependencies
+    // Set dependencies
+    for(auto& task : *tasks_) {
+        switch(task->component().parentRelation()) {
+        case ParentRelation::AFTER:
+            // The task depend on parent task(s)
+            if (auto parent = task->component().parent_.lock()) {
+                for(auto ptask : *tasks_) {
+                    if (&ptask->component() == parent.get()) {
+                        LOG_TRACE << logName() << "Task " << task->name() << " depends on " << ptask->name();
+                        task->addDependency(ptask->weak_from_this());
+                    }
+                }
+            }
+            break;
+        case ParentRelation::BEFORE:
+            // The parent's tasks depend on the task(s)
+            if (auto parent = task->component().parent_.lock()) {
+                for(auto ptask : *tasks_) {
+                    if (&ptask->component() == parent.get()) {
+                        LOG_TRACE << logName() << "Task " << ptask->name() << " depends on " << task->name();
+                        ptask->addDependency(task->weak_from_this());
+                    }
+                }
+            }
+            break;
+        case ParentRelation::INDEPENDENT:
+            ; // Don't matter
+        }
+    }
+
+    // TODO: Check for circular dependencies
 
     // Execute via asio's executor
     cluster().client().GetIoService().post([self = weak_from_this()] {
@@ -165,6 +222,19 @@ labels_t::value_type Component::getSelector()
     }
 
     return {"app", name};
+}
+
+void Component::scheduleRunTasks()
+{
+    if (auto parent = parent_.lock()) {
+        return parent->scheduleRunTasks();
+    }
+
+    cluster().client().GetIoService().post([self = weak_from_this()] {
+       if (auto component = self.lock()) {
+           component->runTasks();
+       }
+    });
 }
 
 void Component::processEvent(const k8api::Event& event)
@@ -264,6 +334,8 @@ Component::ptr_t Component::createComponent(const ComponentDataDef &def,
         return make_shared<DeploymentComponent>(parent, cluster, def);
     case Kind::SERVICE:
         return make_shared<ServiceComponent>(parent, cluster, def);
+    case Kind::CONFIGMAP:
+        return make_shared<ConfigMapComponent>(parent, cluster, def);
     }
 
     throw runtime_error("Unknown kind");
@@ -368,11 +440,17 @@ const Component *Component::parentPtr() const
     return {};
 }
 
-void Component::Task::setState(Component::Task::TaskState state)
+void Component::Task::setState(Component::Task::TaskState state, bool scheduleRunTasks)
 {
     LOG_TRACE << component().logName() << " Task " << name() << " change state from "
               << toString(state_) << " to " << toString(state);
+
+    const bool changed = state_ != state;
     state_ = state;
+
+    if (changed && scheduleRunTasks) {
+        component().scheduleRunTasks();
+    }
 }
 
 bool Component::Task::evaluate()
@@ -395,14 +473,14 @@ bool Component::Task::evaluate()
                 if (dt->state() >= TaskState::ABORTED) {
                     // If a dependency failed, we abort.
                     // TODO: Deal with roll-backs
-                    setState(TaskState::DEPENDENCY_FAILED);
+                    setState(TaskState::DEPENDENCY_FAILED, false);
                     return true;
                 }
             }
         }
 
         if (!blocked) {
-            setState(TaskState::READY);
+            setState(TaskState::READY, false);
             changed = true;
         }
     } // if BLOCKED

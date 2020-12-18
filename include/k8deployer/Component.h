@@ -24,21 +24,26 @@ class Component;
 enum class Kind {
     APP, // A placeholder that owns other components
     DEPLOYMENT,
-    SERVICE
+    SERVICE,
+    CONFIGMAP
 };
 
 Kind toKind(const std::string& kind);
 
 std::string toString(const Kind& kind);
 
+const restc_cpp::JsonFieldMapping *jsonFieldMappings();
+
 template <typename T>
 std::string toJson(const T& obj) {
     std::ostringstream out;
-    restc_cpp::SerializeToJson(obj, out);
+    restc_cpp::serialize_properties_t properties;
+    properties.name_mapping = jsonFieldMappings();
+    restc_cpp::SerializeToJson(obj, out, properties);
     return out.str();
 }
 
-const restc_cpp::JsonFieldMapping *jsonFieldMappings();
+std::string Base64Encode(const std::string &in);
 
 using conf_t = std::map<std::string, std::string>;
 using labels_t = std::map<std::string, std::string>;
@@ -54,6 +59,7 @@ struct ComponentData {
     // Can be populated by configuration, but normally we will do it
     k8api::Deployment deployment;
     k8api::Service service;
+    k8api::ConfigMap configmap;
 };
 
 struct ComponentDataDef : public ComponentData {
@@ -144,7 +150,7 @@ public:
             return state_ >= TaskState::DONE;
         }
 
-        void setState(TaskState state);
+        void setState(TaskState state, bool scheduleRunTasks = true);
 
         /*! Update the state depending on current state and dependicies.
          *
@@ -179,6 +185,10 @@ public:
         }
 
         static const std::string& toString(const TaskState& state);
+
+        void addDependency(const wptr_t& task) {
+            dependencies_.push_back(task);
+        }
 
     private:
         // All dependencies must be DONE before the task goes in READY state
@@ -239,6 +249,13 @@ public:
 
     labels_t::value_type getSelector();
 
+    ParentRelation parentRelation() const noexcept {
+        return parentRelation_;
+    }
+
+    // Called on any component when a task-status change out of order.
+    void scheduleRunTasks();
+
 protected:
     void processEvent(const k8api::Event& event);
 
@@ -285,7 +302,7 @@ protected:
     std::string k8state_; // From the event-loop
     std::weak_ptr<Component> parent_;
     Cluster *cluster_ = {};
-    ParentRelation parentRelation_ = ParentRelation::AFTER;
+    ParentRelation parentRelation_ = ParentRelation::INDEPENDENT;
     Kind kind_ = Kind::APP;
     conf_t effectiveArgs_;
     childrens_t children_;
