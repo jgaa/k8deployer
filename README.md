@@ -15,20 +15,20 @@ For now, an experimental kubernetes deployer in C++
 
 - [ ] Deployment
     - [x] Create
-    - [ ] Delete
+    - [x] Delete
     - [ ] Update
     - [ ] Verify
 
 - [ ] Service
     - [x] Create
-    - [ ] Delete
+    - [x] Delete
     - [ ] Update
     - [ ] Verify
 
 - [ ] Configmap
-    - [x] Create from configuration
+    - [ ] Create from configuration
     - [x] create from file
-    - [ ] Delete
+    - [x] Delete
     - [ ] Update
     - [ ] Verify
 
@@ -53,7 +53,7 @@ For now, an experimental kubernetes deployer in C++
 - [ ] Event-driven work-flow.
     - [x] Relate events to components.
     - [x] Update component state from events
-    - [ ] Trigger next action(s) from state changes
+    - [x] Trigger next action(s) from state changes
 
 - [ ] Error handling
     - [ ] Fail fast on errors, stop deployments and try to roll back
@@ -61,6 +61,7 @@ For now, an experimental kubernetes deployer in C++
     - [ ] For undeploy, add option to ignore errors and try to continue.
 
 ## Bugs / limitations
+- [ ] App need to exit when the execution is complete
 - [ ] Add readyness probe for pods
 - [ ] Add alive probe for pods
 - [ ] deployment.spec.affinity.nodeAffinity must be std::optional (needs support in the json serializor)

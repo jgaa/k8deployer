@@ -16,13 +16,15 @@ public:
     std::future<void> prepareDeploy() override;
 
 protected:
-    void addTasks(tasks_t& tasks) override;
+    void addDeploymentTasks(tasks_t& tasks) override;
+    void addRemovementTasks(tasks_t &tasks) override;
 
 private:
     void buildDependencies();
     void doDeploy(std::weak_ptr<Task> task);
+    void doRemove(std::weak_ptr<Task> task);
 
-    size_t podsStarted_ = 0;
+    size_t podsStarted_ = 0;    
 };
 
 } // ns

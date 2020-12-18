@@ -90,7 +90,7 @@ std::future<void> ServiceComponent::prepareDeploy()
     return dummyReturnFuture();
 }
 
-void ServiceComponent::addTasks(Component::tasks_t &tasks)
+void ServiceComponent::addDeploymentTasks(Component::tasks_t &tasks)
 {
     auto task = make_shared<Task>(*this, name, [&](Task& task, const k8api::Event */*event*/) {
 
@@ -104,7 +104,24 @@ void ServiceComponent::addTasks(Component::tasks_t &tasks)
     });
 
     tasks.push_back(task);
-    Component::addTasks(tasks);
+    Component::addDeploymentTasks(tasks);
+}
+
+void ServiceComponent::addRemovementTasks(Component::tasks_t &tasks)
+{
+    auto task = make_shared<Task>(*this, name, [&](Task& task, const k8api::Event */*event*/) {
+
+        // Execution?
+        if (task.state() == Task::TaskState::READY) {
+            task.setState(Task::TaskState::EXECUTING);
+            doRemove(task.weak_from_this());
+        }
+
+        task.evaluate();
+    });
+
+    tasks.push_back(task);
+    Component::addRemovementTasks(tasks);
 }
 
 void ServiceComponent::doDeploy(std::weak_ptr<Component::Task> task)
@@ -141,6 +158,54 @@ void ServiceComponent::doDeploy(std::weak_ptr<Component::Task> task)
                 setState(State::DONE);
             }
 
+            return;
+        } catch(const RequestFailedWithErrorException& err) {
+            LOG_WARN << logName()
+                     << "Request failed: " << err.http_response.status_code
+                     << ' ' << err.http_response.reason_phrase
+                     << ": " << err.what();
+        } catch(const std::exception& ex) {
+            LOG_WARN << logName()
+                     << "Request failed: " << ex.what();
+        }
+
+        if (auto taskInstance = task.lock()) {
+            taskInstance->setState(Task::TaskState::FAILED);
+        }
+
+        if (state_ == State::RUNNING) {
+            setState(State::FAILED);
+        }
+
+    });
+}
+
+void ServiceComponent::doRemove(std::weak_ptr<Component::Task> task)
+{
+    auto url = cluster_->getUrl()
+            + "/api/v1/namespaces/"
+            + service.metadata.namespace_
+            + "/services/" + name;
+
+    Engine::client().Process([this, url, task](Context& ctx) {
+
+        LOG_DEBUG << logName()
+                  << "Deleting Service "
+                  << service.metadata.name;
+
+        try {
+            auto reply = RequestBuilder{ctx}.Delete(url)
+               .Execute();
+
+            LOG_DEBUG << logName()
+                  << "Deletion gave response: "
+                  << reply->GetResponseCode() << ' '
+                  << reply->GetHttpResponse().reason_phrase;
+
+            // We don't get any event's related to the service, so just update the states.
+            if (auto taskInstance = task.lock()) {
+                taskInstance->setState(Task::TaskState::DONE);
+            }
             return;
         } catch(const RequestFailedWithErrorException& err) {
             LOG_WARN << logName()

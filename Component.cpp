@@ -175,14 +175,37 @@ std::future<void> Component::prepareDeploy()
 
 std::future<void> Component::deploy()
 {
+    return execute([this](tasks_t& tasks) {
+        addDeploymentTasks(tasks);
+    });
+}
 
+std::future<void> Component::remove()
+{
+    reverseDependencies_ = true;
+    return execute([this](tasks_t& tasks) {
+        addRemovementTasks(tasks);
+    });
+}
+
+std::future<void> Component::execute(std::function<void(tasks_t&)> fn)
+{
     // Built list of tasks
     tasks_ = make_unique<tasks_t>();
-    addTasks(*tasks_);
+    fn(*tasks_);
 
     // Set dependencies
     for(auto& task : *tasks_) {
-        switch(task->component().parentRelation()) {
+        auto relation = task->component().parentRelation();
+        if (reverseDependencies_) {
+            if (relation == ParentRelation::AFTER) {
+                relation = ParentRelation::BEFORE;
+            } else if (relation == ParentRelation::BEFORE) {
+                relation = ParentRelation::AFTER;
+            }
+        }
+
+        switch(relation) {
         case ParentRelation::AFTER:
             // The task depend on parent task(s)
             if (auto parent = task->component().parent_.lock()) {
@@ -333,11 +356,19 @@ void Component::setState(Component::State state)
     state_ = state;
 }
 
-void Component::addTasks(Component::tasks_t& tasks)
+void Component::addDeploymentTasks(Component::tasks_t& tasks)
 {
     setState(State::RUNNING);
     for(auto& child : children_) {
-        child->addTasks(tasks);
+        child->addDeploymentTasks(tasks);
+    }
+}
+
+void Component::addRemovementTasks(Component::tasks_t &tasks)
+{
+    setState(State::RUNNING);
+    for(auto& child : children_) {
+        child->addRemovementTasks(tasks);
     }
 }
 

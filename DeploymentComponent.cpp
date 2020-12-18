@@ -68,7 +68,7 @@ std::future<void> DeploymentComponent::prepareDeploy()
     return dummyReturnFuture();
 }
 
-void DeploymentComponent::addTasks(Component::tasks_t& tasks)
+void DeploymentComponent::addDeploymentTasks(Component::tasks_t& tasks)
 {
     auto task = make_shared<Task>(*this, name, [&](Task& task, const k8api::Event *event) {
 
@@ -107,10 +107,50 @@ void DeploymentComponent::addTasks(Component::tasks_t& tasks)
     });
 
     tasks.push_back(task);
-
-    Component::addTasks(tasks);
+    Component::addDeploymentTasks(tasks);
 }
 
+void DeploymentComponent::addRemovementTasks(Component::tasks_t &tasks)
+{
+    auto task = make_shared<Task>(*this, name, [&](Task& task, const k8api::Event *event) {
+
+        // Execution?
+        if (task.state() == Task::TaskState::READY) {
+            task.setState(Task::TaskState::EXECUTING);
+            doRemove(task.weak_from_this());
+            task.setState(Task::TaskState::WAITING);
+        }
+
+        // Monitoring?
+        if (task.isMonitoring() && event) {
+            LOG_TRACE << task.component().logName() << " Task " << task.name()
+                      << " evaluating event: " << event->message;
+
+            auto key = name + "-";
+            if (event->involvedObject.kind == "Pod"
+                && event->involvedObject.name.substr(0, key.size()) == key
+                && event->metadata.namespace_ == deployment.metadata.namespace_
+                && event->metadata.name.substr(0, key.size()) == key
+                && event->reason == "Killing") {
+
+                // A pod with our name was deleted.
+                // TODO: Use this as a hint and query the status of running pods.
+                // In order to continue, all our pods should be in avaiable state
+
+                LOG_DEBUG << "A pod with my name was deleted. I am assuming it relates to me";
+                if (++podsStarted_ >= deployment.spec.replicas) {
+                    task.setState(Task::TaskState::DONE);
+                    setState(State::DONE);
+                }
+            }
+        }
+
+        task.evaluate();
+    });
+
+    tasks.push_back(task);
+    Component::addRemovementTasks(tasks);
+}
 
 void DeploymentComponent::buildDependencies()
 {
@@ -225,5 +265,46 @@ void DeploymentComponent::doDeploy(std::weak_ptr<Task> task)
     });
 }
 
+void DeploymentComponent::doRemove(std::weak_ptr<Component::Task> task)
+{
+    auto url = cluster_->getUrl()
+            + "/apis/apps/v1/namespaces/"
+            + deployment.metadata.namespace_
+            + "/deployments/" + name;
 
+    Engine::client().Process([this, url, task](Context& ctx) {
+
+        try {
+            auto reply = RequestBuilder{ctx}.Delete(url)
+               .Execute();
+
+            LOG_DEBUG << logName()
+                  << "Delete gave response: "
+                  << reply->GetResponseCode() << ' '
+                  << reply->GetHttpResponse().reason_phrase;
+
+            // We don't get any event's related to deleting the deployment, so just update the states.
+            if (auto taskInstance = task.lock()) {
+                taskInstance->setState(Task::TaskState::DONE);
+            }
+            return;
+        } catch(const RequestFailedWithErrorException& err) {
+            LOG_WARN << logName()
+                     << "Request failed: " << err.http_response.status_code
+                     << ' ' << err.http_response.reason_phrase
+                     << ": " << err.what();
+
+        } catch(const std::exception& ex) {
+            LOG_WARN << logName()
+                     << "Request failed: " << ex.what();
+        }
+
+        if (auto taskInstance = task.lock()) {
+            taskInstance->setState(Task::TaskState::FAILED);
+        }
+        setState(State::FAILED);
+    });
 }
+
+
+} // ns

@@ -246,6 +246,10 @@ public:
     std::future<void> deploy();
 
     // Called on the root component
+    // Let clusters delete themselfs in parallell
+    std::future<void> remove();
+
+    // Called on the root component
     void onEvent(const std::shared_ptr<k8api::Event>& event);
 
     labels_t::value_type getSelector();
@@ -261,7 +265,8 @@ protected:
     void processEvent(const k8api::Event& event);
 
     // Recursively add tasks to the task list
-    virtual void addTasks(tasks_t& tasks);
+    virtual void addDeploymentTasks(tasks_t& tasks);
+    virtual void addRemovementTasks(tasks_t& tasks);
 
     static Component::ptr_t createComponent(const ComponentDataDef &def,
                                      const Component::ptr_t& parent,
@@ -277,6 +282,7 @@ protected:
     void validate();
     bool hasKindAsChild(Kind kind) const;
     void initChildren();
+    std::future<void> execute(std::function<void(tasks_t&)> fn);
 
     // Build the DeployTasks list for this component
     tasks_t buildDeployTasks();
@@ -309,6 +315,7 @@ protected:
     childrens_t children_;
     std::unique_ptr<tasks_t> tasks_;
     std::unique_ptr<std::promise<void>> executionPromise_;
+    bool reverseDependencies_ = false;
 };
 
 } // ns

@@ -163,6 +163,13 @@ void Cluster::setCmds()
         prepareCmd_ = [this] {
             return rootComponent_->prepareDeploy();
         };
+    } else if (cfg_.command == "delete") {
+        executeCmd_ = [this] {
+            return rootComponent_->remove();
+        };
+        prepareCmd_ = [this] {
+            return rootComponent_->prepareDeploy();
+        };
     } else  {
         LOG_ERROR << "Unknown command: " << cfg_.command;
     }
