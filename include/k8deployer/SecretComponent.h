@@ -4,10 +4,10 @@
 
 namespace k8deployer {
 
-class ConfigMapComponent : public Component
+class SecretComponent : public Component
 {
 public:
-    ConfigMapComponent(const Component::ptr_t& parent, Cluster& cluster, const ComponentData& data);
+    SecretComponent(const Component::ptr_t& parent, Cluster& cluster, const ComponentData& data);
 
     std::future<void> prepareDeploy() override;
 
@@ -20,6 +20,7 @@ private:
     void doRemove(std::weak_ptr<Task> task);
 
     bool prepared_ = false;
+    std::string fromFile_;
 };
 
 } // ns

@@ -12,6 +12,7 @@
 #include "k8deployer/DeploymentComponent.h"
 #include "k8deployer/ServiceComponent.h"
 #include "k8deployer/ConfigMapComponent.h"
+#include "k8deployer/SecretComponent.h"
 #include "k8deployer/Cluster.h"
 #include "k8deployer/k8/k8api.h"
 #include "k8deployer/Engine.h"
@@ -27,7 +28,8 @@ namespace {
 const map<string, Kind> kinds = {{"App", Kind::APP},
                                  {"Deployment", Kind::DEPLOYMENT},
                                  {"Service", Kind::SERVICE},
-                                 {"ConfigMap", Kind::CONFIGMAP}
+                                 {"ConfigMap", Kind::CONFIGMAP},
+                                 {"Secret", Kind::SECRET}
                                 };
 } // anonymous ns
 
@@ -395,6 +397,8 @@ Component::ptr_t Component::createComponent(const ComponentDataDef &def,
         return make_shared<ServiceComponent>(parent, cluster, def);
     case Kind::CONFIGMAP:
         return make_shared<ConfigMapComponent>(parent, cluster, def);
+    case Kind::SECRET:
+        return make_shared<SecretComponent>(parent, cluster, def);
     }
 
     throw runtime_error("Unknown kind");
@@ -571,6 +575,48 @@ const JsonFieldMapping *jsonFieldMappings()
     };
 
     return &mappings;
+}
+
+string fileToJson(const string &pathToFile)
+{
+    if (!filesystem::is_regular_file(pathToFile)) {
+        LOG_ERROR << "Not a file: " << pathToFile;
+        throw runtime_error("Not a file: "s + pathToFile);
+    }
+
+    string json;
+    const filesystem::path path{pathToFile};
+    const auto ext = path.extension();
+    if (ext == ".yaml") {
+        // https://www.commandlinefu.com/commands/view/12218/convert-yaml-to-json
+        const auto expr = R"(import sys, yaml, json; json.dump(yaml.load(open(")"s
+                + pathToFile
+                + R"(","r").read()), sys.stdout, indent=4))"s;
+        auto args = boost::process::args({"-c"s, expr});
+        boost::process::ipstream pipe_stream;
+        boost::process::child process(boost::process::search_path("python"),
+                                      args,
+                                      boost::process::std_out > pipe_stream);
+        string line;
+        while (pipe_stream && std::getline(pipe_stream, line)) {
+            json += line;
+        }
+
+        error_code ec;
+        process.wait(ec);
+        if (ec) {
+            LOG_ERROR << "Failed to convert yaml from " << pathToFile << ": " << ec.message();
+            throw runtime_error("Failed to convert yaml: "s + pathToFile);
+        }
+
+    } else if (ext == ".json") {
+        json = slurp(pathToFile);
+    } else {
+        LOG_ERROR << "File extension must be yaml or json: " << pathToFile;
+        throw runtime_error("Unknown extension "s + pathToFile);
+    }
+
+    return json;
 }
 
 } // ns

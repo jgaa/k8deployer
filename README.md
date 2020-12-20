@@ -35,8 +35,9 @@ For now, an experimental kubernetes deployer in C++
     - [ ] Verify
 
 - [ ] Secrets
-    - [ ] Docker repositoiry secrets
-        - [ ] Use in podspec
+    - [x] Docker repositoiry secrets
+        - [x] Use in podspec
+    - [ ] Optimize secrets, so we only have one object per actual secret
 
 - [ ] StatefulSet
     - [ ] Create

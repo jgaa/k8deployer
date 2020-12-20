@@ -51,6 +51,16 @@ struct ObjectMeta {
     std::string uid;
 };
 
+struct Secret {
+    std::string apiVersion = "v1";
+    std::string kind = "Secret";
+    key_values_t data; // base64 encoded
+    bool immutable = false;
+    ObjectMeta metadata;
+    key_values_t stringData;
+    std::string type;
+};
+
 struct ObjectReference {
     std::string apiVersion;
     std::string fieldPath;
@@ -742,4 +752,14 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::ConfigMap,
     (bool, immutable)
     (k8deployer::k8api::key_values_t, data)
     (k8deployer::k8api::key_values_t, binaryData) // base64 encoded
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::Secret,
+    (std::string, apiVersion)
+    (std::string, kind)
+    (k8deployer::k8api::key_values_t, data)
+    (bool, immutable)
+    (k8deployer::k8api::ObjectMeta, metadata)
+    (k8deployer::k8api::key_values_t, stringData)
+    (std::string, type)
 );

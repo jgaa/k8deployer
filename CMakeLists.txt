@@ -38,6 +38,8 @@ add_executable(${PROJECT_NAME}
     include/k8deployer/ServiceComponent.h
     ConfigMapComponent.cpp
     include/k8deployer/ConfigMapComponent.h
+    SecretComponent.cpp
+    include/k8deployer/SecretComponent.h
     )
 
 add_dependencies(${PROJECT_NAME} externalRestcCpp)

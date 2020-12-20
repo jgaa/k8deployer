@@ -60,6 +60,14 @@ std::future<void> DeploymentComponent::prepareDeploy()
         deployment.spec.template_.spec.containers.push_back(move(container));
     }
 
+    if (auto dhcred = getArg("imagePullSecrets")) {
+        // Use existing secret
+        if (!dhcred->empty()) {
+            k8api::LocalObjectReference lor = {*dhcred};
+            deployment.spec.template_.spec.imagePullSecrets.push_back(lor);
+        }
+    }
+
     buildDependencies();
 
     // Apply recursively
@@ -218,6 +226,25 @@ void DeploymentComponent::buildDependencies()
         for(auto& container: podspec->containers) {
             container.volumeMounts.push_back(vm);
         }
+    }
+
+    // Check for docker hub secrets
+    if (auto dh = getArg("imagePullSecrets.fromDockerLogin")) {
+        LOG_DEBUG << logName() << "Adding Docker credentials.";
+
+        conf_t svcargs;
+        for(const auto [k, v] : args) {
+            static const array<string, 1> relevant = {"magePullSecrets.fromDockerLogin"};
+            if (find(relevant.begin(), relevant.end(), k) != relevant.end()) {
+                svcargs[k] = v;
+            }
+        }
+
+        auto child = addChild(name + "-dhcreds", Kind::SECRET, {}, svcargs);
+        k8api::PodSpec *podspec = {};
+        podspec = &deployment.spec.template_.spec;
+        k8api::LocalObjectReference lor = {child->name};
+        podspec->imagePullSecrets.push_back(lor);
     }
 }
 

@@ -99,45 +99,8 @@ void Engine::readDefinitions()
 {
     LOG_DEBUG << "Creating components from " << cfg_.definitionFile;
 
-    if (!filesystem::is_regular_file(cfg_.definitionFile)) {
-        LOG_ERROR << "Not a file: " << cfg_.definitionFile;
-        throw runtime_error("Not a file: "s + cfg_.definitionFile);
-    }
-
-    string json;
-    const filesystem::path path{cfg_.definitionFile};
-    const auto ext = path.extension();
-    if (ext == ".yaml") {
-        // https://www.commandlinefu.com/commands/view/12218/convert-yaml-to-json
-        //python -c 'import sys, yaml, json; json.dump(yaml.load(open("nginx.yaml","r").read()), sys.stdout, indent=4)'
-        const auto expr = R"(import sys, yaml, json; json.dump(yaml.load(open(")"s + cfg_.definitionFile + R"(","r").read()), sys.stdout, indent=4))"s;
-        auto args = boost::process::args({"-c"s, expr});
-        boost::process::ipstream pipe_stream;
-        boost::process::child process(boost::process::search_path("python"),
-                                      args,
-                                      boost::process::std_out > pipe_stream);
-        string line;
-        while (pipe_stream && std::getline(pipe_stream, line)) {
-            json += line;
-        }
-
-        error_code ec;
-        process.wait(ec);
-        if (ec) {
-            LOG_ERROR << "Failed to convert yaml from " << cfg_.definitionFile << ": " << ec.message();
-            throw runtime_error("Failed to convert yaml: "s + cfg_.definitionFile);
-        }
-
-    } else if (ext == ".json") {
-        json = slurp(cfg_.definitionFile);
-    } else {
-        LOG_ERROR << "File extension must be yaml or json: " << cfg_.definitionFile;
-        throw runtime_error("Unknown extension "s + cfg_.definitionFile);
-    }
-
     // Load component definitions
-    istringstream ifs{json};
-    restc_cpp::SerializeFromJson(dataDef_, ifs);
+    fileToObject(dataDef_, cfg_.definitionFile);
     if (dataDef_.kind.empty()) {
         LOG_ERROR << "Invalid definition file: " << cfg_.definitionFile;
         throw runtime_error("Invalid definition "s + cfg_.definitionFile);

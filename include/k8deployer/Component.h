@@ -23,7 +23,8 @@ enum class Kind {
     APP, // A placeholder that owns other components
     DEPLOYMENT,
     SERVICE,
-    CONFIGMAP
+    CONFIGMAP,
+    SECRET
 };
 
 std::string slurp (const std::string& path);
@@ -33,6 +34,17 @@ Kind toKind(const std::string& kind);
 std::string toString(const Kind& kind);
 
 const restc_cpp::JsonFieldMapping *jsonFieldMappings();
+
+/*! Reads the contents from a .json or .yaml file and returns the content as json. */
+std::string fileToJson(const std::string& pathToFile);
+
+/*! Reads the contents from a .json or .yaml file and serialize it to obj */
+template <typename T>
+void fileToObject(T& obj, const std::string& pathToFile) {
+    const auto json = fileToJson(pathToFile);
+    std::istringstream ifs{json};
+    restc_cpp::SerializeFromJson(obj, ifs);
+}
 
 template <typename T>
 std::string toJson(const T& obj) {
@@ -60,6 +72,7 @@ struct ComponentData {
     k8api::Deployment deployment;
     k8api::Service service;
     k8api::ConfigMap configmap;
+    k8api::Secret secret;
 };
 
 struct ComponentDataDef : public ComponentData {
