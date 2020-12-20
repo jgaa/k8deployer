@@ -9,8 +9,6 @@
 #include <cassert>
 #include <sstream>
 
-#include <boost/fusion/adapted.hpp>
-
 #include "restc-cpp/SerializeJson.h"
 
 #include "k8deployer/Config.h"
@@ -27,6 +25,8 @@ enum class Kind {
     SERVICE,
     CONFIGMAP
 };
+
+std::string slurp (const std::string& path);
 
 Kind toKind(const std::string& kind);
 
@@ -320,15 +320,15 @@ protected:
 
 } // ns
 
-BOOST_FUSION_ADAPT_STRUCT(k8deployer::ComponentDataDef,
-                          (std::string, name)
-                          (k8deployer::labels_t, labels)
-                          (k8deployer::conf_t, defaultArgs)
-                          (k8deployer::conf_t, args)
-                          (k8deployer::k8api::Deployment, deployment)
-                          (k8deployer::k8api::Service, service)
-                          (std::string, kind)
-                          (std::string, parentRelation)
-                          (k8deployer::ComponentDataDef::childrens_t, children)
-                          );
+//BOOST_FUSION_ADAPT_STRUCT(k8deployer::ComponentDataDef,
+//                          (std::string, name)
+//                          (k8deployer::labels_t, labels)
+//                          (k8deployer::conf_t, defaultArgs)
+//                          (k8deployer::conf_t, args)
+//                          (k8deployer::k8api::Deployment, deployment)
+//                          (k8deployer::k8api::Service, service)
+//                          (std::string, kind)
+//                          (std::string, parentRelation)
+//                          (k8deployer::ComponentDataDef::childrens_t, children)
+//                          );
 

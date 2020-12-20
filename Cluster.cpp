@@ -33,8 +33,9 @@ using namespace std;
 using namespace string_literals;
 using namespace restc_cpp;
 
-Cluster::Cluster(const Config &cfg, const string &arg, RestClient &client)
-    : client_{client}, cfg_{cfg}
+Cluster::Cluster(const Config &cfg, const string &arg, RestClient &client,
+                 const ComponentDataDef& def)
+    : client_{client}, cfg_{cfg}, dataDef_{def}
 {
     parseArgs(arg);
 }
@@ -136,22 +137,7 @@ void Cluster::startEventsLoop()
 
 void Cluster::createComponents()
 {
-    LOG_DEBUG << name()<< ": Creating components from " << cfg_.definitionFile;
-
-    assert(!rootComponent_);
-    if (!boost::filesystem::is_regular_file(cfg_.definitionFile)) {
-        LOG_ERROR << name() << ": Not a file: " << cfg_.definitionFile;
-        throw runtime_error("Not a file: "s + cfg_.definitionFile);
-    }
-
-
-    // Load component definitions
-    ifstream ifs{cfg_.definitionFile};
-    ComponentDataDef def;
-    restc_cpp::SerializeFromJson(def, ifs);
-
-    // Create the tree of components from the definition
-    rootComponent_ = Component::populateTree(def, *this);
+    rootComponent_ = Component::populateTree(dataDef_, *this);
 }
 
 void Cluster::setCmds()

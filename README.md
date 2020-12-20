@@ -15,6 +15,8 @@ For now, an experimental kubernetes deployer in C++
 
 - [ ] Deployment
     - [x] Create
+        - [ ] Environment variables from args (key=value,...)
+        - [ ] Environment variables from ConfigMap
     - [x] Delete
     - [ ] Update
     - [ ] Verify
@@ -31,6 +33,10 @@ For now, an experimental kubernetes deployer in C++
     - [x] Delete
     - [ ] Update
     - [ ] Verify
+
+- [ ] Secrets
+    - [ ] Docker repositoiry secrets
+        - [ ] Use in podspec
 
 - [ ] StatefulSet
     - [ ] Create

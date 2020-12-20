@@ -23,7 +23,8 @@ public:
     };
 
     using vars_t = std::map<std::string, std::string>;
-    Cluster(const Config& cfg, const std::string& arg, restc_cpp::RestClient& client);
+    Cluster(const Config& cfg, const std::string& arg, restc_cpp::RestClient& client,
+            const ComponentDataDef& def);
 
     const std::string& name() const noexcept {
         return name_;
@@ -72,6 +73,7 @@ private:
     std::string kubeconfig_; // Empty for default (no arguments)
     const Config& cfg_;
     Component::ptr_t rootComponent_;
+    const ComponentDataDef& dataDef_;
 
     action_fn_t executeCmd_;
     action_fn_t prepareCmd_;

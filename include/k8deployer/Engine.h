@@ -40,11 +40,13 @@ public:
 
 private:
     void startPortForwardig();
+    void readDefinitions();
 
     std::unique_ptr<restc_cpp::RestClient> client_;
     std::vector<std::unique_ptr<Cluster>> clusters_;
     const Config cfg_;
     static Engine *instance_;
+    ComponentDataDef dataDef_;
 };
 
 } // ns

@@ -15,17 +15,6 @@ using namespace restc_cpp;
 
 namespace k8deployer {
 
-namespace {
-
-// https://stackoverflow.com/questions/18816126/c-read-the-whole-file-in-buffer
-std::string slurp (const std::string& path) {
-  std::ostringstream buf;
-  std::ifstream input (path.c_str());
-  buf << input.rdbuf();
-  return buf.str();
-}
-
-} // anonymous ns
 
 ConfigMapComponent::ConfigMapComponent(const Component::ptr_t &parent, Cluster &cluster, const ComponentData &data)
     : Component(parent, cluster, data)

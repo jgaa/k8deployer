@@ -31,6 +31,15 @@ const map<string, Kind> kinds = {{"App", Kind::APP},
                                 };
 } // anonymous ns
 
+// https://stackoverflow.com/questions/18816126/c-read-the-whole-file-in-buffer
+string slurp (const string& path) {
+  ostringstream buf;
+  ifstream input (path.c_str());
+  buf << input.rdbuf();
+  return buf.str();
+}
+
+
 Kind toKind(const string &kind)
 {
     return kinds.at(kind);
