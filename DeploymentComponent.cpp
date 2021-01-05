@@ -48,14 +48,16 @@ std::future<void> DeploymentComponent::prepareDeploy()
         container.env = getArgAsEnvList("pod.env", ""s);
         container.command = getArgAsStringList("pod.command", ""s);
 
-        if (auto port = getArg("port")) {
-            k8api::ContainerPort p;
-            p.containerPort = static_cast<uint16_t>(stoul(*port));
-            p.name = "default";
-            if (auto v = getArg("protocol")) {
-                p.protocol = *v;
+        if (auto ports = getArgAsStringList("port", ""s); !ports.empty()) {
+            for(const auto& port: ports) {
+                k8api::ContainerPort p;
+                p.containerPort = static_cast<uint16_t>(stoul(port));
+                p.name = "port-"s + port;
+                if (auto v = getArg("protocol")) {
+                    p.protocol = *v;
+                }
+                container.ports.emplace_back(p);
             }
-            container.ports.emplace_back(p);
         }
 
         deployment.spec.template_.spec.containers.push_back(move(container));
@@ -66,6 +68,7 @@ std::future<void> DeploymentComponent::prepareDeploy()
         if (!dhcred->empty()) {
             k8api::LocalObjectReference lor = {*dhcred};
             deployment.spec.template_.spec.imagePullSecrets.push_back(lor);
+            LOG_DEBUG << logName() << "Using imagePullSecret " << *dhcred;
         }
     }
 

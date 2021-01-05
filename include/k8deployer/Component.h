@@ -218,7 +218,13 @@ public:
 
     Component(const Component::ptr_t& parent, Cluster& cluster, const ComponentData& data)
         : ComponentData(data), parent_{parent}, cluster_{&cluster}
-    {}
+    {
+        if (parent) {
+            for(auto& v : parent->defaultArgs) {
+                defaultArgs.insert(v);
+            }
+        }
+    }
 
     virtual ~Component() = default;
 
