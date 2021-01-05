@@ -45,6 +45,7 @@ std::future<void> DeploymentComponent::prepareDeploy()
         container.name = name;
         container.image = getArg("image", name);
         container.args = getArgAsStringList("pod.args", ""s);
+        container.env = getArgAsEnvList("pod.env", ""s);
         container.command = getArgAsStringList("pod.command", ""s);
 
         if (auto port = getArg("port")) {

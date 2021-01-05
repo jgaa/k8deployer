@@ -1,0 +1,9 @@
+name: arango
+kind: Deployment
+args:
+    image: arangodb:3.5
+    port: "8529"
+    service.enabled: "true"
+    service.type: NodePort
+    pod.env:
+        ARANGO_ROOT_PASSWORD=apples

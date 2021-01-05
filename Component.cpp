@@ -121,9 +121,9 @@ std::optional<string> Component::getArg(const string &name) const
     return {};
 }
 
-k8api::string_list_t Component::getArgAsStringList(const string &name, const string &defaultVal) const
+k8api::string_list_t Component::getArgAsStringList(const string &values, const string &defaultVal) const
 {
-    auto val = getArg(name, defaultVal);
+    auto val = getArg(values, defaultVal);
     k8api::string_list_t list;
     boost::split(list, val, boost::is_any_of(" "));
 
@@ -133,6 +133,28 @@ k8api::string_list_t Component::getArgAsStringList(const string &name, const str
             continue;
         }
         rval.push_back(segment);
+    }
+
+    return rval;
+}
+
+k8api::env_vars_t Component::getArgAsEnvList(const string &values, const string &defaultVal) const
+{
+    k8api::env_vars_t rval;
+    auto list = getArgAsStringList(values, defaultVal);
+
+    for(const auto& v : list) {
+        k8api::EnvVar ev;
+        if (auto pos = v.find('='); pos != string::npos && pos < v.size()) {
+            ev.name = v.substr(0, pos);
+            ev.value = v.substr(pos +1);
+        } else {
+            ev.name = v; // Just an empty variable
+        }
+
+        if (!ev.name.empty()) {
+            rval.push_back(ev);
+        }
     }
 
     return rval;
