@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <optional>
 
 #include <boost/fusion/adapted.hpp>
 
@@ -21,11 +22,11 @@ struct Selector {
     labels_t matchLabels;
 };
 
-struct EnvVar {
+struct KeyValue {
     std::string name;
     std::string value;
 };
-using env_vars_t = std::vector<EnvVar>;
+using env_vars_t = std::vector<KeyValue>;
 
 struct OwnerReference {
     std::string apiVersion;
@@ -127,6 +128,46 @@ struct VolumeMount {
 
 using volume_mounts_t = std::vector<VolumeMount>;
 
+using env_vars_t = std::vector<KeyValue>;
+
+struct HTTPGetAction {
+    using http_headers_t = std::vector<KeyValue>;
+    std::string host;
+    http_headers_t httpHeaders;
+    std::string path;
+    std::string port;
+    std::string scheme;
+};
+
+struct ExecAction {
+    string_list_t command;
+};
+
+struct Time {
+   std::string effect;
+   std::string key;
+   std::string operator_;
+   std::optional<int> tolerationSeconds;
+   std::string value;
+};
+
+struct TCPSocketAction {
+    std::string effect;
+    std::string key;
+    std::optional<Time> timeAdded;
+    std::string value;
+};
+
+struct Probe {
+    std::optional<ExecAction> exec;
+    std::optional<HTTPGetAction> httpGet;
+    std::optional<int> initialDelaySeconds;
+    std::optional<int> periodSeconds;
+    std::optional<int> successThreshold;
+    std::optional<TCPSocketAction> tcpSocket;
+    std::optional<int> timeoutSeconds;
+};
+
 struct Container {
     std::string name;
     string_list_t args;
@@ -136,6 +177,9 @@ struct Container {
     std::string imagePullPolicy;
     container_ports_t ports;
     volume_mounts_t volumeMounts;
+    std::optional<Probe> startupProbe;
+    std::optional<Probe> livenessProbe;
+    std::optional<Probe> readinessProbe;
 };
 
 using containers_t = std::vector<Container>;
@@ -178,9 +222,7 @@ struct NodeSelector {
 
 struct NodeAffinity {
     preffered_scheduling_terms_t preferredDuringSchedulingIgnoredDuringExecution;
-
-    // TODO: Must be optional. k8api does not allow an empty object here
-    //NodeSelector requiredDuringSchedulingIgnoredDuringExecution;
+    std::optional<NodeSelector> requiredDuringSchedulingIgnoredDuringExecution;
 };
 
 struct LabelSelectorRequirement {
@@ -335,7 +377,7 @@ struct HostAlias {
 using host_aliases_t = std::vector<HostAlias>;
 
 struct PodSpec {
-    Affinity affinity;
+    std::optional<Affinity> affinity;
     containers_t containers;
     bool enableServiceLinks = true;
     std::string hostname;
@@ -418,7 +460,7 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::Selector,
     (k8deployer::k8api::labels_t, matchLabels)
 );
 
-BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::EnvVar,
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::KeyValue,
     (std::string, name)
     (std::string, value)
 );
@@ -498,15 +540,55 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::VolumeMount,
     (std::string, subPathExpr)
 )
 
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::Time,
+   (std::string, effect)
+   (std::string, key)
+   (std::string, operator_)
+   (std::optional<int>, tolerationSeconds)
+   (std::string, value)
+)
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::TCPSocketAction,
+    (std::string, effect)
+    (std::string, key)
+    (std::optional<k8deployer::k8api::Time>, timeAdded)
+    (std::string, value)
+)
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::HTTPGetAction,
+    (std::string, host)
+    (k8deployer::k8api::HTTPGetAction::http_headers_t, httpHeaders)
+    (std::string, path)
+    (std::string, port)
+    (std::string, scheme)
+)
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::ExecAction,
+    (k8deployer::k8api::string_list_t, command)
+)
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::Probe,
+    (std::optional<k8deployer::k8api::ExecAction>, exec)
+    (std::optional<k8deployer::k8api::HTTPGetAction>, httpGet)
+    (std::optional<int>, initialDelaySeconds)
+    (std::optional<int>, periodSeconds)
+    (std::optional<int>, successThreshold)
+    (std::optional<k8deployer::k8api::TCPSocketAction>, tcpSocket)
+    (std::optional<int>, timeoutSeconds)
+);
+
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::Container,
     (std::string, name)
     (k8deployer::k8api::string_list_t, args)
-    (k8deployer::k8api::string_list_t, command), //, overrides, Pod's, ENTRYPOINT
+    (k8deployer::k8api::string_list_t, command),
     (k8deployer::k8api::env_vars_t, env)
     (std::string, image)
     (std::string, imagePullPolicy)
     (k8deployer::k8api::container_ports_t, ports)
     (k8deployer::k8api::volume_mounts_t, volumeMounts)
+    (std::optional<k8deployer::k8api::Probe>, startupProbe)
+    (std::optional<k8deployer::k8api::Probe>, livenessProbe)
+    (std::optional<k8deployer::k8api::Probe>, readinessProbe)
 );
 
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::RollingUpdateDeployment,
@@ -541,7 +623,7 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::NodeSelector,
 
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::NodeAffinity,
     (k8deployer::k8api::preffered_scheduling_terms_t, preferredDuringSchedulingIgnoredDuringExecution)
-    //(k8deployer::k8api::NodeSelector, requiredDuringSchedulingIgnoredDuringExecution)
+    (std::optional<k8deployer::k8api::NodeSelector>, requiredDuringSchedulingIgnoredDuringExecution)
 );
 
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::LabelSelectorRequirement,
@@ -680,7 +762,7 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::HostAlias,
 );
 
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::PodSpec,
-    (k8deployer::k8api::Affinity, affinity)
+    (std::optional<k8deployer::k8api::Affinity>, affinity)
     (k8deployer::k8api::containers_t, containers)
     (bool, enableServiceLinks)
     (std::string, hostname)

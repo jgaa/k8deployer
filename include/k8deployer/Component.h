@@ -73,6 +73,11 @@ struct ComponentData {
     k8api::Service service;
     k8api::ConfigMap configmap;
     k8api::Secret secret;
+
+    // Applied to the container if it's indirectly created by k8deployer
+    std::optional<k8api::Probe> startupProbe;
+    std::optional<k8api::Probe> livenessProbe;
+    std::optional<k8api::Probe> readinessProbe;
 };
 
 struct ComponentDataDef : public ComponentData {

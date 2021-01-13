@@ -144,7 +144,7 @@ k8api::env_vars_t Component::getArgAsEnvList(const string &values, const string 
     auto list = getArgAsStringList(values, defaultVal);
 
     for(const auto& v : list) {
-        k8api::EnvVar ev;
+        k8api::KeyValue ev;
         if (auto pos = v.find('='); pos != string::npos && pos < v.size()) {
             ev.name = v.substr(0, pos);
             ev.value = v.substr(pos +1);

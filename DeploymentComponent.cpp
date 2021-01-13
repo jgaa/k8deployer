@@ -60,6 +60,10 @@ std::future<void> DeploymentComponent::prepareDeploy()
             }
         }
 
+        container.startupProbe = startupProbe;
+        container.livenessProbe = livenessProbe;
+        container.readinessProbe = readinessProbe;
+
         deployment.spec.template_.spec.containers.push_back(move(container));
     }
 
@@ -172,7 +176,7 @@ void DeploymentComponent::buildDependencies()
 
     // A deployment normally needs a service
     const auto serviceEnabled = getBoolArg("service.enabled");
-    if (!hasKindAsChild(Kind::SERVICE) && (serviceEnabled && *serviceEnabled)) {
+    if (!hasKindAsChild(Kind::SERVICE) && ((serviceEnabled && *serviceEnabled) || !serviceEnabled)) {
         LOG_DEBUG << logName() << "Adding Service.";
 
         conf_t svcargs;
