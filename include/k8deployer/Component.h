@@ -43,6 +43,10 @@ template <typename T>
 void fileToObject(T& obj, const std::string& pathToFile) {
     const auto json = fileToJson(pathToFile);
     std::istringstream ifs{json};
+    restc_cpp::serialize_properties_t properties;
+    properties.ignore_unknown_properties = false;
+    properties.name_mapping = jsonFieldMappings();
+
     restc_cpp::SerializeFromJson(obj, ifs);
 }
 
@@ -72,7 +76,7 @@ struct ComponentData {
     k8api::Deployment deployment;
     k8api::Service service;
     k8api::ConfigMap configmap;
-    k8api::Secret secret;
+    std::optional<k8api::Secret> secret;
 
     // Applied to the container if it's indirectly created by k8deployer
     std::optional<k8api::Probe> startupProbe;

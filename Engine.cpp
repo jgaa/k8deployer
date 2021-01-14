@@ -14,12 +14,19 @@ using namespace std;
 using namespace chrono_literals;
 
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::ComponentDataDef,
+                          // ComponentData
                           (std::string, name)
                           (k8deployer::labels_t, labels)
                           (k8deployer::conf_t, defaultArgs)
                           (k8deployer::conf_t, args)
                           (k8deployer::k8api::Deployment, deployment)
                           (k8deployer::k8api::Service, service)
+                          (std::optional<k8deployer::k8api::Secret>, secret)
+                          (std::optional<k8deployer::k8api::Probe>, startupProbe)
+                          (std::optional<k8deployer::k8api::Probe>, livenessProbe)
+                          (std::optional<k8deployer::k8api::Probe>, readinessProbe)
+
+                          // ComponentDataDef
                           (std::string, kind)
                           (std::string, parentRelation)
                           (k8deployer::ComponentDataDef::childrens_t, children)

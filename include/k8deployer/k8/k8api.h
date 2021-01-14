@@ -135,7 +135,7 @@ struct HTTPGetAction {
     std::string host;
     http_headers_t httpHeaders;
     std::string path;
-    std::string port;
+    int port = 0;
     std::string scheme;
 };
 
@@ -559,7 +559,7 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::HTTPGetAction,
     (std::string, host)
     (k8deployer::k8api::HTTPGetAction::http_headers_t, httpHeaders)
     (std::string, path)
-    (std::string, port)
+    (int, port)
     (std::string, scheme)
 )
 

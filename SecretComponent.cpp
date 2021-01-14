@@ -44,8 +44,9 @@ std::future<void> SecretComponent::prepareDeploy()
 
             LOG_TRACE << logName() << " Docker login file: " << fromFile_;
 
-            secret.data["dockerconfigjson"] = Base64Encode(slurp(fromFile_));
-            secret.type = "kubernetes.io/dockerconfigjson";
+            secret = k8api::Secret{};
+            secret->data["dockerconfigjson"] = Base64Encode(slurp(fromFile_));
+            secret->type = "kubernetes.io/dockerconfigjson";
 
             const auto key = filesystem::path{fromFile_}.filename();
             configmap.binaryData[key] = Base64Encode(slurp(fromFile_));
@@ -106,7 +107,7 @@ void SecretComponent::doDeploy(std::weak_ptr<Component::Task> task)
 
         LOG_DEBUG << logName()
                   << "Sending Secret "
-                  << secret.metadata.name;
+                  << secret->metadata.name;
 
         LOG_TRACE << "Payload: " << toJson(secret);
 
@@ -155,7 +156,7 @@ void SecretComponent::doRemove(std::weak_ptr<Component::Task> task)
 {
     auto url = cluster_->getUrl()
             + "/api/v1/namespaces/"
-            + secret.metadata.namespace_
+            + secret->metadata.namespace_
             + "/secrets/" + name;
 
     Engine::client().Process([this, url, task](Context& ctx) {
