@@ -21,6 +21,7 @@ protected:
 
 private:
     void buildDependencies();
+    void buildInitContainers();
     void doDeploy(std::weak_ptr<Task> task);
     void doRemove(std::weak_ptr<Task> task);
 

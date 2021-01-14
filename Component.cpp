@@ -389,6 +389,28 @@ void Component::setState(Component::State state)
     state_ = state;
 }
 
+void Component::forAllComponents(const std::function<void (Component &)>& fn)
+{
+    auto root = this;
+    while (true) {
+        if (auto p = root->parent_.lock()) {
+            root = p.get();
+            continue;
+        }
+        break;
+    }
+
+    root->walkAndExecuteFn(fn);
+}
+
+void Component::walkAndExecuteFn(const std::function<void (Component &)>& fn)
+{
+    fn(*this);
+    for(auto& ch : children_) {
+        ch->walkAndExecuteFn(fn);
+    }
+}
+
 void Component::addDeploymentTasks(Component::tasks_t& tasks)
 {
     setState(State::RUNNING);

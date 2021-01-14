@@ -71,6 +71,7 @@ struct ComponentData {
     labels_t labels;
     conf_t defaultArgs; // Added to args and childrens args, unless overridden
     conf_t args;
+    k8api::string_list_t depends;
 
     // Can be populated by configuration, but normally we will do it
     k8api::Deployment deployment;
@@ -290,6 +291,10 @@ public:
     // Called on any component when a task-status change out of order.
     void scheduleRunTasks();
 
+    childrens_t& getChildren() {
+        return children_;
+    }
+
 protected:
     void processEvent(const k8api::Event& event);
 
@@ -334,6 +339,10 @@ protected:
         return state_ >= State::DONE;
     }
 
+    // Top town invocation of `fn` on eachg component, starting with root
+    void forAllComponents(const std::function<void (Component&)>& fn);
+    void walkAndExecuteFn(const std::function<void (Component&)>& fn);
+
     State state_{State::PRE}; // From our logic
     std::string k8state_; // From the event-loop
     std::weak_ptr<Component> parent_;
@@ -348,16 +357,4 @@ protected:
 };
 
 } // ns
-
-//BOOST_FUSION_ADAPT_STRUCT(k8deployer::ComponentDataDef,
-//                          (std::string, name)
-//                          (k8deployer::labels_t, labels)
-//                          (k8deployer::conf_t, defaultArgs)
-//                          (k8deployer::conf_t, args)
-//                          (k8deployer::k8api::Deployment, deployment)
-//                          (k8deployer::k8api::Service, service)
-//                          (std::string, kind)
-//                          (std::string, parentRelation)
-//                          (k8deployer::ComponentDataDef::childrens_t, children)
-//                          );
 

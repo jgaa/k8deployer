@@ -90,6 +90,7 @@ void DeploymentComponent::addDeploymentTasks(Component::tasks_t& tasks)
 
         // Execution?
         if (task.state() == Task::TaskState::READY) {
+            buildInitContainers(); // This must be done after all components are initialized
             task.setState(Task::TaskState::EXECUTING);
             doDeploy(task.weak_from_this());
             task.setState(Task::TaskState::WAITING);
@@ -253,6 +254,46 @@ void DeploymentComponent::buildDependencies()
         podspec = &deployment.spec.template_.spec;
         k8api::LocalObjectReference lor = {child->name};
         podspec->imagePullSecrets.push_back(lor);
+    }
+}
+
+void DeploymentComponent::buildInitContainers()
+{
+    // Check dependencies
+    for(const auto& name: depends) {
+        // Add dependencies for any service with, or assigned to, that name
+        forAllComponents([&](Component& c) {
+            Component *target = {};
+            if (name == c.name) {
+               if (c.getKind() == Kind::SERVICE) {
+                   target = &c;
+               } else if (c.getKind() == Kind::DEPLOYMENT) {
+                   for(auto& cc : c.getChildren()) {
+                       if (cc->getKind() == Kind::SERVICE) {
+                           target = cc.get();
+                           break;
+                       }
+                   }
+               }
+            }
+
+            if (target) {
+                k8api::Container init;
+                init.command = {"sh"s,
+                                "-c"s,
+                                "until nslookup "s + target->name + "; "
+                                + " do echo waiting for "s + target->name
+                                + "; sleep 2; done;"};
+                init.image = "busybox";
+                init.name = "init-"s + c.name + "-" + target->name;
+
+                LOG_DEBUG << c.logName()
+                          << "Adding dependency to " << target->logName()
+                          << "initContainer " << init.name;
+
+                deployment.spec.template_.spec.initContainers.push_back(move(init));
+            }
+        });
     }
 }
 
