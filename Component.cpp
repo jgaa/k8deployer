@@ -9,6 +9,7 @@
 #include "k8deployer/logging.h"
 #include "k8deployer/Component.h"
 #include "k8deployer/AppComponent.h"
+#include "k8deployer/JobComponent.h"
 #include "k8deployer/DeploymentComponent.h"
 #include "k8deployer/ServiceComponent.h"
 #include "k8deployer/ConfigMapComponent.h"
@@ -26,6 +27,7 @@ namespace k8deployer {
 namespace {
 
 const map<string, Kind> kinds = {{"App", Kind::APP},
+                                 {"Job", Kind::JOB},
                                  {"Deployment", Kind::DEPLOYMENT},
                                  {"Service", Kind::SERVICE},
                                  {"ConfigMap", Kind::CONFIGMAP},
@@ -124,16 +126,61 @@ std::optional<string> Component::getArg(const string &name) const
 k8api::string_list_t Component::getArgAsStringList(const string &values, const string &defaultVal) const
 {
     auto val = getArg(values, defaultVal);
-    k8api::string_list_t list;
-    boost::split(list, val, boost::is_any_of(" "));
-
     k8api::string_list_t rval;
-    for(const auto& segment : list) {
-        if (segment.empty()) {
-            continue;
+
+    enum class State {
+        SKIPPING,
+        IN_STRING,
+        IN_QUOTED_STRING
+    };
+
+    auto state = State::SKIPPING;
+    string value;
+
+    for (const char ch : val) {
+        switch (state) {
+            case State::SKIPPING:
+            if (ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n') {
+                continue;
+            }
+            if (ch == '\'') {
+                state = State::IN_QUOTED_STRING;
+                continue;
+            }
+            state = State::IN_STRING;
+            break;
+        case State::IN_STRING:
+            if (ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n') {
+                rval.push_back(value);
+                value.clear();
+                state = State::SKIPPING;
+                continue;
+            }
+        case State::IN_QUOTED_STRING:
+            if (ch == '\'') {
+                rval.push_back(value);
+                value.clear();
+                state = State::SKIPPING;
+                continue;
+            }
         }
-        rval.push_back(segment);
+
+        value += ch;
     }
+
+    if (!value.empty()) {
+        rval.push_back(value);
+    }
+
+//    boost::split(list, val, boost::is_any_of(" "));
+
+//    k8api::string_list_t rval;
+//    for(const auto& segment : list) {
+//        if (segment.empty()) {
+//            continue;
+//        }
+//        rval.push_back(segment);
+//    }
 
     return rval;
 }
@@ -226,6 +273,8 @@ std::future<void> Component::execute(std::function<void(tasks_t&)> fn)
     // Built list of tasks
     tasks_ = make_unique<tasks_t>();
     fn(*tasks_);
+
+    // TODO: Add task dependencies based on component dependencies (depends property)
 
     // Set dependencies
     for(auto& task : *tasks_) {
@@ -435,6 +484,8 @@ Component::ptr_t Component::createComponent(const ComponentDataDef &def,
     switch(kind) {
     case Kind::APP:
         return make_shared<AppComponent>(parent, cluster, def);
+    case Kind::JOB:
+        return make_shared<JobComponent>(parent, cluster, def);
     case Kind::DEPLOYMENT:
         return make_shared<DeploymentComponent>(parent, cluster, def);
     case Kind::SERVICE:
@@ -462,9 +513,10 @@ Component::ptr_t Component::populate(const ComponentDataDef &def,
     }
 
     for(auto& childDef : def.children) {
-        auto child = createComponent(childDef, component, cluster);
+        auto child = populate(childDef, cluster, component);
+                //createComponent(childDef, component, cluster);
         component->children_.push_back(child);
-        populate(childDef, cluster, child);
+        //populate(childDef, cluster, child);
     }
 
     return component;

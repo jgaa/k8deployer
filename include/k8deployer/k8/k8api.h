@@ -396,11 +396,28 @@ struct PodTemplateSpec {
     PodSpec spec;
 };
 
+struct JobSpec {
+    size_t activeDeadlineSeconds = 0;
+    size_t backoffLimit;
+    std::optional<bool> manualSelector;
+    size_t parallelism = 0;
+    LabelSelector selector;
+    PodTemplateSpec template_;
+};
+
+struct Job {
+    std::string apiVersion = "batch/v1";
+    std::string kind = "Job";
+    ObjectMeta metadata;
+    JobSpec spec;
+    size_t ttlSecondsAfterFinished = 0; // NB: Not always available...
+};
+
 struct DeploymentSpec {
     size_t replicas = 1;
     LabelSelector selector;
     DeploymentStrategy strategy;
-    PodTemplateSpec template_; // NB:
+    PodTemplateSpec template_;
 };
 
 
@@ -779,6 +796,23 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::PodSpec,
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::PodTemplateSpec,
     (k8deployer::k8api::ObjectMeta, metadata)
     (k8deployer::k8api::PodSpec, spec)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::JobSpec,
+    (size_t, activeDeadlineSeconds)
+    (size_t, backoffLimit)
+    (std::optional<bool>, manualSelector)
+    (size_t, parallelism)
+    (k8deployer::k8api::LabelSelector, selector)
+    (k8deployer::k8api::PodTemplateSpec, template_)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::Job,
+    (std::string, apiVersion)
+    (std::string, kind)
+    (k8deployer::k8api::ObjectMeta, metadata)
+    (k8deployer::k8api::JobSpec, spec)
+    (size_t, ttlSecondsAfterFinished)
 );
 
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::DeploymentSpec,

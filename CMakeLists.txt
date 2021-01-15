@@ -18,28 +18,32 @@ include_directories(${CMAKE_SOURCE_DIR}/include)
 
 add_executable(${PROJECT_NAME}
     main.cpp
-    include/k8deployer/Config.h
-    include/k8deployer/logging.h
-    PortForward.cpp
-    include/k8deployer/PortForward.h
-    Engine.cpp
-    include/k8deployer/Engine.h
-    Cluster.cpp
-    include/k8deployer/Cluster.h
-    include/k8deployer/k8/k8api.h
-    include/k8deployer/k8/Event.h
-    Component.cpp
-    include/k8deployer/Component.h
     AppComponent.cpp
-    include/k8deployer/AppComponent.h
-    DeploymentComponent.cpp
-    include/k8deployer/DeploymentComponent.h
-    ServiceComponent.cpp
-    include/k8deployer/ServiceComponent.h
+    BaseComponent.cpp
+    Cluster.cpp
+    Component.cpp
     ConfigMapComponent.cpp
-    include/k8deployer/ConfigMapComponent.h
+    DeploymentComponent.cpp
+    Engine.cpp
+    JobComponent.cpp
+    PortForward.cpp
     SecretComponent.cpp
+    ServiceComponent.cpp
+    include/k8deployer/AppComponent.h
+    include/k8deployer/BaseComponent.h
+    include/k8deployer/Cluster.h
+    include/k8deployer/Component.h
+    include/k8deployer/Config.h
+    include/k8deployer/ConfigMapComponent.h
+    include/k8deployer/DeploymentComponent.h
+    include/k8deployer/Engine.h
+    include/k8deployer/JobComponent.h
+    include/k8deployer/PortForward.h
     include/k8deployer/SecretComponent.h
+    include/k8deployer/ServiceComponent.h
+    include/k8deployer/k8/Event.h
+    include/k8deployer/k8/k8api.h
+    include/k8deployer/logging.h
     )
 
 add_dependencies(${PROJECT_NAME} externalRestcCpp)

@@ -14,159 +14,15 @@ namespace k8deployer {
 
 std::future<void> DeploymentComponent::prepareDeploy()
 {
-    if (deployment.metadata.name.empty()) {
-        deployment.metadata.name = name;
-    }
-
-    if (deployment.metadata.namespace_.empty()) {
-        deployment.metadata.namespace_ = Engine::config().ns;
-    }
-
-    auto selector = getSelector();
-
-    deployment.metadata.labels.try_emplace(selector.first, selector.second);
-    deployment.spec.selector.matchLabels.try_emplace(selector.first, selector.second);
-
-    if (deployment.spec.template_.metadata.name.empty()) {
-        deployment.spec.template_.metadata.name = name;
-    }
-    deployment.spec.template_.metadata.labels.try_emplace(selector.first, selector.second);
-
     if (auto replicas = getArg("replicas")) {
         deployment.spec.replicas = stoull(*replicas);
     }
 
-    deployment.spec.selector.matchLabels.try_emplace(selector.first, selector.second);
-    deployment.spec.template_.metadata.labels.try_emplace(selector.first, selector.second);
-
-    if (deployment.spec.template_.spec.containers.empty()) {
-
-        k8api::Container container;
-        container.name = name;
-        container.image = getArg("image", name);
-        container.args = getArgAsStringList("pod.args", ""s);
-        container.env = getArgAsEnvList("pod.env", ""s);
-        container.command = getArgAsStringList("pod.command", ""s);
-
-        if (auto ports = getArgAsStringList("port", ""s); !ports.empty()) {
-            for(const auto& port: ports) {
-                k8api::ContainerPort p;
-                p.containerPort = static_cast<uint16_t>(stoul(port));
-                p.name = "port-"s + port;
-                if (auto v = getArg("protocol")) {
-                    p.protocol = *v;
-                }
-                container.ports.emplace_back(p);
-            }
-        }
-
-        container.startupProbe = startupProbe;
-        container.livenessProbe = livenessProbe;
-        container.readinessProbe = readinessProbe;
-
-        deployment.spec.template_.spec.containers.push_back(move(container));
-    }
-
-    if (auto dhcred = getArg("imagePullSecrets")) {
-        // Use existing secret
-        if (!dhcred->empty()) {
-            k8api::LocalObjectReference lor = {*dhcred};
-            deployment.spec.template_.spec.imagePullSecrets.push_back(lor);
-            LOG_DEBUG << logName() << "Using imagePullSecret " << *dhcred;
-        }
-    }
-
+    basicPrepareDeploy();
     buildDependencies();
 
     // Apply recursively
-    Component::prepareDeploy();
-
-    return dummyReturnFuture();
-}
-
-void DeploymentComponent::addDeploymentTasks(Component::tasks_t& tasks)
-{
-    auto task = make_shared<Task>(*this, name, [&](Task& task, const k8api::Event *event) {
-
-        // Execution?
-        if (task.state() == Task::TaskState::READY) {
-            buildInitContainers(); // This must be done after all components are initialized
-            task.setState(Task::TaskState::EXECUTING);
-            doDeploy(task.weak_from_this());
-            task.setState(Task::TaskState::WAITING);
-        }
-
-        // Monitoring?
-        if (task.isMonitoring() && event) {
-            LOG_TRACE << task.component().logName() << " Task " << task.name()
-                      << " evaluating event: " << event->message;
-
-            auto key = name + "-";
-            if (event->involvedObject.kind == "Pod"
-                && event->involvedObject.name.substr(0, key.size()) == key
-                && event->metadata.namespace_ == deployment.metadata.namespace_
-                && event->metadata.name.substr(0, key.size()) == key
-                && event->reason == "Created") {
-
-                // A pod with our name was created.
-                // TODO: Use this as a hint and query the status of running pods.
-                // In order to continue, all our pods should be in avaiable state
-
-                LOG_DEBUG << "A pod with my name was created. I am assuming it relates to me";
-                if (++podsStarted_ >= deployment.spec.replicas) {
-                    task.setState(Task::TaskState::DONE);
-                    setState(State::DONE);
-                }
-            }
-        }
-
-        task.evaluate();
-    });
-
-    tasks.push_back(task);
-    Component::addDeploymentTasks(tasks);
-}
-
-void DeploymentComponent::addRemovementTasks(Component::tasks_t &tasks)
-{
-    auto task = make_shared<Task>(*this, name, [&](Task& task, const k8api::Event *event) {
-
-        // Execution?
-        if (task.state() == Task::TaskState::READY) {
-            task.setState(Task::TaskState::EXECUTING);
-            doRemove(task.weak_from_this());
-            task.setState(Task::TaskState::WAITING);
-        }
-
-        // Monitoring?
-        if (task.isMonitoring() && event) {
-            LOG_TRACE << task.component().logName() << " Task " << task.name()
-                      << " evaluating event: " << event->message;
-
-            auto key = name + "-";
-            if (event->involvedObject.kind == "Pod"
-                && event->involvedObject.name.substr(0, key.size()) == key
-                && event->metadata.namespace_ == deployment.metadata.namespace_
-                && event->metadata.name.substr(0, key.size()) == key
-                && event->reason == "Killing") {
-
-                // A pod with our name was deleted.
-                // TODO: Use this as a hint and query the status of running pods.
-                // In order to continue, all our pods should be in avaiable state
-
-                LOG_DEBUG << "A pod with my name was deleted. I am assuming it relates to me";
-                if (++podsStarted_ >= deployment.spec.replicas) {
-                    task.setState(Task::TaskState::DONE);
-                    setState(State::DONE);
-                }
-            }
-        }
-
-        task.evaluate();
-    });
-
-    tasks.push_back(task);
-    Component::addRemovementTasks(tasks);
+    return BaseComponent::prepareDeploy();
 }
 
 void DeploymentComponent::buildDependencies()
@@ -182,7 +38,7 @@ void DeploymentComponent::buildDependencies()
 
         conf_t svcargs;
         // Since we create the service, give it a copy of relevant arguments..
-        for(const auto [k, v] : args) {
+        for(const auto& [k, v] : args) {
             static const array<string, 2> relevant = {"service.nodePort", "service.type"};
             if (find(relevant.begin(), relevant.end(), k) != relevant.end()) {
                 svcargs[k] = v;
@@ -197,7 +53,7 @@ void DeploymentComponent::buildDependencies()
         LOG_DEBUG << logName() << "Adding ConfigMap.";
 
         conf_t svcargs;
-        for(const auto [k, v] : args) {
+        for(const auto& [k, v] : args) {
             static const array<string, 1> relevant = {"config.fromFile"};
             if (find(relevant.begin(), relevant.end(), k) != relevant.end()) {
                 svcargs[k] = v;
@@ -242,7 +98,7 @@ void DeploymentComponent::buildDependencies()
         LOG_DEBUG << logName() << "Adding Docker credentials.";
 
         conf_t svcargs;
-        for(const auto [k, v] : args) {
+        for(const auto& [k, v] : args) {
             static const array<string, 1> relevant = {"magePullSecrets.fromDockerLogin"};
             if (find(relevant.begin(), relevant.end(), k) != relevant.end()) {
                 svcargs[k] = v;
@@ -257,129 +113,23 @@ void DeploymentComponent::buildDependencies()
     }
 }
 
-void DeploymentComponent::buildInitContainers()
-{
-    // Check dependencies
-    for(const auto& name: depends) {
-        // Add dependencies for any service with, or assigned to, that name
-        forAllComponents([&](Component& c) {
-            Component *target = {};
-            if (name == c.name) {
-               if (c.getKind() == Kind::SERVICE) {
-                   target = &c;
-               } else if (c.getKind() == Kind::DEPLOYMENT) {
-                   for(auto& cc : c.getChildren()) {
-                       if (cc->getKind() == Kind::SERVICE) {
-                           target = cc.get();
-                           break;
-                       }
-                   }
-               }
-            }
-
-            if (target) {
-                k8api::Container init;
-                init.command = {"sh"s,
-                                "-c"s,
-                                "until nslookup "s + target->name + "; "
-                                + " do echo waiting for "s + target->name
-                                + "; sleep 2; done;"};
-                init.image = "busybox";
-                init.name = "init-"s + c.name + "-" + target->name;
-
-                LOG_DEBUG << c.logName()
-                          << "Adding dependency to " << target->logName()
-                          << "initContainer " << init.name;
-
-                deployment.spec.template_.spec.initContainers.push_back(move(init));
-            }
-        });
-    }
-}
-
 void DeploymentComponent::doDeploy(std::weak_ptr<Task> task)
 {
-    auto url = cluster_->getUrl()
+    const auto url = cluster_->getUrl()
             + "/apis/apps/v1/namespaces/"
             + deployment.metadata.namespace_
             + "/deployments";
-
-    Engine::client().Process([this, url, task](Context& ctx) {
-
-        LOG_DEBUG << logName()
-                  << "Sending Deployment "
-                  << deployment.metadata.name;
-
-        LOG_TRACE << "Payload: " << toJson(deployment);
-
-        try {
-            auto reply = RequestBuilder{ctx}.Post(url)
-               .Data(deployment, jsonFieldMappings())
-               .Execute();
-
-            LOG_DEBUG << logName()
-                  << "Applying gave response: "
-                  << reply->GetResponseCode() << ' '
-                  << reply->GetHttpResponse().reason_phrase;
-            return;
-        } catch(const RequestFailedWithErrorException& err) {
-            LOG_WARN << logName()
-                     << "Request failed: " << err.http_response.status_code
-                     << ' ' << err.http_response.reason_phrase
-                     << ": " << err.what();
-
-        } catch(const std::exception& ex) {
-            LOG_WARN << logName()
-                     << "Request failed: " << ex.what();
-        }
-
-        if (auto taskInstance = task.lock()) {
-            taskInstance->setState(Task::TaskState::FAILED);
-        }
-        setState(State::FAILED);
-
-    });
+    sendApply(deployment, url, task);
 }
 
 void DeploymentComponent::doRemove(std::weak_ptr<Component::Task> task)
 {
-    auto url = cluster_->getUrl()
+    const auto url = cluster_->getUrl()
             + "/apis/apps/v1/namespaces/"
             + deployment.metadata.namespace_
             + "/deployments/" + name;
 
-    Engine::client().Process([this, url, task](Context& ctx) {
-
-        try {
-            auto reply = RequestBuilder{ctx}.Delete(url)
-               .Execute();
-
-            LOG_DEBUG << logName()
-                  << "Delete gave response: "
-                  << reply->GetResponseCode() << ' '
-                  << reply->GetHttpResponse().reason_phrase;
-
-            // We don't get any event's related to deleting the deployment, so just update the states.
-            if (auto taskInstance = task.lock()) {
-                taskInstance->setState(Task::TaskState::DONE);
-            }
-            return;
-        } catch(const RequestFailedWithErrorException& err) {
-            LOG_WARN << logName()
-                     << "Request failed: " << err.http_response.status_code
-                     << ' ' << err.http_response.reason_phrase
-                     << ": " << err.what();
-
-        } catch(const std::exception& ex) {
-            LOG_WARN << logName()
-                     << "Request failed: " << ex.what();
-        }
-
-        if (auto taskInstance = task.lock()) {
-            taskInstance->setState(Task::TaskState::FAILED);
-        }
-        setState(State::FAILED);
-    });
+    sendDelete(url, task);
 }
 
 

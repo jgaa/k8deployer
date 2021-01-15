@@ -21,6 +21,7 @@ class Component;
 
 enum class Kind {
     APP, // A placeholder that owns other components
+    JOB,
     DEPLOYMENT,
     SERVICE,
     CONFIGMAP,
@@ -74,6 +75,7 @@ struct ComponentData {
     k8api::string_list_t depends;
 
     // Can be populated by configuration, but normally we will do it
+    k8api::Job job;
     k8api::Deployment deployment;
     k8api::Service service;
     k8api::ConfigMap configmap;
