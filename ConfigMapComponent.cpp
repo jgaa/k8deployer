@@ -24,7 +24,7 @@ ConfigMapComponent::ConfigMapComponent(const Component::ptr_t &parent, Cluster &
 }
 
 
-std::future<void> ConfigMapComponent::prepareDeploy()
+void ConfigMapComponent::prepareDeploy()
 {
     if (!prepared_) {
         if (configmap.metadata.name.empty()) {
@@ -58,8 +58,6 @@ std::future<void> ConfigMapComponent::prepareDeploy()
 
     // Apply recursively
     Component::prepareDeploy();
-
-    return dummyReturnFuture();
 }
 
 void ConfigMapComponent::addDeploymentTasks(Component::tasks_t &tasks)
@@ -90,7 +88,7 @@ void ConfigMapComponent::addRemovementTasks(Component::tasks_t &tasks)
         }
 
         task.evaluate();
-    });
+    }, Task::TaskState::READY);
 
     tasks.push_back(task);
     Component::addRemovementTasks(tasks);
@@ -174,7 +172,7 @@ void ConfigMapComponent::doRemove(std::weak_ptr<Component::Task> task)
                   << reply->GetResponseCode() << ' '
                   << reply->GetHttpResponse().reason_phrase;
 
-            // We don't get any event's related to the service, so just update the states.
+            // We don't get any event's related to this, so just update the states.
             if (auto taskInstance = task.lock()) {
                 taskInstance->setState(Task::TaskState::DONE);
             }
@@ -185,6 +183,14 @@ void ConfigMapComponent::doRemove(std::weak_ptr<Component::Task> task)
 
             return;
         } catch(const RequestFailedWithErrorException& err) {
+            if (err.http_response.status_code == 404) {
+                // Perfectly OK
+                if (auto taskInstance = task.lock()) {
+                    taskInstance->setState(Task::TaskState::DONE);
+                }
+                return;
+            }
+
             LOG_WARN << logName()
                      << "Request failed: " << err.http_response.status_code
                      << ' ' << err.http_response.reason_phrase

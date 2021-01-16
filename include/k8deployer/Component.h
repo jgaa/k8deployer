@@ -62,6 +62,8 @@ std::string toJson(const T& obj) {
 
 std::string Base64Encode(const std::string &in);
 
+std::future<void> dummyReturnFuture();
+
 using conf_t = std::map<std::string, std::string>;
 using labels_t = std::map<std::string, std::string>;
 
@@ -158,7 +160,8 @@ public:
         using ptr_t = std::shared_ptr<Task>;
         using wptr_t = std::weak_ptr<Task>;
 
-        Task(Component& component, std::string name, fn_t fn, TaskState initial = TaskState::PRE)
+        Task(Component& component, std::string name, fn_t fn,
+             TaskState initial = TaskState::PRE)
             : component_{component}, name_{std::move(name)}, fn_{std::move(fn)}
             , state_{initial}
         {}
@@ -190,6 +193,9 @@ public:
             assert(state_ == TaskState::READY);
             fn_(*this, {});
         }
+
+        // Schedule a new poll, unless one is already scheduled
+        void schedulePoll();
 \
         /*! All tasks in EXECUTING or WAITING state get's the events
          *
@@ -215,6 +221,8 @@ public:
             dependencies_.push_back(task);
         }
 
+        void addAllDependencies(std::set<Task *>& tasks);
+
     private:
         // All dependencies must be DONE before the task goes in READY state
         std::deque<wptr_t> dependencies_;
@@ -223,6 +231,7 @@ public:
         const std::string name_;
         fn_t fn_; // What this task has to do
         TaskState state_ = TaskState::PRE;
+        std::unique_ptr<boost::asio::deadline_timer> pollTimer_;
     };
 
     using tasks_t = std::deque<Task::ptr_t>;
@@ -270,8 +279,7 @@ public:
     static ptr_t populateTree(const ComponentDataDef &def, Cluster& cluster);
 
     // Called on the root component
-    // Let clusters prepare themselves to de deployed in parallell
-    virtual std::future<void> prepareDeploy();
+    virtual void prepareDeploy();
 
     // Called on the root component
     // Let clusters deploy themselfs in parallell
@@ -297,7 +305,37 @@ public:
         return children_;
     }
 
+    enum class K8ObjectState {
+        FAILED,
+        DONT_EXIST,
+        INIT,
+        READY,
+        DONE
+    };
+
+    /*! Probe to check the state of the correcsponding kubernetes object
+     *
+     *  \param probe Callback when the probe is done. If empty, the method will just
+     *      return weather the object can be probed or not.
+     *
+     *  \return true if the object can be probed (if it can have a corresponding k8 object)
+     */
+    virtual bool probe(std::function<void(K8ObjectState state)>) {
+        return false;
+    }
+
+    void schedule(std::function<void ()> fn);
+
+    bool isBlockedOnDependency() const;
+    void scanDependencies();
+
+    Component& getRoot();
+
+    // Update state, based on the childrens states
+    void evaluate();
+
 protected:
+    void addDependenciesRecursively(std::set<Component *>& contains);
     void processEvent(const k8api::Event& event);
 
     // Recursively add tasks to the task list
@@ -312,7 +350,6 @@ protected:
                                      Cluster& cluster,
                                      const Component::ptr_t& parent);
 
-    std::future<void> dummyReturnFuture() const;
     void init();
     void prepare();
     void validate();
@@ -356,6 +393,7 @@ protected:
     std::unique_ptr<tasks_t> tasks_;
     std::unique_ptr<std::promise<void>> executionPromise_;
     bool reverseDependencies_ = false;
+    std::vector<std::weak_ptr<Component>> dependsOn_;
 };
 
 } // ns

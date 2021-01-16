@@ -24,7 +24,7 @@ SecretComponent::SecretComponent(const Component::ptr_t &parent, Cluster &cluste
 }
 
 
-std::future<void> SecretComponent::prepareDeploy()
+void SecretComponent::prepareDeploy()
 {
     if (!prepared_) {
         if (configmap.metadata.name.empty()) {
@@ -58,8 +58,6 @@ std::future<void> SecretComponent::prepareDeploy()
 
     // Apply recursively
     Component::prepareDeploy();
-
-    return dummyReturnFuture();
 }
 
 void SecretComponent::addDeploymentTasks(Component::tasks_t &tasks)
@@ -90,7 +88,7 @@ void SecretComponent::addRemovementTasks(Component::tasks_t &tasks)
         }
 
         task.evaluate();
-    });
+    }, Task::TaskState::READY);
 
     tasks.push_back(task);
     Component::addRemovementTasks(tasks);
@@ -179,12 +177,16 @@ void SecretComponent::doRemove(std::weak_ptr<Component::Task> task)
                 taskInstance->setState(Task::TaskState::DONE);
             }
 
-            if (state_ == State::RUNNING) {
-                setState(State::DONE);
-            }
-
             return;
         } catch(const RequestFailedWithErrorException& err) {
+            if (err.http_response.status_code == 404) {
+                // Perfectly OK
+                if (auto taskInstance = task.lock()) {
+                    taskInstance->setState(Task::TaskState::DONE);
+                }
+                return;
+            }
+
             LOG_WARN << logName()
                      << "Request failed: " << err.http_response.status_code
                      << ' ' << err.http_response.reason_phrase
@@ -197,11 +199,6 @@ void SecretComponent::doRemove(std::weak_ptr<Component::Task> task)
         if (auto taskInstance = task.lock()) {
             taskInstance->setState(Task::TaskState::FAILED);
         }
-
-        if (state_ == State::RUNNING) {
-            setState(State::FAILED);
-        }
-
     });
 }
 

@@ -5,6 +5,7 @@
 #include "k8deployer/DeploymentComponent.h"
 #include "k8deployer/Cluster.h"
 #include "k8deployer/Engine.h"
+#include "k8deployer/probe.h"
 
 using namespace std;
 using namespace string_literals;
@@ -12,7 +13,7 @@ using namespace restc_cpp;
 
 namespace k8deployer {
 
-std::future<void> DeploymentComponent::prepareDeploy()
+void DeploymentComponent::prepareDeploy()
 {
     if (auto replicas = getArg("replicas")) {
         deployment.spec.replicas = stoull(*replicas);
@@ -130,6 +131,26 @@ void DeploymentComponent::doRemove(std::weak_ptr<Component::Task> task)
             + "/deployments/" + name;
 
     sendDelete(url, task);
+}
+
+bool DeploymentComponent::probe(std::function<void (Component::K8ObjectState)> fn)
+{
+    if (fn) {
+        const auto url = cluster_->getUrl()
+                + "/apis/apps/v1/namespaces/"
+                + deployment.metadata.namespace_
+                + "/deployments/" + name;
+
+        sendProbe<k8api::Deployment>(*this, url, [wself=weak_from_this(), fn=move(fn)]
+                              (const std::optional<k8api::Deployment>& /*object*/, K8ObjectState state) {
+            if (auto self = wself.lock()) {
+                assert(fn);
+                fn(state);
+            }
+        });
+    }
+
+    return true;
 }
 
 

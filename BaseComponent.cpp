@@ -85,6 +85,9 @@ void BaseComponent::addDeploymentTasks(Component::tasks_t& tasks)
             task.setState(Task::TaskState::EXECUTING);
             doDeploy(task.weak_from_this());
             task.setState(Task::TaskState::WAITING);
+            if (probe(nullptr)) {
+                task.schedulePoll();
+            }
         }
 
         // Monitoring?
@@ -103,11 +106,11 @@ void BaseComponent::addDeploymentTasks(Component::tasks_t& tasks)
                 // TODO: Use this as a hint and query the status of running pods.
                 // In order to continue, all our pods should be in avaiable state
 
-                LOG_DEBUG << "A pod with my name was created. I am assuming it relates to me";
-                if (++podsStarted_ >= deployment.spec.replicas) {
-                    task.setState(Task::TaskState::DONE);
-                    setState(State::DONE);
-                }
+//                LOG_DEBUG << "A pod with my name was created. I am assuming it relates to me";
+//                if (++podsStarted_ >= deployment.spec.replicas) {
+//                    task.setState(Task::TaskState::DONE);
+//                    setState(State::DONE);
+//                }
             }
         }
 
@@ -129,33 +132,8 @@ void BaseComponent::addRemovementTasks(Component::tasks_t &tasks)
             task.setState(Task::TaskState::WAITING);
         }
 
-        // Monitoring?
-        if (task.isMonitoring() && event) {
-            LOG_TRACE << task.component().logName() << " Task " << task.name()
-                      << " evaluating event: " << event->message;
-
-            auto key = name + "-";
-            if (event->involvedObject.kind == "Pod"
-                && event->involvedObject.name.substr(0, key.size()) == key
-                && event->metadata.namespace_ == deployment.metadata.namespace_
-                && event->metadata.name.substr(0, key.size()) == key
-                && event->reason == "Killing") {
-
-                // A pod with our name was deleted.
-                // TODO: Use this as a hint and query the status of running pods.
-                // In order to continue, all our pods should be in avaiable state
-
-                LOG_DEBUG << logName() << "A pod with my name was deleted. I am assuming it relates to me";
-
-                if (++podsStarted_ >= getReplicas()) {
-                    task.setState(Task::TaskState::DONE);
-                    setState(State::DONE);
-                }
-            }
-        }
-
         task.evaluate();
-    });
+    }, Task::TaskState::READY);
 
     tasks.push_back(task);
     Component::addRemovementTasks(tasks);
@@ -197,7 +175,6 @@ void BaseComponent::buildInitContainers()
                               << "initContainer " << init.name;
 
                     podTemplate->spec.initContainers.push_back(move(init));
-                    dependsOn_.push_back(target);
                 }
             });
         }
@@ -224,6 +201,14 @@ void BaseComponent::sendDelete(const string &url, std::weak_ptr<Component::Task>
             }
             return;
         } catch(const restc_cpp::RequestFailedWithErrorException& err) {
+            if (err.http_response.status_code == 404) {
+                // Perfectly OK
+                if (auto taskInstance = task.lock()) {
+                    taskInstance->setState(Task::TaskState::DONE);
+                }
+                return;
+            }
+
             LOG_WARN << logName()
                      << "Request failed: " << err.http_response.status_code
                      << ' ' << err.http_response.reason_phrase

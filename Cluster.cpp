@@ -147,14 +147,17 @@ void Cluster::setCmds()
             return rootComponent_->deploy();
         };
         prepareCmd_ = [this] {
-            return rootComponent_->prepareDeploy();
+            rootComponent_->prepareDeploy();
+            rootComponent_->scanDependencies();
+            return dummyReturnFuture();
         };
     } else if (cfg_.command == "delete") {
         executeCmd_ = [this] {
             return rootComponent_->remove();
         };
         prepareCmd_ = [this] {
-            return rootComponent_->prepareDeploy();
+            rootComponent_->prepareDeploy();
+            return dummyReturnFuture();
         };
     } else  {
         LOG_ERROR << "Unknown command: " << cfg_.command;

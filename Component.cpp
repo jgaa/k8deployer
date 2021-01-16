@@ -244,13 +244,11 @@ Component::ptr_t Component::populateTree(const ComponentDataDef &def, Cluster &c
     return root;
 }
 
-std::future<void> Component::prepareDeploy()
+void Component::prepareDeploy()
 {
     for(auto& child : children_) {
         child->prepareDeploy();
     }
-
-    return dummyReturnFuture();
 }
 
 std::future<void> Component::deploy()
@@ -273,8 +271,6 @@ std::future<void> Component::execute(std::function<void(tasks_t&)> fn)
     // Built list of tasks
     tasks_ = make_unique<tasks_t>();
     fn(*tasks_);
-
-    // TODO: Add task dependencies based on component dependencies (depends property)
 
     // Set dependencies
     for(auto& task : *tasks_) {
@@ -315,7 +311,16 @@ std::future<void> Component::execute(std::function<void(tasks_t&)> fn)
         }
     }
 
-    // TODO: Check for circular dependencies
+    // Check for circular dependencies
+    for (const auto& task : *tasks_) {
+        std::set<Task *> allDeps;
+        task->addAllDependencies(allDeps);
+        if (auto it = allDeps.find(task.get()) ; it != allDeps.end()) {
+            LOG_ERROR << logName() << "task " << task->name() << " Circular dependency to "
+            << (*it)->component().logName() << (*it)->name();
+            throw runtime_error("Circular dependency");
+        }
+    }
 
     // Execute via asio's executor
     cluster().client().GetIoService().post([self = weak_from_this()] {
@@ -350,15 +355,158 @@ labels_t::value_type Component::getSelector()
 
 void Component::scheduleRunTasks()
 {
-    if (auto parent = parent_.lock()) {
-        return parent->scheduleRunTasks();
-    }
-
-    cluster().client().GetIoService().post([self = weak_from_this()] {
-       if (auto component = self.lock()) {
-           component->runTasks();
+    evaluate();
+    schedule([wself = getRoot().weak_from_this()] {
+       if (auto self = wself.lock()) {
+           self->runTasks();
        }
     });
+}
+
+void Component::schedule(std::function<void ()> fn)
+{
+    cluster().client().GetIoService().post([wself = weak_from_this(), fn=std::move(fn)] {
+       if (auto self = wself.lock()) {
+           if (fn) {
+               try {
+                fn();
+               } catch(const std::exception& ex) {
+                   LOG_ERROR << self->logName()
+                             <<  "Caught exception from schedule: " << ex.what();
+               }
+           }
+       }
+    });
+}
+
+bool Component::isBlockedOnDependency() const
+{
+    for(const auto& wcomp : dependsOn_) {
+        if (auto comp = wcomp.lock()) {
+            if (comp->state_ != State::DONE) {
+                LOG_TRACE << logName() << " is still blocked on " << comp->logName();
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+// Assumes that all components are created, including generated ones
+void Component::scanDependencies()
+{
+    for (const auto& depName : depends) {
+        forAllComponents([&](Component& c) {
+            if (depName == c.name) {
+
+                // Check for circular dependencies
+                std::set<Component *> deps;
+                c.addDependenciesRecursively(deps);
+                if (deps.find(this) != deps.end()) {
+                    LOG_ERROR << logName() << "Detected circular dependency with: " << c.logName();
+                    throw runtime_error("Circular dependency");
+                }
+
+                dependsOn_.push_back(c.weak_from_this());
+                LOG_DEBUG << logName() << "Component depends on " << c.logName();
+            }
+        });
+    }
+
+    for(const auto& child: children_) {
+        child->scanDependencies();
+    }
+}
+
+Component &Component::getRoot()
+{
+    auto root = this;
+    while (true) {
+        if (auto p = root->parent_.lock()) {
+            root = p.get();
+            continue;
+        }
+        break;
+    }
+
+    return *root;
+}
+
+void Component::evaluate()
+{
+    State newState = State::CREATING;
+
+    if (auto& t = getRoot().tasks_) {
+        bool allDone = true;
+        size_t numTasks = 0;
+        for(const auto& task : *t) {
+
+            // Filter on tasks for this component
+            if (&task->component() != this) {
+                continue;
+            }
+
+            ++numTasks;
+
+            if (task->state() >= Task::TaskState::BLOCKED && state_ == State::CREATING) {
+                newState = State::RUNNING;
+            }
+
+            if (task->state() != Task::TaskState::DONE) {
+                allDone = false;
+                LOG_TRACE << logName() << "Blocked on task "
+                          << task->component().logName() << task->name()
+                          << " in state " << static_cast<size_t>(task->state());
+            }
+
+            if (task->state() > Task::TaskState::DONE) {
+                // Some varianty of failed
+                if (state_ < State::FAILED) {
+                    setState(State::FAILED);
+                    break;
+                }
+            }
+        }
+
+        if (allDone) {
+            bool blockedOnChild = false;
+            for(const auto& child: children_) {
+                if (child->state_ != State::DONE) {
+                    if (child->state_ > State::DONE) {
+                        LOG_DEBUG << logName() << "Failed because of " << child->logName();
+                        setState(State::FAILED);
+                        return;
+                    }
+
+                    LOG_TRACE << logName()
+                              << "My tasks are all done, but I am still blocked on "
+                              << child->logName();
+
+                    blockedOnChild = true;
+                }
+            }
+
+            if (!blockedOnChild) {
+                setState(State::DONE);
+                return;
+            }
+        }
+
+        if (numTasks && newState > state_) {
+            setState(newState);
+        }
+    }
+}
+
+void Component::addDependenciesRecursively(std::set<Component *> &contains)
+{
+    for(auto& w: dependsOn_) {
+        if (auto c = w.lock()) {
+            contains.insert(c.get());
+            c->addDependenciesRecursively(contains);
+        }
+    }
 }
 
 void Component::processEvent(const k8api::Event& event)
@@ -382,6 +530,10 @@ void Component::processEvent(const k8api::Event& event)
 }
 
 void Component::runTasks() {
+    if (!tasks_) {
+        return;
+    }
+
     // Re-run the loop as long as any task changes it's state
     while(cluster_->isExecuting() && ! isDone()) {
         LOG_TRACE << logName() << "runTasks: Iterating over tasks";
@@ -427,6 +579,10 @@ void Component::runTasks() {
 
 void Component::setState(Component::State state)
 {
+    if (state == state_) {
+        return;
+    }
+
     if (state == State::DONE) {
         LOG_INFO << logName() << "Done.";
     }
@@ -436,20 +592,16 @@ void Component::setState(Component::State state)
     }
 
     state_ = state;
+
+    if (auto parent = parent_.lock()) {
+        parent->evaluate();
+        scheduleRunTasks();
+    }
 }
 
 void Component::forAllComponents(const std::function<void (Component &)>& fn)
 {
-    auto root = this;
-    while (true) {
-        if (auto p = root->parent_.lock()) {
-            root = p.get();
-            continue;
-        }
-        break;
-    }
-
-    root->walkAndExecuteFn(fn);
+    getRoot().walkAndExecuteFn(fn);
 }
 
 void Component::walkAndExecuteFn(const std::function<void (Component &)>& fn)
@@ -522,7 +674,7 @@ Component::ptr_t Component::populate(const ComponentDataDef &def,
     return component;
 }
 
-std::future<void> Component::dummyReturnFuture() const
+std::future<void> dummyReturnFuture()
 {
     std::promise<void> promise;
     auto future = promise.get_future();
@@ -607,6 +759,10 @@ void Component::Task::setState(Component::Task::TaskState state, bool scheduleRu
     const bool changed = state_ != state;
     state_ = state;
 
+    if (state == TaskState::DONE) {
+        LOG_DEBUG << component().logName() << "task " << name() << " is done";
+    }
+
     if (changed && scheduleRunTasks) {
         component().scheduleRunTasks();
     }
@@ -622,12 +778,27 @@ bool Component::Task::evaluate()
     }
 
     if (state_ == TaskState::BLOCKED) {
-        bool blocked = false;
-        for(const auto& dep : dependencies_) {
+        // If any components our component depends on are not done, we are still blocked
+        component().evaluate();
+        if (component().isBlockedOnDependency()) {
+            return changed;
+        }
 
+        bool blocked = false;
+
+        for(const auto& dep : dependencies_) {
             // If any dependencies is not DONE, we are still blocked.
             if (auto dt = dep.lock()) {
                 blocked = dt->state() == TaskState::DONE ? blocked : true;
+
+                if (dt->state() != TaskState::DONE) {
+                    blocked = true;
+                    LOG_TRACE << component().logName()
+                              << "task " << name()
+                              << " is blocked on task "
+                              << dt->component().logName()
+                              << '/' << dt->name();
+                }
 
                 if (dt->state() >= TaskState::ABORTED) {
                     // If a dependency failed, we abort.
@@ -640,11 +811,57 @@ bool Component::Task::evaluate()
 
         if (!blocked) {
             setState(TaskState::READY, false);
+            component().evaluate();
             changed = true;
         }
     } // if BLOCKED
 
     return changed;
+}
+
+void Component::Task::schedulePoll()
+{
+    component().schedule([wself = weak_from_this()] {
+        if (auto self = wself.lock()) {
+            if (!self->pollTimer_) {
+                self->pollTimer_ = make_unique<boost::asio::deadline_timer>(
+                            self->component().cluster().client().GetIoService(),
+                            boost::posix_time::seconds{2});
+                self->pollTimer_->async_wait([wself](auto err) {
+                    if (auto self = wself.lock()) {
+                        self->pollTimer_.reset();
+                        if (err) {
+                            LOG_WARN << self->component().logName()
+                                     << "Got error from timer for task: " << err;
+                            return;
+                        }
+
+                        if (!self->component().probe([wself](auto state) {
+                            if (auto self = wself.lock()) {
+                                switch(state) {
+                                    case K8ObjectState::FAILED:
+                                        self->setState(TaskState::FAILED);
+                                        self->component().scheduleRunTasks();
+                                        break;
+                                    case K8ObjectState::DONT_EXIST:
+                                    case K8ObjectState::INIT:
+                                        self->schedulePoll();
+                                        break;
+                                    case K8ObjectState::READY:
+                                    case K8ObjectState::DONE:
+                                        self->setState(TaskState::DONE);
+                                        self->component().scheduleRunTasks();
+                                }
+                            }
+                        })) {
+                            // Probes unavailable
+                            LOG_DEBUG << self->component().logName() << "Probes not available";
+                        }
+                    }
+                });
+            }
+        }
+    });
 }
 
 const string &Component::Task::toString(const Component::Task::TaskState &state) {
@@ -659,6 +876,16 @@ const string &Component::Task::toString(const Component::Task::TaskState &state)
                                             "DEPENDENCY_FAILED"};
 
     return names.at(static_cast<size_t>(state));
+}
+
+void Component::Task::addAllDependencies(std::set<Component::Task *> &tasks)
+{
+    for(auto& d : dependencies_) {
+        if (auto dep = d.lock()) {
+            tasks.insert(dep.get());
+            dep->addAllDependencies(tasks);
+        }
+    }
 }
 
 const JsonFieldMapping *jsonFieldMappings()

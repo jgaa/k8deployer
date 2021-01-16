@@ -13,7 +13,9 @@ public:
         kind_ = Kind::SERVICE;
     }
 
-    std::future<void> prepareDeploy() override;
+    void prepareDeploy() override;
+
+    bool probe(std::function<void(K8ObjectState state)>) override;
 
 protected:
     void addDeploymentTasks(tasks_t& tasks) override;

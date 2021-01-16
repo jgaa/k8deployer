@@ -13,7 +13,7 @@ public:
         kind_ = Kind::DEPLOYMENT;
     }
 
-    std::future<void> prepareDeploy() override;
+    void prepareDeploy() override;
 
 protected:
     k8api::ObjectMeta *getMetadata() override {
@@ -35,6 +35,10 @@ protected:
     void buildDependencies();
     void doDeploy(std::weak_ptr<Task> task) override;
     void doRemove(std::weak_ptr<Task> task) override;
+
+    // Component interface
+public:
+    bool probe(std::function<void (K8ObjectState)>) override;
 };
 
 } // ns

@@ -74,7 +74,6 @@ protected:
     virtual void doRemove(std::weak_ptr<Task> task) = 0;
 
     size_t podsStarted_ = 0;
-    std::vector<Component *> dependsOn_;
 };
 
 } // ns

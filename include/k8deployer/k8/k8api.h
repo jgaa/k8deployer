@@ -154,7 +154,7 @@ struct Time {
 struct TCPSocketAction {
     std::string effect;
     std::string key;
-    std::optional<Time> timeAdded;
+    std::string timeAdded;
     std::string value;
 };
 
@@ -405,12 +405,31 @@ struct JobSpec {
     PodTemplateSpec template_;
 };
 
+struct JobCondition {
+    std::string lastProbeTime;
+    std::string lastTransitionTime;
+    std::string message;
+    std::string reason;
+    std::string status;
+    std::string type;
+};
+
+struct JobStatus {
+    size_t active = 0;
+    std::string completionTime;
+    std::vector<JobCondition> conditions;
+    size_t failed = 0;
+    std::string startTime;
+    size_t succeeded;
+};
+
 struct Job {
     std::string apiVersion = "batch/v1";
     std::string kind = "Job";
     ObjectMeta metadata;
     JobSpec spec;
     size_t ttlSecondsAfterFinished = 0; // NB: Not always available...
+    std::optional<JobStatus> status;
 };
 
 struct DeploymentSpec {
@@ -420,12 +439,32 @@ struct DeploymentSpec {
     PodTemplateSpec template_;
 };
 
+struct DeploymentCondition {
+    std::string lastTransitionTime;
+    std::string lastUpdateTime;
+    std::string message;
+    std::string reason;
+    std::string status;
+    std::string type;
+};
+
+struct DeploymentStatus {
+    size_t availableReplicas = 0;
+    size_t collisionCount = 0;
+    std::vector<DeploymentCondition> conditions;
+    size_t observedGeneration = 0;
+    size_t readyReplicas = 0;
+    size_t replicas = 0;
+    size_t unavailableReplicas = 0;
+    size_t updatedReplicas = 0;
+};
 
 struct Deployment {
     std::string apiVersion = "apps/v1";
     std::string kind = "Deployment";
     ObjectMeta metadata;
     DeploymentSpec spec;
+    std::optional<DeploymentStatus> status;
 };
 
 struct ServicePort {
@@ -455,11 +494,43 @@ struct ServiceSpec {
     std::string type;  // ExternalName, *ClusterIP, NodePort, and LoadBalancer
 };
 
+
+struct Condition {
+    std::string lastTransitionTime;
+    std::string message;
+    size_t observedGeneration = 0;
+    std::string reason;
+    std::string status;
+    std::string type;
+};
+
+struct PortStatus {
+    std::string error;
+    int port = 0;
+    std::string protocol;
+};
+
+struct LoadBalancerIngress {
+    std::string hostname;
+    std::string ip;
+    std::vector<PortStatus> ports;
+};
+
+struct LoadBalancerStatus {
+    std::vector<LoadBalancerIngress> ingress;
+};
+
+struct ServiceStatus {
+    std::vector<Condition> conditions;
+    std::optional<LoadBalancerStatus> loadBalancer;
+};
+
 struct Service {
     std::string apiVersion = "v1";
     std::string kind = "Service";
     ObjectMeta metadata;
     ServiceSpec spec;
+    std::optional<ServiceStatus> status;
 };
 
 struct ConfigMap {
@@ -568,7 +639,7 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::Time,
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::TCPSocketAction,
     (std::string, effect)
     (std::string, key)
-    (std::optional<k8deployer::k8api::Time>, timeAdded)
+    (std::string, timeAdded)
     (std::string, value)
 )
 
@@ -807,12 +878,31 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::JobSpec,
     (k8deployer::k8api::PodTemplateSpec, template_)
 );
 
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::JobCondition,
+    (std::string, lastProbeTime)
+    (std::string, lastTransitionTime)
+    (std::string, message)
+    (std::string, reason)
+    (std::string, status)
+    (std::string, type)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::JobStatus,
+    (size_t, active)
+    (std::string, completionTime)
+    (std::vector<k8deployer::k8api::JobCondition>, conditions)
+    (size_t, failed)
+    (std::string, startTime)
+    (size_t, succeeded)
+);
+
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::Job,
     (std::string, apiVersion)
     (std::string, kind)
     (k8deployer::k8api::ObjectMeta, metadata)
     (k8deployer::k8api::JobSpec, spec)
     (size_t, ttlSecondsAfterFinished)
+    (std::optional<k8deployer::k8api::JobStatus>, status)
 );
 
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::DeploymentSpec,
@@ -822,12 +912,32 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::DeploymentSpec,
     (k8deployer::k8api::PodTemplateSpec, template_), //, NB:
 );
 
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::DeploymentCondition,
+    (std::string, lastTransitionTime)
+    (std::string, lastUpdateTime)
+    (std::string, message)
+    (std::string, reason)
+    (std::string, status)
+    (std::string, type)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::DeploymentStatus,
+    (size_t, availableReplicas)
+    (size_t, collisionCount)
+    (std::vector<k8deployer::k8api::DeploymentCondition>, conditions)
+    (size_t, observedGeneration)
+    (size_t, readyReplicas)
+    (size_t, replicas)
+    (size_t, unavailableReplicas)
+    (size_t, updatedReplicas)
+);
 
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::Deployment,
     (std::string, apiVersion)
     (std::string, kind)
     (k8deployer::k8api::ObjectMeta, metadata)
     (k8deployer::k8api::DeploymentSpec, spec)
+    (std::optional<k8deployer::k8api::DeploymentStatus>, status)
 );
 
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::ServicePort,
@@ -854,11 +964,42 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::ServiceSpec,
     (std::string, type)
 );
 
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::Condition,
+    (std::string, lastTransitionTime)
+    (std::string, message)
+    (size_t, observedGeneration)
+    (std::string, reason)
+    (std::string, status)
+    (std::string, type)
+)
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::PortStatus,
+    (std::string, error)
+    (int, port)
+    (std::string, protocol)
+)
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::LoadBalancerIngress,
+    (std::string, hostname)
+    (std::string, ip)
+    (std::vector<k8deployer::k8api::PortStatus>, ports)
+)
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::LoadBalancerStatus,
+    (std::vector<k8deployer::k8api::LoadBalancerIngress>, ingress)
+)
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::ServiceStatus,
+    (std::vector<k8deployer::k8api::Condition>, conditions)
+    (std::optional<k8deployer::k8api::LoadBalancerStatus>, loadBalancer)
+)
+
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::Service,
     (std::string, apiVersion)
     (std::string, kind)
     (k8deployer::k8api::ObjectMeta, metadata)
     (k8deployer::k8api::ServiceSpec, spec)
+    (std::optional<k8deployer::k8api::ServiceStatus>, status)
 );
 
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::ConfigMap,

@@ -9,7 +9,7 @@ class ConfigMapComponent : public Component
 public:
     ConfigMapComponent(const Component::ptr_t& parent, Cluster& cluster, const ComponentData& data);
 
-    std::future<void> prepareDeploy() override;
+    void prepareDeploy() override;
 
 protected:
     void addDeploymentTasks(tasks_t& tasks) override;

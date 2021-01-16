@@ -5,6 +5,7 @@
 #include "k8deployer/logging.h"
 #include "k8deployer/Cluster.h"
 #include "k8deployer/Engine.h"
+#include "k8deployer/probe.h"
 
 using namespace std;
 using namespace string_literals;
@@ -12,7 +13,7 @@ using namespace restc_cpp;
 
 namespace k8deployer {
 
-std::future<void> ServiceComponent::prepareDeploy()
+void ServiceComponent::prepareDeploy()
 {
     if (service.metadata.name.empty()) {
         service.metadata.name = name;
@@ -86,8 +87,26 @@ std::future<void> ServiceComponent::prepareDeploy()
 
     // Apply recursively
     Component::prepareDeploy();
+}
 
-    return dummyReturnFuture();
+bool ServiceComponent::probe(std::function<void (Component::K8ObjectState)> fn)
+{
+    if (fn) {
+        auto url = cluster_->getUrl()
+                + "/api/v1/namespaces/"
+                + service.metadata.namespace_
+                + "/services/" + name;
+
+        sendProbe<k8api::Service>(*this, url, [wself=weak_from_this(), fn=move(fn)]
+                              (const std::optional<k8api::Service>& /*object*/, K8ObjectState state) {
+            if (auto self = wself.lock()) {
+                assert(fn);
+                fn(state);
+            }
+        });
+    }
+
+    return true;
 }
 
 void ServiceComponent::addDeploymentTasks(Component::tasks_t &tasks)
@@ -118,7 +137,7 @@ void ServiceComponent::addRemovementTasks(Component::tasks_t &tasks)
         }
 
         task.evaluate();
-    });
+    }, Task::TaskState::READY);
 
     tasks.push_back(task);
     Component::addRemovementTasks(tasks);
@@ -149,13 +168,11 @@ void ServiceComponent::doDeploy(std::weak_ptr<Component::Task> task)
                   << reply->GetResponseCode() << ' '
                   << reply->GetHttpResponse().reason_phrase;
 
-            // We don't get any event's related to the service, so just update the states.
-            if (auto taskInstance = task.lock()) {
-                taskInstance->setState(Task::TaskState::DONE);
-            }
-
             if (state_ == State::RUNNING) {
-                setState(State::DONE);
+                if (auto taskInstance = task.lock()) {
+                    taskInstance->setState(Task::TaskState::WAITING);
+                    taskInstance->schedulePoll();
+                }
             }
 
             return;
@@ -202,12 +219,19 @@ void ServiceComponent::doRemove(std::weak_ptr<Component::Task> task)
                   << reply->GetResponseCode() << ' '
                   << reply->GetHttpResponse().reason_phrase;
 
-            // We don't get any event's related to the service, so just update the states.
             if (auto taskInstance = task.lock()) {
                 taskInstance->setState(Task::TaskState::DONE);
             }
             return;
         } catch(const RequestFailedWithErrorException& err) {
+            if (err.http_response.status_code == 404) {
+                // Perfectly OK
+                if (auto taskInstance = task.lock()) {
+                    taskInstance->setState(Task::TaskState::DONE);
+                }
+                return;
+            }
+
             LOG_WARN << logName()
                      << "Request failed: " << err.http_response.status_code
                      << ' ' << err.http_response.reason_phrase

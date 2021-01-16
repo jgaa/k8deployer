@@ -13,7 +13,9 @@ public:
         kind_ = Kind::JOB;
     }
 
-    std::future<void> prepareDeploy() override;
+    void prepareDeploy() override;
+
+    bool probe(std::function<void(K8ObjectState state)>) override;
 
 protected:
     k8api::ObjectMeta *getMetadata() override {
