@@ -487,6 +487,10 @@ void Component::evaluate()
                 }
             }
 
+            if (isBlockedOnDependency()) {
+                return;
+            }
+
             if (!blockedOnChild) {
                 setState(State::DONE);
                 return;
