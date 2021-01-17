@@ -26,10 +26,13 @@ add_executable(${PROJECT_NAME}
     DeploymentComponent.cpp
     Engine.cpp
     JobComponent.cpp
+    NfsStorage.cpp
+    PersistentVolumeComponent.cpp
     PortForward.cpp
     SecretComponent.cpp
     ServiceComponent.cpp
     StatefulSetComponent.cpp
+    Storage.cpp
     include/k8deployer/AppComponent.h
     include/k8deployer/BaseComponent.h
     include/k8deployer/Cluster.h
@@ -39,15 +42,18 @@ add_executable(${PROJECT_NAME}
     include/k8deployer/DeploymentComponent.h
     include/k8deployer/Engine.h
     include/k8deployer/JobComponent.h
+    include/k8deployer/NfsStorage.h
     include/k8deployer/PortForward.h
     include/k8deployer/SecretComponent.h
     include/k8deployer/ServiceComponent.h
     include/k8deployer/StatefulSetComponent.h
+    include/k8deployer/Storage.h
     include/k8deployer/k8/Event.h
     include/k8deployer/k8/k8api.h
     include/k8deployer/logging.h
     include/k8deployer/probe.h
     include/k8deployer/buildDependencies.h
+    include/k8deployer/PersistentVolumeComponent.h
     )
 
 add_dependencies(${PROJECT_NAME} externalRestcCpp)

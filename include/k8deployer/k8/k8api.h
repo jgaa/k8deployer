@@ -305,14 +305,16 @@ struct VolumeNodeAffinity {
 
 struct PersistentVolumeSpec {
     string_list_t accessModes;
-    HostPathVolumeSource hostPath;
-    LocalVolumeSource local;
-    NFSVolumeSource nfs;
+    std::optional<HostPathVolumeSource> hostPath;
+    std::optional<LocalVolumeSource> local;
+    std::optional<NFSVolumeSource> nfs;
     string_list_t mountOptions;
-    VolumeNodeAffinity nodeAffinity;
+    std::optional<VolumeNodeAffinity> nodeAffinity;
     std::string persistentVolumeReclaimPolicy;
     std::string storageClassName;
     std::string volumeMode;
+    key_values_t capacity;
+    key_values_t claimRef;
 };
 
 struct PersistentVolumeClaimVolumeSource {
@@ -367,6 +369,20 @@ struct Volume {
 };
 
 using volumes_t = std::vector<Volume>;
+
+struct PersistentVolumeStatus {
+    std::string message;
+    std::string phase;
+    std::string reason;
+};
+
+struct PersistentVolume {
+    std::string apiVersion = "v1";
+    std::string kind = "PersistentVolume";
+    ObjectMeta metadata;
+    PersistentVolumeSpec spec;
+    std::optional<PersistentVolumeStatus> status;
+};
 
 struct HostAlias {
     string_list_t hostnames;
@@ -877,14 +893,30 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::VolumeNodeAffinity,
 
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::PersistentVolumeSpec,
     (k8deployer::k8api::string_list_t, accessModes)
-    (k8deployer::k8api::HostPathVolumeSource, hostPath)
-    (k8deployer::k8api::LocalVolumeSource, local)
-    (k8deployer::k8api::NFSVolumeSource, nfs)
+    (std::optional<k8deployer::k8api::HostPathVolumeSource>, hostPath)
+    (std::optional<k8deployer::k8api::LocalVolumeSource>, local)
+    (std::optional<k8deployer::k8api::NFSVolumeSource>, nfs)
     (k8deployer::k8api::string_list_t, mountOptions)
-    (k8deployer::k8api::VolumeNodeAffinity, nodeAffinity)
+    (std::optional<k8deployer::k8api::VolumeNodeAffinity>, nodeAffinity)
     (std::string, persistentVolumeReclaimPolicy)
     (std::string, storageClassName)
     (std::string, volumeMode)
+    (k8deployer::k8api::key_values_t, capacity)
+    (k8deployer::k8api::key_values_t, claimRef)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::PersistentVolumeStatus,
+    (std::string, message)
+    (std::string, phase)
+    (std::string, reason)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::PersistentVolume,
+    (std::string, apiVersion)
+    (std::string, kind)
+    (k8deployer::k8api::ObjectMeta, metadata)
+    (k8deployer::k8api::PersistentVolumeSpec, spec)
+    (std::optional<k8deployer::k8api::PersistentVolumeStatus>, status)
 );
 
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::PersistentVolumeClaimVolumeSource,

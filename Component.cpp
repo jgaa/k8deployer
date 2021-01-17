@@ -15,6 +15,7 @@
 #include "k8deployer/ServiceComponent.h"
 #include "k8deployer/ConfigMapComponent.h"
 #include "k8deployer/SecretComponent.h"
+#include "k8deployer/PersistentVolumeComponent.h"
 #include "k8deployer/Cluster.h"
 #include "k8deployer/k8/k8api.h"
 #include "k8deployer/Engine.h"
@@ -33,7 +34,8 @@ const map<string, Kind> kinds = {{"App", Kind::APP},
                                  {"StatefulSet", Kind::STATEFULSET},
                                  {"Service", Kind::SERVICE},
                                  {"ConfigMap", Kind::CONFIGMAP},
-                                 {"Secret", Kind::SECRET}
+                                 {"Secret", Kind::SECRET},
+                                 {"PersitentVolume", Kind::PERSISTENTVOLUME}
                                 };
 } // anonymous ns
 
@@ -505,6 +507,11 @@ void Component::evaluate()
     }
 }
 
+string Component::getNamespace() const
+{
+    return Engine::instance().config().ns;
+}
+
 void Component::addDependenciesRecursively(std::set<Component *> &contains)
 {
     for(auto& w: dependsOn_) {
@@ -649,6 +656,8 @@ Component::ptr_t Component::createComponent(const ComponentDataDef &def,
         return make_shared<ConfigMapComponent>(parent, cluster, def);
     case Kind::SECRET:
         return make_shared<SecretComponent>(parent, cluster, def);
+    case Kind::PERSISTENTVOLUME:
+        return make_shared<PersistentVolumeComponent>(parent, cluster, def);
     }
 
     throw runtime_error("Unknown kind");
@@ -956,6 +965,62 @@ string fileToJson(const string &pathToFile)
     }
 
     return json;
+}
+
+void Component::sendDelete(const string &url, std::weak_ptr<Component::Task> task,
+                               bool ignoreErrors)
+{
+    Engine::client().Process([this, url, task, ignoreErrors](auto& ctx) {
+
+        LOG_TRACE << logName() << "Sending DELETE " << url;
+
+        try {
+            auto reply = restc_cpp::RequestBuilder{ctx}.Delete(url)
+               .Execute();
+
+            LOG_DEBUG << logName()
+                  << "Delete gave response: "
+                  << reply->GetResponseCode() << ' '
+                  << reply->GetHttpResponse().reason_phrase;
+
+            // We don't get any event's related to deleting the deployment, so just update the states.
+            if (auto taskInstance = task.lock()) {
+                taskInstance->setState(Task::TaskState::DONE);
+            }
+            return;
+        } catch(const restc_cpp::RequestFailedWithErrorException& err) {
+            if (err.http_response.status_code == 404) {
+                // Perfectly OK
+                if (auto taskInstance = task.lock()) {
+                    LOG_TRACE << logName()
+                             << "Ignoring failed DELETE request: " << err.http_response.status_code
+                             << ' ' << err.http_response.reason_phrase
+                             << ": \"" << err.what()
+                             << "\" for url: " << url;
+
+                    taskInstance->setState(Task::TaskState::DONE);
+                }
+                return;
+            }
+
+            LOG_WARN << logName()
+                     << "Request failed: " << err.http_response.status_code
+                     << ' ' << err.http_response.reason_phrase
+                     << ": " << err.what();
+
+        } catch(const std::exception& ex) {
+            LOG_WARN << logName()
+                     << "Request failed: " << ex.what();
+        }
+
+        if (auto taskInstance = task.lock()) {
+            taskInstance->setState(ignoreErrors ? Task::TaskState::DONE : Task::TaskState::FAILED);
+        }
+
+        if (!ignoreErrors) {
+            setState(State::FAILED);
+        }
+    });
 }
 
 } // ns

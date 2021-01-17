@@ -8,15 +8,12 @@
 
 namespace k8deployer {
 
+struct ComponentDataDef;
+
 class Engine
 {
 public:
-    Engine(const Config& config)
-        : client_{restc_cpp::RestClient::Create()}, cfg_{config}
-    {
-        assert(instance_ == nullptr);
-        instance_ = this;
-    }
+    Engine(const Config& config);
 
     ~Engine() {
         instance_ = nullptr;
@@ -46,7 +43,7 @@ private:
     std::vector<std::unique_ptr<Cluster>> clusters_;
     const Config cfg_;
     static Engine *instance_;
-    ComponentDataDef dataDef_;
+    std::unique_ptr<ComponentDataDef> dataDef_;
 };
 
 } // ns

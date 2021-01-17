@@ -13,6 +13,8 @@
 
 #include "k8deployer/logging.h"
 #include "k8deployer/Cluster.h"
+#include "k8deployer/Engine.h"
+#include "k8deployer/Component.h"
 #include "k8deployer/k8/k8api.h"
 
 namespace k8deployer {
@@ -38,6 +40,14 @@ Cluster::Cluster(const Config &cfg, const string &arg, RestClient &client,
     : client_{client}, cfg_{cfg}, dataDef_{def}
 {
     parseArgs(arg);
+    if (!cfg_.storageEngine.empty()) {
+        storage_ = Storage::create(cfg_.storageEngine);
+    }
+}
+
+Cluster::~Cluster()
+{
+
 }
 
 void Cluster::startProxy()

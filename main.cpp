@@ -5,6 +5,7 @@
 #include "k8deployer/logging.h"
 #include "k8deployer/Config.h"
 #include "k8deployer/Engine.h"
+#include "k8deployer/Component.h"
 
 using namespace std;
 using namespace k8deployer;
@@ -30,6 +31,9 @@ int main(int argc, char* argv[]) {
                     "command,c",
                     po::value<string>(&config.command)->default_value(config.command),
                     "Comand; one of: deploy, delete, redeploy, describe, status")(
+                    "storage,s",
+                    po::value<string>(&config.storageEngine)->default_value(config.storageEngine),
+                    "Storage engine for managed volumes")(
                     "kubeconfig,k",
                     po::value<decltype(config.kubeconfigs)>(&config.kubeconfigs),
                     "One or more kubeconfigs to clusters to deploy the definition. "

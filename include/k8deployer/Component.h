@@ -10,9 +10,12 @@
 #include <sstream>
 
 #include "restc-cpp/SerializeJson.h"
+#include "restc-cpp/RequestBuilder.h"
 
 #include "k8deployer/Config.h"
 #include "k8deployer/k8/k8api.h"
+#include "k8deployer/Engine.h"
+#include "k8deployer/logging.h"
 
 namespace k8deployer {
 
@@ -26,7 +29,8 @@ enum class Kind {
     STATEFULSET,
     SERVICE,
     CONFIGMAP,
-    SECRET
+    SECRET,
+    PERSISTENTVOLUME,
 };
 
 std::string slurp (const std::string& path);
@@ -68,6 +72,12 @@ std::future<void> dummyReturnFuture();
 using conf_t = std::map<std::string, std::string>;
 using labels_t = std::map<std::string, std::string>;
 
+struct StorageDef {
+    k8api::VolumeMount volume;
+    std::string capacity;
+    bool createVolume = false;
+};
+
 struct ComponentData {
     virtual ~ComponentData() = default;
 
@@ -84,11 +94,14 @@ struct ComponentData {
     k8api::Service service;
     k8api::ConfigMap configmap;
     std::optional<k8api::Secret> secret;
+    k8api::PersistentVolume persistentVolume;
 
     // Applied to the container if it's indirectly created by k8deployer
     std::optional<k8api::Probe> startupProbe;
     std::optional<k8api::Probe> livenessProbe;
     std::optional<k8api::Probe> readinessProbe;
+
+    std::vector<StorageDef> storage;
 };
 
 struct ComponentDataDef : public ComponentData {
@@ -225,6 +238,8 @@ public:
 
         void addAllDependencies(std::set<Task *>& tasks);
 
+        bool startProbeAfterApply = false;
+
     private:
         // All dependencies must be DONE before the task goes in READY state
         std::deque<wptr_t> dependencies_;
@@ -336,6 +351,8 @@ public:
     // Update state, based on the childrens states
     void evaluate();
 
+    virtual std::string getNamespace() const;
+
 protected:
     virtual std::string getCreationUrl() const {
         assert(false); // Implement!
@@ -394,6 +411,54 @@ protected:
     void walkAndExecuteFn(const std::function<void (Component&)>& fn);
 
     virtual void buildDependencies() {}
+
+    template <typename T>
+    void sendApply(const T& data, const std::string& url, std::weak_ptr<Task> task)
+    {
+        Engine::client().Process([this, url, task, &data](auto& ctx) {
+
+            LOG_DEBUG << logName() << "Applying payload";
+            LOG_TRACE << logName() << "Payload: " << toJson(data);
+
+            try {
+                auto reply = restc_cpp::RequestBuilder{ctx}.Post(url)
+                   .Data(data, jsonFieldMappings())
+                   .Execute();
+
+                LOG_DEBUG << logName()
+                      << "Applying gave response: "
+                      << reply->GetResponseCode() << ' '
+                      << reply->GetHttpResponse().reason_phrase;
+
+                if (auto t = task.lock()) {
+                    if (t->startProbeAfterApply) {
+                        t->setState(Task::TaskState::WAITING);
+                        t->schedulePoll();
+                    }
+                }
+
+                return;
+            } catch(const restc_cpp::RequestFailedWithErrorException& err) {
+                LOG_WARN << logName()
+                         << "Request failed: " << err.http_response.status_code
+                         << ' ' << err.http_response.reason_phrase
+                         << ": " << err.what();
+
+            } catch(const std::exception& ex) {
+                LOG_WARN << logName()
+                         << "Request failed: " << ex.what();
+            }
+
+            if (auto taskInstance = task.lock()) {
+                taskInstance->setState(Task::TaskState::FAILED);
+            }
+            setState(State::FAILED);
+
+        });
+    }
+
+    void sendDelete(const std::string& url, std::weak_ptr<Component::Task> task,
+                    bool ignoreErrors = false);
 
     State state_{State::PRE}; // From our logic
     std::string k8state_; // From the event-loop

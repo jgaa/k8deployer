@@ -3,6 +3,7 @@
 #include "restc-cpp/SerializeJson.h"
 #include "restc-cpp/RequestBuilder.h"
 #include "k8deployer/Engine.h"
+#include "k8deployer/Cluster.h"
 #include "k8deployer/Component.h"
 #include "k8deployer/logging.h"
 
@@ -43,23 +44,29 @@ void sendProbe(Component& component, const std::string& url,
                 done = data.status->readyReplicas == data.spec.replicas;
             }
 
-            for(const auto& cond : data.status->conditions) {
-                if constexpr (std::is_same_v<T, k8api::Deployment>) {
-                    if (cond.type == "Available" && cond.status == "True") {
-                        done = true;
-                    }
-                } else if constexpr (std::is_same_v<T, k8api::Job>) {
-                    if (cond.type == "Complete" && cond.status == "True") {
-                        done = true;
-                    }
-                } else if constexpr (std::is_same_v<T, k8api::Service>) {
-                    // Kubernetes don't give any condition for when a service is available..
-                } else if constexpr (std::is_same_v<T, k8api::StatefulSet>) {
-                    // I see no conditions for StatefulSets
-                } else {
-                    assert(false); // Unsupported type
-                }
+            if constexpr (std::is_same_v<T, k8api::PersistentVolume>) {
+                LOG_TRACE << component.logName() << "Probing: message = " << data.status->message
+                          << ", phase = " << data.status->phase
+                          << ", reason = " << data.status->reason;
+                done = data.status->phase == "Available";
             }
+
+            if constexpr (std::is_same_v<T, k8api::Deployment> || std::is_same_v<T, k8api::Job>) {
+                for(const auto& cond : data.status->conditions) {
+                    if constexpr (std::is_same_v<T, k8api::Deployment>
+                            || std::is_same_v<T, k8api::Job>) {
+                        if (cond.type == "Available" && cond.status == "True") {
+                            done = true;
+                        }
+                    } else if constexpr (std::is_same_v<T, k8api::Job>) {
+                        if (cond.type == "Complete" && cond.status == "True") {
+                            done = true;
+                        }
+                    } else {
+                        assert(false); // Unsupported type
+                    }
+                 }
+             }
 
             onDone(data, done ? Component::K8ObjectState::DONE : Component::K8ObjectState::INIT);
             return;

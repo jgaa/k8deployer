@@ -13,6 +13,12 @@
 using namespace std;
 using namespace chrono_literals;
 
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::StorageDef,
+    (k8deployer::k8api::VolumeMount, volume)
+    (std::string, capacity)
+    (bool, createVolume)
+    );
+
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::ComponentDataDef,
                           // ComponentData
                           (std::string, name)
@@ -25,9 +31,12 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::ComponentDataDef,
                           (k8deployer::k8api::Service, service)
                           (k8deployer::k8api::string_list_t, depends)
                           (std::optional<k8deployer::k8api::Secret>, secret)
+                          (k8deployer::k8api::PersistentVolume, persistentVolume)
+
                           (std::optional<k8deployer::k8api::Probe>, startupProbe)
                           (std::optional<k8deployer::k8api::Probe>, livenessProbe)
                           (std::optional<k8deployer::k8api::Probe>, readinessProbe)
+                          (std::vector<k8deployer::StorageDef>, storage)
 
                           // ComponentDataDef
                           (std::string, kind)
@@ -40,13 +49,20 @@ namespace k8deployer {
 
 Engine *Engine::instance_;
 
+Engine::Engine(const Config &config)
+    : client_{restc_cpp::RestClient::Create()}, cfg_{config}
+{
+    assert(instance_ == nullptr);
+    instance_ = this;
+}
+
 void Engine::run()
 {
     readDefinitions();
 
     // Create cluster instances
     for(auto& k: cfg_.kubeconfigs) {
-        clusters_.emplace_back(make_unique<Cluster>(cfg_, k, *client_, dataDef_));
+        clusters_.emplace_back(make_unique<Cluster>(cfg_, k, *client_, *dataDef_));
     }
 
     startPortForwardig();
@@ -110,8 +126,9 @@ void Engine::readDefinitions()
     LOG_DEBUG << "Creating components from " << cfg_.definitionFile;
 
     // Load component definitions
-    fileToObject(dataDef_, cfg_.definitionFile);
-    if (dataDef_.kind.empty()) {
+    dataDef_ = make_unique<ComponentDataDef>();
+    fileToObject(*dataDef_, cfg_.definitionFile);
+    if (dataDef_->kind.empty()) {
         LOG_ERROR << "Invalid definition file: " << cfg_.definitionFile;
         throw runtime_error("Invalid definition "s + cfg_.definitionFile);
     }

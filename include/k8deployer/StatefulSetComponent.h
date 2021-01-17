@@ -1,7 +1,5 @@
 #pragma once
 
-#pragma once
-
 #include "k8deployer/DeploymentComponent.h"
 
 namespace k8deployer {
