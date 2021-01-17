@@ -1,9 +1,17 @@
 name: arango
-kind: Deployment
+kind: StatefulSet
 args:
     image: arangodb:3.5
-    port: "8529"
-    service.enabled: "true"
+    port: >
+        8529
     service.type: NodePort
     pod.env:
         ARANGO_ROOT_PASSWORD=apples
+
+#startupProbe:
+    #httpGet:
+        #path: /_api/version
+        #port: 8529
+        #httpHeaders:
+          #- name: Authorization
+            #value: Basic cm9vdDphcHBsZXM=

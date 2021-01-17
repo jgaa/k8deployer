@@ -11,6 +11,7 @@ struct Config {
   std::string command = "deploy";
   uint16_t localPort = 9000;
   std::vector<std::string> kubeconfigs;
+  std::string storageEngine; // ex: nfs:nfshost:opt/nfs/k8:/mnt/nfs (type : host : mount-path : local path [where we can create subdirs for volumes])
 };
 
 } // ns

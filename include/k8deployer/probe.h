@@ -31,7 +31,16 @@ void sendProbe(Component& component, const std::string& url,
             bool done = false;
             if constexpr (std::is_same_v<T, k8api::Service>) {
                 // If it exists, it's probably OK...
-                done = true;;
+                done = true;
+            }
+
+            if constexpr (std::is_same_v<T, k8api::StatefulSet>) {
+                LOG_TRACE << component.logName()
+                        << "Probing: readyReplicas = " << data.status->readyReplicas
+                        << ", replicas = " << data.spec.replicas
+                        << ", currentReplicas = " << data.status->currentReplicas;
+
+                done = data.status->readyReplicas == data.spec.replicas;
             }
 
             for(const auto& cond : data.status->conditions) {
@@ -45,6 +54,8 @@ void sendProbe(Component& component, const std::string& url,
                     }
                 } else if constexpr (std::is_same_v<T, k8api::Service>) {
                     // Kubernetes don't give any condition for when a service is available..
+                } else if constexpr (std::is_same_v<T, k8api::StatefulSet>) {
+                    // I see no conditions for StatefulSets
                 } else {
                     assert(false); // Unsupported type
                 }

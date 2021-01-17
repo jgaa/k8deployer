@@ -26,6 +26,16 @@ void DeploymentComponent::prepareDeploy()
     return BaseComponent::prepareDeploy();
 }
 
+string DeploymentComponent::getCreationUrl() const
+{
+    static const auto url = cluster_->getUrl()
+            + "/apis/apps/v1/namespaces/"
+            + deployment.metadata.namespace_
+            + "/deployments";
+
+    return url;
+}
+
 void DeploymentComponent::buildDependencies()
 {
     assert(getPodTemplate());
@@ -49,7 +59,7 @@ void DeploymentComponent::buildDependencies()
             }
         }
 
-        addChild(name + "-svc", Kind::SERVICE, labels, svcargs);
+        addChild(name + "-svc", Kind::SERVICE, labels, svcargs, "before");
     }
 
     // Check for config-files --> ConfigMap
@@ -70,14 +80,15 @@ void DeploymentComponent::buildDependencies()
         // Add the configmap as a volume to the first pod
         k8api::Volume volume;
         volume.name = cf->configmap.metadata.name;
-        volume.configMap.name = cf->configmap.metadata.name;
+        volume.configMap = {};
+        volume.configMap->name = cf->configmap.metadata.name;
 
         for(auto& [k, _] : cf->configmap.binaryData) {
             k8api::KeyToPath ktp;
             ktp.key = k;
             ktp.path = k;
             ktp.mode = 0440;
-            volume.configMap.items.push_back(ktp);
+            volume.configMap->items.push_back(ktp);
         }
 
         podspec->volumes.push_back(volume);
@@ -116,32 +127,18 @@ void DeploymentComponent::buildDependencies()
 
 void DeploymentComponent::doDeploy(std::weak_ptr<Task> task)
 {
-    const auto url = cluster_->getUrl()
-            + "/apis/apps/v1/namespaces/"
-            + deployment.metadata.namespace_
-            + "/deployments";
-    sendApply(deployment, url, task);
+    sendApply(deployment, getCreationUrl(), task);
 }
 
 void DeploymentComponent::doRemove(std::weak_ptr<Component::Task> task)
 {
-    const auto url = cluster_->getUrl()
-            + "/apis/apps/v1/namespaces/"
-            + deployment.metadata.namespace_
-            + "/deployments/" + name;
-
-    sendDelete(url, task);
+    sendDelete(getAccessUrl(), task);
 }
 
 bool DeploymentComponent::probe(std::function<void (Component::K8ObjectState)> fn)
 {
     if (fn) {
-        const auto url = cluster_->getUrl()
-                + "/apis/apps/v1/namespaces/"
-                + deployment.metadata.namespace_
-                + "/deployments/" + name;
-
-        sendProbe<k8api::Deployment>(*this, url, [wself=weak_from_this(), fn=move(fn)]
+        sendProbe<k8api::Deployment>(*this, getAccessUrl(), [wself=weak_from_this(), fn=move(fn)]
                               (const std::optional<k8api::Deployment>& /*object*/, K8ObjectState state) {
             if (auto self = wself.lock()) {
                 assert(fn);

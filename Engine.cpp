@@ -21,6 +21,7 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::ComponentDataDef,
                           (k8deployer::conf_t, args)
                           (k8deployer::k8api::Job, job)
                           (k8deployer::k8api::Deployment, deployment)
+                          (k8deployer::k8api::StatefulSet, statefulSet)
                           (k8deployer::k8api::Service, service)
                           (k8deployer::k8api::string_list_t, depends)
                           (std::optional<k8deployer::k8api::Secret>, secret)

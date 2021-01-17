@@ -1,42 +1,43 @@
 #pragma once
 
-#include "k8deployer/BaseComponent.h"
+#pragma once
+
+#include "k8deployer/DeploymentComponent.h"
 
 namespace k8deployer {
 
-class DeploymentComponent : public BaseComponent
+class StatefulSetComponent : public DeploymentComponent
 {
 public:
-    DeploymentComponent(const Component::ptr_t& parent, Cluster& cluster, const ComponentData& data)
-        : BaseComponent(parent, cluster, data)
+    StatefulSetComponent(const Component::ptr_t& parent, Cluster& cluster, const ComponentData& data)
+        : DeploymentComponent(parent, cluster, data)
     {
-        kind_ = Kind::DEPLOYMENT;
+        kind_ = Kind::STATEFULSET;
     }
 
     void prepareDeploy() override;
 
 protected:
     k8api::ObjectMeta *getMetadata() override {
-        return &deployment.metadata;
+        return &statefulSet.metadata;
     }
 
     k8api::PodTemplateSpec *getPodTemplate() override {
-        return &deployment.spec.template_;
+        return &statefulSet.spec.template_;
     }
 
     k8api::LabelSelector *getLabelSelector() override {
-        return &deployment.spec.selector;
+        return &statefulSet.spec.selector;
     }
 
     size_t getReplicas() const override {
-        return deployment.spec.replicas;
+        return statefulSet.spec.replicas;
     }
-
-    std::string getCreationUrl() const override;
 
     void buildDependencies() override;
     void doDeploy(std::weak_ptr<Task> task) override;
     void doRemove(std::weak_ptr<Task> task) override;
+    std::string getCreationUrl() const override;
 
     // Component interface
 public:
@@ -44,5 +45,7 @@ public:
 };
 
 } // ns
+
+
 
 

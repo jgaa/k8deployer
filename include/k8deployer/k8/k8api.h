@@ -359,7 +359,7 @@ struct EmptyDirVolumeSource {
 
 struct Volume {
     std::string name;
-    ConfigMapVolumeSource configMap;
+    std::optional<ConfigMapVolumeSource> configMap;
     std::optional<EmptyDirVolumeSource> emptyDir;
     std::optional<HostPathVolumeSource> hostPath;
     std::optional<NFSVolumeSource> nfs;
@@ -606,12 +606,32 @@ struct StatefulSetSpec {
     std::vector<PersistentVolumeClaim> volumeClaimTemplates;
 };
 
+struct StatefulSetCondition {
+    std::string lastTransitionTime;
+    std::string gmessage;
+    std::string reason;
+    std::string status;
+    std::string type;
+};
+
+struct StatefulSetStatus {
+    size_t collisionCount = 0;
+    std::vector<StatefulSetCondition> conditions;
+    size_t currentReplicas = 0;
+    std::string currentRevision;
+    size_t observedGeneration = 0;
+    size_t readyReplicas = 0;
+    size_t replicas = 0;
+    std::string updateRevision;
+    size_t updatedReplicas = 0;
+};
+
 struct StatefulSet {
     std::string apiVersion = "apps/v1";
     std::string kind = "StatefulSet";
     ObjectMeta metadata;
-    DeploymentSpec spec;
-    std::optional<DeploymentStatus> status;
+    StatefulSetSpec spec;
+    std::optional<StatefulSetStatus> status;
 };
 
 } // ns
@@ -1158,11 +1178,31 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::StatefulSetSpec,
     (std::vector<k8deployer::k8api::PersistentVolumeClaim>, volumeClaimTemplates)
 );
 
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::StatefulSetCondition,
+    (std::string, lastTransitionTime)
+    (std::string, gmessage)
+    (std::string, reason)
+    (std::string, status)
+    (std::string, type)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::StatefulSetStatus,
+    (size_t, collisionCount)
+    (std::vector<k8deployer::k8api::StatefulSetCondition>, conditions)
+    (size_t, currentReplicas)
+    (std::string, currentRevision)
+    (size_t, observedGeneration)
+    (size_t, readyReplicas)
+    (size_t, replicas)
+    (std::string, updateRevision)
+    (size_t, updatedReplicas)
+);
+
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::StatefulSet,
     (std::string, apiVersion)
     (std::string, kind)
     (k8deployer::k8api::ObjectMeta, metadata)
-    (k8deployer::k8api::DeploymentSpec, spec)
-    (std::optional<k8deployer::k8api::DeploymentStatus>, status)
+    (k8deployer::k8api::StatefulSetSpec, spec)
+    (std::optional<k8deployer::k8api::StatefulSetStatus>, status)
 );
 

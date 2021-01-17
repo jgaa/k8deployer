@@ -150,7 +150,8 @@ void BaseComponent::buildInitContainers()
                 if (name == c.name) {
                    if (c.getKind() == Kind::SERVICE) {
                        target = &c;
-                   } else if (c.getKind() == Kind::DEPLOYMENT) {
+                   } else if (c.getKind() == Kind::DEPLOYMENT
+                              || c.getKind() == Kind::STATEFULSET) {
                        for(auto& cc : c.getChildren()) {
                            if (cc->getKind() == Kind::SERVICE) {
                                target = cc.get();
@@ -186,6 +187,8 @@ void BaseComponent::sendDelete(const string &url, std::weak_ptr<Component::Task>
 {
     Engine::client().Process([this, url, task, ignoreErrors](auto& ctx) {
 
+        LOG_TRACE << logName() << "Sending DELETE " << url;
+
         try {
             auto reply = restc_cpp::RequestBuilder{ctx}.Delete(url)
                .Execute();
@@ -204,6 +207,12 @@ void BaseComponent::sendDelete(const string &url, std::weak_ptr<Component::Task>
             if (err.http_response.status_code == 404) {
                 // Perfectly OK
                 if (auto taskInstance = task.lock()) {
+                    LOG_TRACE << logName()
+                             << "Ignoring failed DELETE request: " << err.http_response.status_code
+                             << ' ' << err.http_response.reason_phrase
+                             << ": \"" << err.what()
+                             << "\" for url: " << url;
+
                     taskInstance->setState(Task::TaskState::DONE);
                 }
                 return;

@@ -29,6 +29,7 @@ add_executable(${PROJECT_NAME}
     PortForward.cpp
     SecretComponent.cpp
     ServiceComponent.cpp
+    StatefulSetComponent.cpp
     include/k8deployer/AppComponent.h
     include/k8deployer/BaseComponent.h
     include/k8deployer/Cluster.h
@@ -41,6 +42,7 @@ add_executable(${PROJECT_NAME}
     include/k8deployer/PortForward.h
     include/k8deployer/SecretComponent.h
     include/k8deployer/ServiceComponent.h
+    include/k8deployer/StatefulSetComponent.h
     include/k8deployer/k8/Event.h
     include/k8deployer/k8/k8api.h
     include/k8deployer/logging.h

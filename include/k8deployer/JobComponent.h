@@ -30,7 +30,6 @@ protected:
         return {}; //&job.spec.selector;
     }
 
-    void buildDependencies();
     void doDeploy(std::weak_ptr<Task> task) override;
     void doRemove(std::weak_ptr<Task> task) override;
 };

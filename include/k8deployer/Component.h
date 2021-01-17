@@ -23,6 +23,7 @@ enum class Kind {
     APP, // A placeholder that owns other components
     JOB,
     DEPLOYMENT,
+    STATEFULSET,
     SERVICE,
     CONFIGMAP,
     SECRET
@@ -79,6 +80,7 @@ struct ComponentData {
     // Can be populated by configuration, but normally we will do it
     k8api::Job job;
     k8api::Deployment deployment;
+    k8api::StatefulSet statefulSet;
     k8api::Service service;
     k8api::ConfigMap configmap;
     std::optional<k8api::Secret> secret;
@@ -335,6 +337,14 @@ public:
     void evaluate();
 
 protected:
+    virtual std::string getCreationUrl() const {
+        assert(false); // Implement!
+    };
+
+    virtual std::string getAccessUrl() const {
+        return getCreationUrl() + "/" + name;
+    };
+
     void addDependenciesRecursively(std::set<Component *>& contains);
     void processEvent(const k8api::Event& event);
 
@@ -354,6 +364,7 @@ protected:
     void prepare();
     void validate();
     bool hasKindAsChild(Kind kind) const;
+    Component * getFirstKindAmongChildren(Kind kind);
     void initChildren();
     std::future<void> execute(std::function<void(tasks_t&)> fn);
 
@@ -361,7 +372,7 @@ protected:
     tasks_t buildDeployTasks();
 
     ptr_t addChild(const std::string& name, Kind kind, const labels_t& labels,
-                   const conf_t& args);
+                   const conf_t& args, const std::string& parentRelation = {});
     conf_t mergeArgs() const;
 
     // Get a path to root, where the current node is first in the list

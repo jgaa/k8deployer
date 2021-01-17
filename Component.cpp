@@ -11,6 +11,7 @@
 #include "k8deployer/AppComponent.h"
 #include "k8deployer/JobComponent.h"
 #include "k8deployer/DeploymentComponent.h"
+#include "k8deployer/StatefulSetComponent.h"
 #include "k8deployer/ServiceComponent.h"
 #include "k8deployer/ConfigMapComponent.h"
 #include "k8deployer/SecretComponent.h"
@@ -29,6 +30,7 @@ namespace {
 const map<string, Kind> kinds = {{"App", Kind::APP},
                                  {"Job", Kind::JOB},
                                  {"Deployment", Kind::DEPLOYMENT},
+                                 {"StatefulSet", Kind::STATEFULSET},
                                  {"Service", Kind::SERVICE},
                                  {"ConfigMap", Kind::CONFIGMAP},
                                  {"Secret", Kind::SECRET}
@@ -554,16 +556,6 @@ void Component::runTasks() {
             allDone = task->isDone() ? allDone : false;
         }
 
-        if (allDone) {
-            LOG_INFO << logName() << "All DONE.";
-            setState(State::DONE);
-            if (executionPromise_) {
-                executionPromise_->set_value();
-                executionPromise_.reset();
-            }
-            return;
-        }
-
         if (!again) {
             // TODO: Add timer so we can time out if we don't catch or get
             // events to move the states to DONE.
@@ -589,6 +581,11 @@ void Component::setState(Component::State state)
 
     if (state == State::DONE) {
         LOG_INFO << logName() << "Done.";
+
+        if (executionPromise_) {
+            executionPromise_->set_value();
+            executionPromise_.reset();
+        }
     }
 
     if (state == State::FAILED) {
@@ -644,6 +641,8 @@ Component::ptr_t Component::createComponent(const ComponentDataDef &def,
         return make_shared<JobComponent>(parent, cluster, def);
     case Kind::DEPLOYMENT:
         return make_shared<DeploymentComponent>(parent, cluster, def);
+    case Kind::STATEFULSET:
+        return make_shared<StatefulSetComponent>(parent, cluster, def);
     case Kind::SERVICE:
         return make_shared<ServiceComponent>(parent, cluster, def);
     case Kind::CONFIGMAP:
@@ -703,6 +702,17 @@ bool Component::hasKindAsChild(Kind kind) const
     return false;
 }
 
+Component *Component::getFirstKindAmongChildren(Kind kind)
+{
+    for(const auto& child : children_) {
+        if (child->getKind() == kind) {
+            return child.get();
+        }
+    }
+
+    return {};
+}
+
 void Component::initChildren()
 {
     for(auto& child: children_) {
@@ -711,13 +721,15 @@ void Component::initChildren()
 }
 
 Component::ptr_t Component::addChild(const string &name, Kind kind, const labels_t &labels,
-                                     const conf_t& args)
+                                     const conf_t& args,
+                                     const string& parentRelation)
 {
     ComponentDataDef def;
     def.labels = labels;
     def.name = name;
     def.kind = toString(kind);
     def.args = args;
+    def.parentRelation = parentRelation;
     assert(cluster_);
     auto component = createComponent(def, shared_from_this(), *cluster_);
     component->init();

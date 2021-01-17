@@ -1,5 +1,5 @@
 #include "k8deployer/ServiceComponent.h"
-#include "k8deployer/DeploymentComponent.h"
+#include "k8deployer/BaseComponent.h"
 #include "restc-cpp/RequestBuilder.h"
 
 #include "k8deployer/logging.h"
@@ -36,51 +36,49 @@ void ServiceComponent::prepareDeploy()
         }
     }
 
-    // TODO: Deal with statefulsets
-    k8api::containers_t *containers = {};
     if (auto parent = parent_.lock()) {
-        if (auto depl = dynamic_cast<DeploymentComponent *>(parent.get())) {
-            containers = &depl->deployment.spec.template_.spec.containers;
-        }
-    }
+        if (auto depl = dynamic_cast<BaseComponent *>(parent.get())) {
+            auto& containers = depl->getPodTemplate()->spec.containers;
 
-    if (service.spec.ports.empty() && containers) {
-        // Try to use the known ports from all the containers in the pod
-        size_t cnt = 0;
-        for(const auto& container :*containers) {
-            for(const auto& dp : container.ports) {
-                ++cnt;
-                k8api::ServicePort sport;
-                sport.protocol = dp.protocol;
+            if (service.spec.ports.empty()) {
+                // Try to use the known ports from all the containers in the pod
+                size_t cnt = 0;
+                for(const auto& container : containers) {
+                    for(const auto& dp : container.ports) {
+                        ++cnt;
+                        k8api::ServicePort sport;
+                        sport.protocol = dp.protocol;
 
-                int extport = dp.hostPort;
-                if (cnt == 1 && extport <= 0) {
-                    extport = getIntArg("port", dp.containerPort);
+                        int extport = dp.hostPort;
+                        if (cnt == 1 && extport <= 0) {
+                            extport = getIntArg("port", dp.containerPort);
+                        }
+
+                        if (extport <= 0) {
+                            extport = dp.containerPort;
+                        }
+
+                        sport.port = extport;
+
+                        if (!dp.name.empty()) {
+                            sport.targetPort = dp.name;
+                            sport.name = dp.name;
+                        } else {
+                            sport.targetPort = dp.hostPort;
+                            sport.name = "sport-" + to_string(cnt);
+                        }
+
+                        // FIXME: Setting nodePort yields error: 422 Unprocessable Entity
+                        if (cnt == 1 && sport.nodePort <= 0) {
+                            sport.nodePort = getIntArg("service.nodePort", 0);
+                        }
+
+                        LOG_TRACE << logName() << "Added port " << sport.name
+                                  << " To service " << service.metadata.name;
+
+                        service.spec.ports.push_back(move(sport));
+                    }
                 }
-
-                if (extport <= 0) {
-                    extport = dp.containerPort;
-                }
-
-                sport.port = extport;
-
-                if (!dp.name.empty()) {
-                    sport.targetPort = dp.name;
-                    sport.name = dp.name;
-                } else {
-                    sport.targetPort = dp.hostPort;
-                    sport.name = "sport-" + to_string(cnt);
-                }
-
-                // FIXME: Setting nodePort yields error: 422 Unprocessable Entity
-                if (cnt == 1 && sport.nodePort <= 0) {
-                    sport.nodePort = getIntArg("service.nodePort", 0);
-                }
-
-                LOG_TRACE << logName() << "Added port " << sport.name
-                          << " To service " << service.metadata.name;
-
-                service.spec.ports.push_back(move(sport));
             }
         }
     }

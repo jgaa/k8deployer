@@ -14,13 +14,13 @@ public:
         : Component(parent, cluster, data)
     {}
 
-protected:
-    void addDeploymentTasks(tasks_t& tasks) override;
-    void addRemovementTasks(tasks_t &tasks) override;
-
     virtual k8api::ObjectMeta *getMetadata() = 0;
     virtual k8api::PodTemplateSpec *getPodTemplate() = 0;
     virtual k8api::LabelSelector *getLabelSelector() = 0;
+
+protected:
+    void addDeploymentTasks(tasks_t& tasks) override;
+    void addRemovementTasks(tasks_t &tasks) override;
 
     virtual size_t getReplicas() const {
         return 1;
