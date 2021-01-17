@@ -2,7 +2,17 @@
 
 #include "k8deployer/BaseComponent.h"
 
+#include "k8deployer/buildDependencies.h"
+
 namespace k8deployer {
+
+class DeploymentComponent;
+
+template <typename T>
+void buildDependenciesT() {}
+
+template <typename T>
+void buildDependenciesT<DeploymentComponent>();
 
 class DeploymentComponent : public BaseComponent
 {
@@ -32,9 +42,11 @@ protected:
         return deployment.spec.replicas;
     }
 
-    void buildDependencies();
+    void buildDependencies() override;
     void doDeploy(std::weak_ptr<Task> task) override;
     void doRemove(std::weak_ptr<Task> task) override;
+
+    friend class k8deployer::buildDependenciesT<DeploymentComponent>();
 
     // Component interface
 public:

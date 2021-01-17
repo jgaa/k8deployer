@@ -382,6 +382,8 @@ protected:
     void forAllComponents(const std::function<void (Component&)>& fn);
     void walkAndExecuteFn(const std::function<void (Component&)>& fn);
 
+    virtual void buildDependencies() {}
+
     State state_{State::PRE}; // From our logic
     std::string k8state_; // From the event-loop
     std::weak_ptr<Component> parent_;

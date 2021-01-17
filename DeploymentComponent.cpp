@@ -28,6 +28,9 @@ void DeploymentComponent::prepareDeploy()
 
 void DeploymentComponent::buildDependencies()
 {
+    assert(getPodTemplate());
+    k8api::PodSpec *podspec = &getPodTemplate()->spec;
+
     if (labels.empty()) {
         labels["app"] = name; // Use the name as selector
     }
@@ -65,9 +68,6 @@ void DeploymentComponent::buildDependencies()
         cf->prepareDeploy(); // We need the fully initialized ConfigMap in order to map the volume
 
         // Add the configmap as a volume to the first pod
-        k8api::PodSpec *podspec = {};
-        podspec = &deployment.spec.template_.spec;
-
         k8api::Volume volume;
         volume.name = cf->configmap.metadata.name;
         volume.configMap.name = cf->configmap.metadata.name;
@@ -94,24 +94,24 @@ void DeploymentComponent::buildDependencies()
         }
     }
 
-    // Check for docker hub secrets
-    if (auto dh = getArg("imagePullSecrets.fromDockerLogin")) {
-        LOG_DEBUG << logName() << "Adding Docker credentials.";
+//    --- Broken when we use non-https transport
+//    // Check for docker hub secrets
+//    if (auto dh = getArg("imagePullSecrets.fromDockerLogin")) {
+//        LOG_DEBUG << logName() << "Adding Docker credentials.";
 
-        conf_t svcargs;
-        for(const auto& [k, v] : args) {
-            static const array<string, 1> relevant = {"magePullSecrets.fromDockerLogin"};
-            if (find(relevant.begin(), relevant.end(), k) != relevant.end()) {
-                svcargs[k] = v;
-            }
-        }
+//        conf_t svcargs;
+//        for(const auto& [k, v] : args) {
+//            static const array<string, 1> relevant = {"magePullSecrets.fromDockerLogin"};
+//            if (find(relevant.begin(), relevant.end(), k) != relevant.end()) {
+//                svcargs[k] = v;
+//            }
+//        }
 
-        auto child = addChild(name + "-dhcreds", Kind::SECRET, {}, svcargs);
-        k8api::PodSpec *podspec = {};
-        podspec = &deployment.spec.template_.spec;
-        k8api::LocalObjectReference lor = {child->name};
-        podspec->imagePullSecrets.push_back(lor);
-    }
+//        auto child = addChild(name + "-dhcreds", Kind::SECRET, {}, svcargs);
+//        k8api::PodSpec *podspec = {};
+//        k8api::LocalObjectReference lor = {child->name};
+//        podspec->imagePullSecrets.push_back(lor);
+//    }
 }
 
 void DeploymentComponent::doDeploy(std::weak_ptr<Task> task)

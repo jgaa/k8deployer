@@ -45,6 +45,7 @@ add_executable(${PROJECT_NAME}
     include/k8deployer/k8/k8api.h
     include/k8deployer/logging.h
     include/k8deployer/probe.h
+    include/k8deployer/buildDependencies.h
     )
 
 add_dependencies(${PROJECT_NAME} externalRestcCpp)

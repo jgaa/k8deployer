@@ -19,7 +19,6 @@ protected:
     void addRemovementTasks(tasks_t &tasks) override;
 
     virtual k8api::ObjectMeta *getMetadata() = 0;
-
     virtual k8api::PodTemplateSpec *getPodTemplate() = 0;
     virtual k8api::LabelSelector *getLabelSelector() = 0;
 

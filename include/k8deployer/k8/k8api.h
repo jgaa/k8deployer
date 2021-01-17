@@ -360,11 +360,10 @@ struct EmptyDirVolumeSource {
 struct Volume {
     std::string name;
     ConfigMapVolumeSource configMap;
-    // TODO: Make optional
-    //EmptyDirVolumeSource emptyDir;
-    //HostPathVolumeSource hostPath;
-    //NFSVolumeSource nfs;
-    //PersistentVolumeClaimVolumeSource persistentVolumeClaim;
+    std::optional<EmptyDirVolumeSource> emptyDir;
+    std::optional<HostPathVolumeSource> hostPath;
+    std::optional<NFSVolumeSource> nfs;
+    std::optional<PersistentVolumeClaimVolumeSource> persistentVolumeClaim;
 };
 
 using volumes_t = std::vector<Volume>;
@@ -540,6 +539,79 @@ struct ConfigMap {
     bool immutable = false;
     key_values_t data;
     key_values_t binaryData; // base64 encoded
+};
+
+struct RollingUpdateStatefulSetStrategy {
+    size_t partition = 0;
+};
+
+struct StatefulSetUpdateStrategy {
+    std::optional<RollingUpdateStatefulSetStrategy> rollingUpdate;
+    std::string type;
+};
+
+struct TypedLocalObjectReference {
+    std::string apiGroup;
+    std::string kind;
+    std::string name;
+};
+
+struct ResourceRequirements {
+    key_values_t limits;
+    key_values_t requests;
+};
+
+struct PersistentVolumeClaimCondition {
+    std::string lastProbeTime;
+    std::string lastTransitionTime;
+    std::string message;
+    std::string reason;
+    std::string status;
+    std::string type;
+};
+
+struct PersistentVolumeClaimStatus {
+    string_list_t accessModes;
+    key_values_t capacity;
+    std::vector<PersistentVolumeClaimCondition> conditions;
+    std::string phase;
+};
+
+struct PersistentVolumeClaimSpec {
+    string_list_t accessModes;
+    TypedLocalObjectReference dataSource;
+    std::optional<ResourceRequirements> resources;
+    LabelSelector selector;
+    std::string storageClassName;
+    std::string volumeMode;
+    std::string volumeName;
+    std::optional<PersistentVolumeClaimStatus> status;
+};
+
+struct PersistentVolumeClaim {
+    std::string apiVersion = "v1";
+    std::string kind = "PersistentVolumeClaim";
+    ObjectMeta metadata;
+    PersistentVolumeClaimSpec spec;
+};
+
+struct StatefulSetSpec {
+    std::string podManagementPolicy;
+    size_t replicas = 1;
+    size_t revisionHistoryLimit = 0;
+    LabelSelector selector;
+    std::string serviceName;
+    PodTemplateSpec template_;
+    std::optional<StatefulSetUpdateStrategy> updateStrategy;
+    std::vector<PersistentVolumeClaim> volumeClaimTemplates;
+};
+
+struct StatefulSet {
+    std::string apiVersion = "apps/v1";
+    std::string kind = "StatefulSet";
+    ObjectMeta metadata;
+    DeploymentSpec spec;
+    std::optional<DeploymentStatus> status;
 };
 
 } // ns
@@ -837,11 +909,11 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::EmptyDirVolumeSource,
 
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::Volume,
     (std::string, name)
-    (k8deployer::k8api::ConfigMapVolumeSource, configMap)
-    //(k8deployer::k8api::EmptyDirVolumeSource, emptyDir)
-    //(k8deployer::k8api::HostPathVolumeSource, hostPath)
-    //(k8deployer::k8api::NFSVolumeSource, nfs)
-    //(k8deployer::k8api::PersistentVolumeClaimVolumeSource, persistentVolumeClaim)
+    (std::optional<k8deployer::k8api::ConfigMapVolumeSource>, configMap)
+    (std::optional<k8deployer::k8api::EmptyDirVolumeSource>, emptyDir)
+    (std::optional<k8deployer::k8api::HostPathVolumeSource>, hostPath)
+    (std::optional<k8deployer::k8api::NFSVolumeSource>, nfs)
+    (std::optional<k8deployer::k8api::PersistentVolumeClaimVolumeSource>, persistentVolumeClaim)
 );
 
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::HostAlias,
@@ -1020,3 +1092,77 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::Secret,
     (k8deployer::k8api::key_values_t, stringData)
     (std::string, type)
 );
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::RollingUpdateStatefulSetStrategy,
+    (size_t, partition)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::StatefulSetUpdateStrategy,
+    (std::optional<k8deployer::k8api::RollingUpdateStatefulSetStrategy>, rollingUpdate)
+    (std::string, type)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::TypedLocalObjectReference,
+    (std::string, apiGroup)
+    (std::string, kind)
+    (std::string, name)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::ResourceRequirements,
+    (k8deployer::k8api::key_values_t, limits)
+    (k8deployer::k8api::key_values_t, requests)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::PersistentVolumeClaimCondition,
+    (std::string, lastProbeTime)
+    (std::string, lastTransitionTime)
+    (std::string, message)
+    (std::string, reason)
+    (std::string, status)
+    (std::string, type)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::PersistentVolumeClaimStatus,
+    (k8deployer::k8api::string_list_t, accessModes)
+    (k8deployer::k8api::key_values_t, capacity)
+    (std::vector<k8deployer::k8api::PersistentVolumeClaimCondition>, conditions)
+    (std::string, phase)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::PersistentVolumeClaimSpec,
+    (k8deployer::k8api::string_list_t, accessModes)
+    (k8deployer::k8api::TypedLocalObjectReference, dataSource)
+    (std::optional<k8deployer::k8api::ResourceRequirements>, resources)
+    (k8deployer::k8api::LabelSelector, selector)
+    (std::string, storageClassName)
+    (std::string, volumeMode)
+    (std::string, volumeName)
+    (std::optional<k8deployer::k8api::PersistentVolumeClaimStatus>, status)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::PersistentVolumeClaim,
+    (std::string, apiVersion)
+    (std::string, kind)
+    (k8deployer::k8api::ObjectMeta, metadata)
+    (k8deployer::k8api::PersistentVolumeClaimSpec, spec)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::StatefulSetSpec,
+    (std::string, podManagementPolicy)
+    (size_t, replicas)
+    (size_t, revisionHistoryLimit)
+    (k8deployer::k8api::LabelSelector, selector)
+    (std::string, serviceName)
+    (k8deployer::k8api::PodTemplateSpec, template_)
+    (std::optional<k8deployer::k8api::StatefulSetUpdateStrategy>, updateStrategy)
+    (std::vector<k8deployer::k8api::PersistentVolumeClaim>, volumeClaimTemplates)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::StatefulSet,
+    (std::string, apiVersion)
+    (std::string, kind)
+    (k8deployer::k8api::ObjectMeta, metadata)
+    (k8deployer::k8api::DeploymentSpec, spec)
+    (std::optional<k8deployer::k8api::DeploymentStatus>, status)
+);
+
