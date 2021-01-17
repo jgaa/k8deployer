@@ -38,14 +38,15 @@ For now, an experimental kubernetes deployer in C++
     - [x] Docker repositoiry secrets
         - [x] Use in podspec
     - [ ] Optimize secrets, so we only have one object per actual secret
+    - [ ] Change protocol to https:// (directly to cluster) in order to create secrets
 
 - [ ] StatefulSet
-    - [ ] Create
-        - [ ] Deal with storage
+    - [x] Create
+        - [x] Deal with storage
             - [ ] Local
-            - [ ] Network
-                - [ ] nfs
-    - [ ] Delete
+            - [x] Network
+                - [x] nfs
+    - [x] Delete
         - [ ] Deal with storage
     - [ ] Update
     - [ ] Verify
@@ -54,10 +55,17 @@ For now, an experimental kubernetes deployer in C++
     - [ ] Create
     - [ ] Delete
 
-- [ ] Storage reservation pools
-    - [ ] Figure out what to do
+- [ ] Storage reservation pools / automatoc VolumeMounts
+    - [x] Support NFS, manual and automatically
+    - [ ] Support single node local storage
+    - [ ] Support AWS
+    - [ ] Support GCP
+    - [ ] Support Azure
+    - [ ] Support GlusterFS
+    - [ ] Support DigitalOcean (?)
+    - [ ] Support Single Node bare metal
 
-- [ ] Event-driven work-flow.
+- [x] Event-driven work-flow.
     - [x] Relate events to components.
     - [x] Update component state from events
     - [x] Trigger next action(s) from state changes
@@ -69,6 +77,6 @@ For now, an experimental kubernetes deployer in C++
 
 ## Bugs / limitations
 - [ ] App need to exit when the execution is complete
-- [ ] Add readyness probe for pods
-- [ ] Add alive probe for pods
-- [ ] deployment.spec.affinity.nodeAffinity must be std::optional (needs support in the json serializor)
+- [x] Add readyness probe for pods
+- [x] Add alive probe for pods
+- [x] deployment.spec.affinity.nodeAffinity must be std::optional (needs support in the json serializor)
