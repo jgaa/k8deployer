@@ -16,6 +16,17 @@ namespace k8deployer {
 
 void StatefulSetComponent::prepareDeploy()
 {
+    if (!getSpec(true)->template_) {
+        getSpec(true)->template_.emplace();
+    }
+    if (!statefulSet.metadata) {
+        statefulSet.metadata.emplace();
+    }
+
+    if (!statefulSet.spec->selector) {
+        statefulSet.spec->selector.emplace();
+    }
+
     basicPrepareDeploy();
     buildDependencies();
 
@@ -23,20 +34,81 @@ void StatefulSetComponent::prepareDeploy()
     return BaseComponent::prepareDeploy();
 }
 
+void StatefulSetComponent::addRemovementTasks(Component::tasks_t &tasks)
+{
+    // Scale down to zero to dispose storage
+    auto scaleDownTask = make_shared<Task>(*this, name + "-scale-down", [&](Task& task,
+                                           const k8api::Event *event) {
+        // Execution?
+        if (task.state() == Task::TaskState::READY) {
+            task.setState(Task::TaskState::EXECUTING);
+            k8api::StatefulSet ss;
+            ss.spec.emplace();
+            ss.apiVersion.clear();
+            ss.kind.clear();
+            ss.spec->replicas = 0;
+            task.startProbeAfterApply = true;
+            sendApply(move(ss), getAccessUrl() ,task.weak_from_this(),
+                      restc_cpp::Request::Type::PATCH);
+            task.setState(Task::TaskState::WAITING);
+        }
+
+        task.evaluate();
+    }, Task::TaskState::READY, Mode::REMOVE);
+    tasks.push_back(scaleDownTask);
+
+    // Remove
+    auto removeTask = make_shared<Task>(*this, name + "-delete", [&](Task& task, const k8api::Event *event) {
+
+        // Execution?
+        if (task.state() == Task::TaskState::READY) {
+            task.setState(Task::TaskState::EXECUTING);
+            doRemove(task.weak_from_this());
+            task.setState(Task::TaskState::WAITING);
+        }
+
+        task.evaluate();
+    }, Task::TaskState::PRE, Mode::REMOVE);
+
+    removeTask->addDependency(scaleDownTask);
+    tasks.push_back(removeTask);
+
+
+    // Delete pvc
+    auto removePvcTask = make_shared<Task>(*this, name + "-delete-pvc", [&, appName=name](Task& task, const k8api::Event *event) {
+
+        // Execution?
+        if (task.state() == Task::TaskState::READY) {
+            task.setState(Task::TaskState::EXECUTING);
+            const auto url = cluster_->getUrl() + "/api/v1/namespaces/" + getNamespace() + "/persistentvolumeclaims";
+            sendDelete(url, task.weak_from_this(), true, {{"labelSelector"s,"app="s + appName},
+                                                          {"propagationPolicy", "Orphan"}});
+            task.setState(Task::TaskState::WAITING);
+        }
+
+        task.evaluate();
+    }, Task::TaskState::PRE, Mode::REMOVE);
+
+    removeTask->addDependency(removePvcTask);
+    tasks.push_back(removePvcTask);
+
+    Component::addRemovementTasks(tasks);
+}
+
 void StatefulSetComponent::buildDependencies()
 {
     DeploymentComponent::buildDependencies();
 
     if (auto replicas = getArg("replicas")) {
-        statefulSet.spec.replicas = stoull(*replicas);
+        getSpec()->replicas = stoull(*replicas);
     }
 
     if (const auto svc = getFirstKindAmongChildren(Kind::SERVICE)) {
-        statefulSet.spec.serviceName = svc->name;
+        getSpec()->serviceName = svc->name;
     }
 
     if (auto policy = getArg("podManagementPolicy")) {
-        statefulSet.spec.podManagementPolicy = *policy;
+        getSpec()->podManagementPolicy = *policy;
     }
 
     for (auto storageDef : storage) {
@@ -68,7 +140,7 @@ void StatefulSetComponent::buildDependencies()
                 }
             }
 
-            for(size_t i = 0; i < statefulSet.spec.replicas; ++i) {
+            for(size_t i = 0; i < getReplicas(); ++i) {
                 addChild(storageDef.volume.name + "-" + name + "-" + to_string(i),
                          Kind::PERSISTENTVOLUME, {}, svcargs);
             }
@@ -82,12 +154,12 @@ void StatefulSetComponent::buildDependencies()
         pv.spec.resources->requests["storage"] = storageDef.capacity;
 
 
-        statefulSet.spec.volumeClaimTemplates.push_back(pv);
+        statefulSet.spec->volumeClaimTemplates.push_back(pv);
 
-        if (statefulSet.spec.template_.spec.containers.empty()) {
+        if (statefulSet.spec->template_->spec.containers.empty()) {
             throw runtime_error("No containers in StatefulSet when adding storage");
         }
-        statefulSet.spec.template_.spec.containers.front().volumeMounts.push_back(
+        statefulSet.spec->template_->spec.containers.front().volumeMounts.push_back(
                     storageDef.volume);
     }
 }
@@ -106,7 +178,7 @@ string StatefulSetComponent::getCreationUrl() const
 {
     static const auto url = cluster_->getUrl()
             + "/apis/apps/v1/namespaces/"
-            + statefulSet.metadata.namespace_
+            + getNamespace()
             + "/statefulsets";
 
     return url;
@@ -115,13 +187,23 @@ string StatefulSetComponent::getCreationUrl() const
 bool StatefulSetComponent::probe(std::function<void (Component::K8ObjectState)> fn)
 {
     if (fn) {
-        sendProbe<k8api::StatefulSet>(*this, getAccessUrl(), [wself=weak_from_this(), fn=move(fn)]
-                              (const std::optional<k8api::StatefulSet>& /*object*/, K8ObjectState state) {
+        sendProbe<k8api::StatefulSet>(*this, getAccessUrl(),
+            [wself=weak_from_this(), fn=move(fn)]
+            (const std::optional<k8api::StatefulSet>& /*object*/, K8ObjectState state) {
             if (auto self = wself.lock()) {
                 assert(fn);
                 fn(state);
             }
-        });
+            }, [](const auto& data) {
+                // TODO: We may have to allow a lower number of replicas to signal ready...
+                const size_t replicas = (data.spec->replicas ? *data.spec->replicas : 1);
+
+                LOG_TRACE << "Probe verify: replicas = " << replicas
+                          << ", readyReplicas = " << (data.status ? to_string(data.status->readyReplicas) : "[null]"s);
+
+                return data.status->readyReplicas == replicas;
+            }
+        );
     }
 
     return true;

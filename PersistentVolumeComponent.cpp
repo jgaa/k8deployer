@@ -45,13 +45,17 @@ void PersistentVolumeComponent::prepareDeploy()
 bool PersistentVolumeComponent::probe(std::function<void (Component::K8ObjectState)> fn)
 {
     if (fn) {
-        sendProbe<k8api::PersistentVolume>(*this, getAccessUrl(), [wself=weak_from_this(), fn=move(fn)]
-                              (const std::optional<k8api::PersistentVolume>& /*object*/, K8ObjectState state) {
-            if (auto self = wself.lock()) {
-                assert(fn);
-                fn(state);
+        sendProbe<k8api::PersistentVolume>(*this, getAccessUrl(),
+            [wself=weak_from_this(), fn=move(fn)]
+            (const std::optional<k8api::PersistentVolume>& /*object*/, K8ObjectState state) {
+                if (auto self = wself.lock()) {
+                    assert(fn);
+                    fn(state);
+                }
+            }, [] (const auto& data) {
+                return data.status->phase == "Available";
             }
-        });
+        );
     }
 
     return true;

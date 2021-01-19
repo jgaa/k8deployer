@@ -95,13 +95,18 @@ bool ServiceComponent::probe(std::function<void (Component::K8ObjectState)> fn)
                 + service.metadata.namespace_
                 + "/services/" + name;
 
-        sendProbe<k8api::Service>(*this, url, [wself=weak_from_this(), fn=move(fn)]
-                              (const std::optional<k8api::Service>& /*object*/, K8ObjectState state) {
-            if (auto self = wself.lock()) {
-                assert(fn);
-                fn(state);
+        sendProbe<k8api::Service>(*this, url,
+            [wself=weak_from_this(), fn=move(fn)]
+            (const std::optional<k8api::Service>& /*object*/, K8ObjectState state) {
+                if (auto self = wself.lock()) {
+                    assert(fn);
+                    fn(state);
+                }
+            }, [](const auto& data) {
+                // If it exists, it's probably OK...
+                return true;
             }
-        });
+        );
     }
 
     return true;

@@ -96,6 +96,13 @@ std::string Base64Encode(const std::string &in) {
     return out;
 }
 
+Component::Component(const Component::ptr_t &parent, Cluster &cluster, const ComponentData &data)
+    : ComponentData(data), parent_{parent}, cluster_{&cluster},
+      mode_{Engine::instance().config().command == "delete" ? Mode::REMOVE : Mode::CREATE}
+{
+
+}
+
 string Component::logName() const noexcept
 {
     return cluster_->name() + "/" + toString(kind_) + "/" + name + " ";
@@ -385,11 +392,13 @@ void Component::schedule(std::function<void ()> fn)
 
 bool Component::isBlockedOnDependency() const
 {
-    for(const auto& wcomp : dependsOn_) {
-        if (auto comp = wcomp.lock()) {
-            if (comp->state_ != State::DONE) {
-                LOG_TRACE << logName() << " is still blocked on " << comp->logName();
-                return true;
+    if (mode_ == Mode::CREATE) {
+        for(const auto& wcomp : dependsOn_) {
+            if (auto comp = wcomp.lock()) {
+                if (comp->state_ != State::DONE) {
+                    LOG_TRACE << logName() << " is still blocked on " << comp->logName();
+                    return true;
+                }
             }
         }
     }
@@ -400,22 +409,24 @@ bool Component::isBlockedOnDependency() const
 // Assumes that all components are created, including generated ones
 void Component::scanDependencies()
 {
-    for (const auto& depName : depends) {
-        forAllComponents([&](Component& c) {
-            if (depName == c.name) {
+    if (mode_ == Mode::CREATE) {
+        for (const auto& depName : depends) {
+            forAllComponents([&](Component& c) {
+                if (depName == c.name) {
 
-                // Check for circular dependencies
-                std::set<Component *> deps;
-                c.addDependenciesRecursively(deps);
-                if (deps.find(this) != deps.end()) {
-                    LOG_ERROR << logName() << "Detected circular dependency with: " << c.logName();
-                    throw runtime_error("Circular dependency");
+                    // Check for circular dependencies
+                    std::set<Component *> deps;
+                    c.addDependenciesRecursively(deps);
+                    if (deps.find(this) != deps.end()) {
+                        LOG_ERROR << logName() << "Detected circular dependency with: " << c.logName();
+                        throw runtime_error("Circular dependency");
+                    }
+
+                    dependsOn_.push_back(c.weak_from_this());
+                    LOG_DEBUG << logName() << "Component depends on " << c.logName();
                 }
-
-                dependsOn_.push_back(c.weak_from_this());
-                LOG_DEBUG << logName() << "Component depends on " << c.logName();
-            }
-        });
+            });
+        }
     }
 
     for(const auto& child: children_) {
@@ -751,7 +762,17 @@ conf_t Component::mergeArgs() const
     conf_t merged = args;
     for(const auto node: getPathToRoot()) {
         for(const auto& [k, v]: node->defaultArgs) {
-            merged.try_emplace(k, v);
+            // Inconsistency...
+            // For some values, we merge the strings, for others we only provide defaults.
+            if (k == "pod.args" || k == "pod.env") {
+                auto& m = merged[k];
+                if (!m.empty()) {
+                   m += " ";
+                }
+                m += v;
+            } else {
+                merged.try_emplace(k, v);
+            }
         }
     }
 
@@ -804,9 +825,11 @@ bool Component::Task::evaluate()
 
     if (state_ == TaskState::BLOCKED) {
         // If any components our component depends on are not done, we are still blocked
-        component().evaluate();
-        if (component().isBlockedOnDependency()) {
-            return changed;
+        if (mode() == Mode::CREATE) {
+            component().evaluate();
+            if (component().isBlockedOnDependency()) {
+                return changed;
+            }
         }
 
         bool blocked = false;
@@ -863,6 +886,20 @@ void Component::Task::schedulePoll()
 
                         if (!self->component().probe([wself](auto state) {
                             if (auto self = wself.lock()) {
+                                if (self->mode() == Mode::REMOVE) {
+                                   if (state == K8ObjectState::DONT_EXIST || state == K8ObjectState::DONE) {
+                                       self->setState(TaskState::DONE);
+                                       self->component().scheduleRunTasks();
+                                       return;
+                                   }
+                                   if (state == K8ObjectState::FAILED) {
+                                        self->setState(TaskState::FAILED);
+                                        self->component().scheduleRunTasks();
+                                        return;
+                                   }
+                                   self->schedulePoll();
+                                   return;
+                                }
                                 switch(state) {
                                     case K8ObjectState::FAILED:
                                         self->setState(TaskState::FAILED);
@@ -968,14 +1005,15 @@ string fileToJson(const string &pathToFile)
 }
 
 void Component::sendDelete(const string &url, std::weak_ptr<Component::Task> task,
-                               bool ignoreErrors)
+                           bool ignoreErrors,
+                           const initializer_list<std::pair<string, string>>& args)
 {
-    Engine::client().Process([this, url, task, ignoreErrors](auto& ctx) {
+    Engine::client().Process([this, url, task, ignoreErrors, args](auto& ctx) {
 
         LOG_TRACE << logName() << "Sending DELETE " << url;
 
         try {
-            auto reply = restc_cpp::RequestBuilder{ctx}.Delete(url)
+            auto reply = restc_cpp::RequestBuilder{ctx}.Req(url, Request::Type::DELETE, args)
                .Execute();
 
             LOG_DEBUG << logName()

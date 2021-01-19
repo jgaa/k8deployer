@@ -18,6 +18,8 @@ public:
     bool probe(std::function<void(K8ObjectState state)>) override;
 
 protected:
+    void addRemovementTasks(tasks_t &tasks) override;
+
     k8api::ObjectMeta *getMetadata() override {
         return &job.metadata;
     }

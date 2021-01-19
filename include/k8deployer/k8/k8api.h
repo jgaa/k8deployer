@@ -448,7 +448,7 @@ struct Job {
 };
 
 struct DeploymentSpec {
-    size_t replicas = 1;
+    std::optional<size_t> replicas;
     LabelSelector selector;
     DeploymentStrategy strategy;
     PodTemplateSpec template_;
@@ -613,11 +613,11 @@ struct PersistentVolumeClaim {
 
 struct StatefulSetSpec {
     std::string podManagementPolicy;
-    size_t replicas = 1;
-    size_t revisionHistoryLimit = 0;
-    LabelSelector selector;
+    std::optional<size_t> replicas;
+    std::optional<size_t> revisionHistoryLimit;
+    std::optional<LabelSelector> selector;
     std::string serviceName;
-    PodTemplateSpec template_;
+    std::optional<PodTemplateSpec> template_;
     std::optional<StatefulSetUpdateStrategy> updateStrategy;
     std::vector<PersistentVolumeClaim> volumeClaimTemplates;
 };
@@ -645,8 +645,8 @@ struct StatefulSetStatus {
 struct StatefulSet {
     std::string apiVersion = "apps/v1";
     std::string kind = "StatefulSet";
-    ObjectMeta metadata;
-    StatefulSetSpec spec;
+    std::optional<ObjectMeta> metadata;
+    std::optional<StatefulSetSpec> spec;
     std::optional<StatefulSetStatus> status;
 };
 
@@ -1030,7 +1030,7 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::Job,
 );
 
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::DeploymentSpec,
-    (size_t, replicas)
+    (std::optional<size_t>, replicas)
     (k8deployer::k8api::LabelSelector, selector)
     (k8deployer::k8api::DeploymentStrategy, strategy)
     (k8deployer::k8api::PodTemplateSpec, template_), //, NB:
@@ -1201,11 +1201,11 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::PersistentVolumeClaim,
 
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::StatefulSetSpec,
     (std::string, podManagementPolicy)
-    (size_t, replicas)
-    (size_t, revisionHistoryLimit)
-    (k8deployer::k8api::LabelSelector, selector)
+    (std::optional<size_t>, replicas)
+    (std::optional<size_t>, revisionHistoryLimit)
+    (std::optional<k8deployer::k8api::LabelSelector>, selector)
     (std::string, serviceName)
-    (k8deployer::k8api::PodTemplateSpec, template_)
+    (std::optional<k8deployer::k8api::PodTemplateSpec>, template_)
     (std::optional<k8deployer::k8api::StatefulSetUpdateStrategy>, updateStrategy)
     (std::vector<k8deployer::k8api::PersistentVolumeClaim>, volumeClaimTemplates)
 );
@@ -1233,8 +1233,8 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::StatefulSetStatus,
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::StatefulSet,
     (std::string, apiVersion)
     (std::string, kind)
-    (k8deployer::k8api::ObjectMeta, metadata)
-    (k8deployer::k8api::StatefulSetSpec, spec)
+    (std::optional<k8deployer::k8api::ObjectMeta>, metadata)
+    (std::optional<k8deployer::k8api::StatefulSetSpec>, spec)
     (std::optional<k8deployer::k8api::StatefulSetStatus>, status)
 );
 

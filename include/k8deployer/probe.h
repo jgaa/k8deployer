@@ -9,11 +9,14 @@
 
 namespace k8deployer {
 
-template <typename T>
+template <typename T, typename TvalidateFn>
 void sendProbe(Component& component, const std::string& url,
-               std::function<void(const std::optional<T>& object, Component::K8ObjectState state)> onDone)
+               std::function<void(const std::optional<T>& object, Component::K8ObjectState state)> onDone,
+               TvalidateFn && validate)
 {
-    Engine::client().Process([url, &component, onDone=std::move(onDone)](auto& ctx) {
+    Engine::client().Process([url, &component,
+                             onDone=std::move(onDone),
+                             validate=std::move(validate)](auto& ctx) {
 
         LOG_TRACE << component.logName() << "Probing";
 
@@ -22,51 +25,14 @@ void sendProbe(Component& component, const std::string& url,
             auto reply = restc_cpp::RequestBuilder{ctx}.Get(url)
                     .Execute();
 
+            restc_cpp::SerializeFromJson(data, *reply);
+            const auto done = validate(data);
+
             LOG_TRACE << component.logName()
                   << "Probing gave response: "
                   << reply->GetResponseCode() << ' '
-                  << reply->GetHttpResponse().reason_phrase;
-
-            restc_cpp::SerializeFromJson(data, *reply);
-
-            bool done = false;
-            if constexpr (std::is_same_v<T, k8api::Service>) {
-                // If it exists, it's probably OK...
-                done = true;
-            }
-
-            if constexpr (std::is_same_v<T, k8api::StatefulSet>) {
-                LOG_TRACE << component.logName()
-                        << "Probing: readyReplicas = " << data.status->readyReplicas
-                        << ", replicas = " << data.spec.replicas
-                        << ", currentReplicas = " << data.status->currentReplicas;
-
-                done = data.status->readyReplicas == data.spec.replicas;
-            }
-
-            if constexpr (std::is_same_v<T, k8api::PersistentVolume>) {
-                LOG_TRACE << component.logName() << "Probing: message = " << data.status->message
-                          << ", phase = " << data.status->phase
-                          << ", reason = " << data.status->reason;
-                done = data.status->phase == "Available";
-            }
-
-            if constexpr (std::is_same_v<T, k8api::Deployment> || std::is_same_v<T, k8api::Job>) {
-                for(const auto& cond : data.status->conditions) {
-                    if constexpr (std::is_same_v<T, k8api::Deployment>
-                            || std::is_same_v<T, k8api::Job>) {
-                        if (cond.type == "Available" && cond.status == "True") {
-                            done = true;
-                        }
-                    } else if constexpr (std::is_same_v<T, k8api::Job>) {
-                        if (cond.type == "Complete" && cond.status == "True") {
-                            done = true;
-                        }
-                    } else {
-                        assert(false); // Unsupported type
-                    }
-                 }
-             }
+                  << reply->GetHttpResponse().reason_phrase
+                  << ", done = " << (done ? "yes": "no");
 
             onDone(data, done ? Component::K8ObjectState::DONE : Component::K8ObjectState::INIT);
             return;

@@ -16,20 +16,44 @@ public:
     void prepareDeploy() override;
 
 protected:
+    void addRemovementTasks(tasks_t &tasks) override;
+
     k8api::ObjectMeta *getMetadata() override {
-        return &statefulSet.metadata;
+        if (statefulSet.metadata) {
+            return &statefulSet.metadata.value();
+        }
+        return {};
     }
 
     k8api::PodTemplateSpec *getPodTemplate() override {
-        return &statefulSet.spec.template_;
+        if (statefulSet.spec && statefulSet.spec->template_) {
+            return &statefulSet.spec->template_.value();
+        }
+        return {};
     }
 
     k8api::LabelSelector *getLabelSelector() override {
-        return &statefulSet.spec.selector;
+        if (statefulSet.spec && statefulSet.spec->selector) {
+            return &statefulSet.spec->selector.value();
+        }
+        return {};
     }
 
     size_t getReplicas() const override {
-        return statefulSet.spec.replicas;
+        if (statefulSet.spec && statefulSet.spec->replicas) {
+            return *statefulSet.spec->replicas;
+        }
+        return 1;
+    }
+
+    k8api::StatefulSetSpec *getSpec(bool create = true) {
+        if (!statefulSet.spec) {
+            if (!create) {
+                return {};
+            }
+            statefulSet.spec.emplace();
+        }
+        return &statefulSet.spec.value();
     }
 
     void buildDependencies() override;

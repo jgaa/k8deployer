@@ -138,13 +138,23 @@ void DeploymentComponent::doRemove(std::weak_ptr<Component::Task> task)
 bool DeploymentComponent::probe(std::function<void (Component::K8ObjectState)> fn)
 {
     if (fn) {
-        sendProbe<k8api::Deployment>(*this, getAccessUrl(), [wself=weak_from_this(), fn=move(fn)]
+        sendProbe<k8api::Deployment>(*this, getAccessUrl(),
+            [wself=weak_from_this(), fn=move(fn)]
                               (const std::optional<k8api::Deployment>& /*object*/, K8ObjectState state) {
-            if (auto self = wself.lock()) {
-                assert(fn);
-                fn(state);
+                if (auto self = wself.lock()) {
+                    assert(fn);
+                    fn(state);
+                }
+            }, [](const auto& data) {
+                for(const auto& cond : data.status->conditions) {
+                    if (cond.type == "Available" && cond.status == "True") {
+                        return true;
+                    }
+                 }
+
+                return false;
             }
-        });
+        );
     }
 
     return true;

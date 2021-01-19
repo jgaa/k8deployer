@@ -50,8 +50,12 @@ namespace k8deployer {
 Engine *Engine::instance_;
 
 Engine::Engine(const Config &config)
-    : client_{restc_cpp::RestClient::Create()}, cfg_{config}
+    : cfg_{config}
 {
+    restc_cpp::Request::Properties properties;
+    properties.cacheMaxConnectionsPerEndpoint = 32;
+    client_ = restc_cpp::RestClient::Create(properties);
+
     assert(instance_ == nullptr);
     instance_ = this;
 }

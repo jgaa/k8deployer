@@ -131,6 +131,11 @@ public:
         FAILED
     };
 
+    enum class Mode {
+        CREATE,
+        REMOVE
+    };
+
     /*! A task
      *
      * The root component owns all tasks, and is responsible to iterate over
@@ -176,13 +181,17 @@ public:
         using wptr_t = std::weak_ptr<Task>;
 
         Task(Component& component, std::string name, fn_t fn,
-             TaskState initial = TaskState::PRE)
+             TaskState initial = TaskState::PRE, Mode mode = Mode::CREATE)
             : component_{component}, name_{std::move(name)}, fn_{std::move(fn)}
-            , state_{initial}
+            , state_{initial}, mode_{mode}
         {}
 
         TaskState state() const noexcept {
             return state_;
+        }
+
+        Mode mode() const noexcept {
+            return mode_;
         }
 
         bool isMonitoring() const noexcept {
@@ -249,20 +258,13 @@ public:
         fn_t fn_; // What this task has to do
         TaskState state_ = TaskState::PRE;
         std::unique_ptr<boost::asio::deadline_timer> pollTimer_;
+        const Mode mode_ = Mode::CREATE;
     };
 
     using tasks_t = std::deque<Task::ptr_t>;
 
 
-    Component(const Component::ptr_t& parent, Cluster& cluster, const ComponentData& data)
-        : ComponentData(data), parent_{parent}, cluster_{&cluster}
-    {
-        if (parent) {
-            for(auto& v : parent->defaultArgs) {
-                defaultArgs.insert(v);
-            }
-        }
-    }
+    Component(const Component::ptr_t& parent, Cluster& cluster, const ComponentData& data);
 
     virtual ~Component() = default;
 
@@ -413,20 +415,34 @@ protected:
     virtual void buildDependencies() {}
 
     template <typename T>
-    void sendApply(const T& data, const std::string& url, std::weak_ptr<Task> task)
+    void sendApply(const T& data, const std::string& url, std::weak_ptr<Task> task,
+                   const restc_cpp::Request::Type requestType = restc_cpp::Request::Type::POST)
     {
-        Engine::client().Process([this, url, task, &data](auto& ctx) {
+        // Create the json payload here for two reasons:
+        //  1) kubernetes don't seem to like chunked bodies for patch payloads
+        //  2) We have no guarantee regarding the lifetime of the data object.
+        auto json = toJson(data);
 
-            LOG_DEBUG << logName() << "Applying payload";
-            LOG_TRACE << logName() << "Payload: " << toJson(data);
+        Engine::client().Process([this, url, task, json=std::move(json), requestType](auto& ctx) {
+            std::string taskName = "***";
+            if (auto t = task.lock()) {
+                taskName = t->name();
+            }
+            LOG_DEBUG << logName() << "Applying task " << taskName;
+            LOG_TRACE << logName() << "Applying payload for task " << taskName << ": " << json;
+            std::string contentType = "application/json; charset=utf-8";
+            if (requestType == restc_cpp::Request::Type::PATCH) {
+                contentType = "application/merge-patch+json; charset=utf-8";
+            }
 
             try {
-                auto reply = restc_cpp::RequestBuilder{ctx}.Post(url)
-                   .Data(data, jsonFieldMappings())
+                auto reply = restc_cpp::RequestBuilder{ctx}.Req(url, requestType)
+                   .Header("Content-Type", contentType)
+                   .Data(json)
                    .Execute();
 
                 LOG_DEBUG << logName()
-                      << "Applying gave response: "
+                      << "Applying task " << taskName << " gave response: "
                       << reply->GetResponseCode() << ' '
                       << reply->GetHttpResponse().reason_phrase;
 
@@ -439,14 +455,27 @@ protected:
 
                 return;
             } catch(const restc_cpp::RequestFailedWithErrorException& err) {
+                if (err.http_response.status_code == 404) {
+                    if (auto t = task.lock()) {
+                        if (t->mode() == Mode::REMOVE) {
+                            LOG_DEBUG << logName()
+                                      << "Applying task " << taskName << " to already deleted resource. Probably ok: "
+                                      << err.http_response.status_code << ' '
+                                      << err.http_response.reason_phrase;
+                            t->setState(Task::TaskState::DONE);
+                            return;
+                        }
+                    }
+                }
+
                 LOG_WARN << logName()
-                         << "Request failed: " << err.http_response.status_code
+                         << "Apply task " << taskName << ": Request failed: " << err.http_response.status_code
                          << ' ' << err.http_response.reason_phrase
                          << ": " << err.what();
 
             } catch(const std::exception& ex) {
                 LOG_WARN << logName()
-                         << "Request failed: " << ex.what();
+                         << "Apply task " << taskName << ": Request failed: " << ex.what();
             }
 
             if (auto taskInstance = task.lock()) {
@@ -458,7 +487,8 @@ protected:
     }
 
     void sendDelete(const std::string& url, std::weak_ptr<Component::Task> task,
-                    bool ignoreErrors = false);
+                    bool ignoreErrors = false,
+                    const std::initializer_list<std::pair<std::string, std::string>>& args = {});
 
     State state_{State::PRE}; // From our logic
     std::string k8state_; // From the event-loop
@@ -472,6 +502,7 @@ protected:
     std::unique_ptr<std::promise<void>> executionPromise_;
     bool reverseDependencies_ = false;
     std::vector<std::weak_ptr<Component>> dependsOn_;
+    Mode mode_ = Mode::CREATE;
 };
 
 } // ns

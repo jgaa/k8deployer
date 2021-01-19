@@ -29,7 +29,7 @@ protected:
     }
 
     size_t getReplicas() const override {
-        return deployment.spec.replicas;
+        return deployment.spec.replicas ? *deployment.spec.replicas : 1;
     }
 
     std::string getCreationUrl() const override;
