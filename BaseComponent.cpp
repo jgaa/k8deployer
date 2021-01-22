@@ -40,6 +40,7 @@ void BaseComponent::basicPrepareDeploy()
             container.args = getArgAsStringList("pod.args", ""s);
             container.env = getArgAsEnvList("pod.env", ""s);
             container.command = getArgAsStringList("pod.command", ""s);
+            container.imagePullPolicy = getArg("imagePullPolicy", {});
 
             if (auto ports = getArgAsStringList("port", ""s); !ports.empty()) {
                 for(const auto& port: ports) {
@@ -123,7 +124,7 @@ void BaseComponent::addDeploymentTasks(Component::tasks_t& tasks)
 
 void BaseComponent::addRemovementTasks(Component::tasks_t &tasks)
 {
-    auto task = make_shared<Task>(*this, name, [&](Task& task, const k8api::Event *event) {
+    auto task = make_shared<Task>(*this, name, [&](Task& task, const k8api::Event */*event*/) {
 
         // Execution?
         if (task.state() == Task::TaskState::READY) {
