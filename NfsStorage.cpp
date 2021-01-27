@@ -50,22 +50,27 @@ k8api::PersistentVolume NfsStorage::createNewVolume(const string &storageSize,
     nfsPath /= component.name;
     localPath /= component.name;
 
-    // Make sure we get a new dir each time we create a new volume!
-    const auto uuid = boost::uuids::to_string(boost::uuids::random_generator()());
-    nfsPath /= uuid;
-    localPath /= uuid;
+    if (Engine::instance().config().randomizePaths) {
+        // Make sure we get a new dir each time we create a new volume!
+        const auto uuid = boost::uuids::to_string(boost::uuids::random_generator()());
+        nfsPath /= uuid;
+        localPath /= uuid;
+    }
 
     boost::system::error_code ec;
     LOG_DEBUG << component.logName()
               << "Creating directory for NFS mount point: "
               << localPath << " --> " << vs_.server << ':' << nfsPath;
 
-    if (!boost::filesystem::create_directories(localPath, ec)) {
-        LOG_ERROR << "Failed to create NFS directory: " << localPath << ": " << ec;
-        throw runtime_error(ec.message());
+    if (!boost::filesystem::is_directory(localPath)) {
+        if (!boost::filesystem::create_directories(localPath, ec)) {
+            LOG_ERROR << "Failed to create NFS directory: " << localPath << ": " << ec;
+            throw runtime_error(ec.message());
+        }
     }
 
     pv.spec.nfs->path = nfsPath.string();
     return pv;
 }
-}
+
+} // ns

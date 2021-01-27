@@ -34,6 +34,9 @@ int main(int argc, char* argv[]) {
                     "storage,s",
                     po::value<string>(&config.storageEngine)->default_value(config.storageEngine),
                     "Storage engine for managed volumes")(
+                    "randomize-paths,r",
+                    po::value<bool>(&config.randomizePaths)->default_value(config.randomizePaths),
+                    "Add a uuid to provisioned paths (nfs) to always depoloy on a 'fresh' volume.")(
                     "kubeconfig,k",
                     po::value<decltype(config.kubeconfigs)>(&config.kubeconfigs),
                     "One or more kubeconfigs to clusters to deploy the definition. "

@@ -359,6 +359,13 @@ struct EmptyDirVolumeSource {
     Quantity sizeLimit;
 };
 
+struct SecretVolumeSource {
+    std::optional<int> defaultMode;
+    std::vector<KeyToPath> items;
+    std::optional<bool> optional;
+    std::string secretName;
+};
+
 struct Volume {
     std::string name;
     std::optional<ConfigMapVolumeSource> configMap;
@@ -366,6 +373,7 @@ struct Volume {
     std::optional<HostPathVolumeSource> hostPath;
     std::optional<NFSVolumeSource> nfs;
     std::optional<PersistentVolumeClaimVolumeSource> persistentVolumeClaim;
+    std::optional<SecretVolumeSource> secret;
 };
 
 using volumes_t = std::vector<Volume>;
@@ -959,6 +967,13 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::EmptyDirVolumeSource,
     (k8deployer::k8api::Quantity, sizeLimit)
 );
 
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::SecretVolumeSource,
+    (std::optional<int>, defaultMode)
+    (std::vector<k8deployer::k8api::KeyToPath>, items)
+    (std::optional<bool>, optional)
+    (std::string, secretName)
+);
+
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::Volume,
     (std::string, name)
     (std::optional<k8deployer::k8api::ConfigMapVolumeSource>, configMap)
@@ -966,6 +981,7 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::Volume,
     (std::optional<k8deployer::k8api::HostPathVolumeSource>, hostPath)
     (std::optional<k8deployer::k8api::NFSVolumeSource>, nfs)
     (std::optional<k8deployer::k8api::PersistentVolumeClaimVolumeSource>, persistentVolumeClaim)
+    (std::optional<k8deployer::k8api::SecretVolumeSource>, secret)
 );
 
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::HostAlias,

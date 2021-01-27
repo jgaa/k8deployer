@@ -58,8 +58,6 @@ void BaseComponent::basicPrepareDeploy()
             container.livenessProbe = livenessProbe;
             container.readinessProbe = readinessProbe;
 
-            podTemplate->spec.containers.push_back(move(container));
-
             if (auto dhcred = getArg("imagePullSecrets")) {
                 // Use existing secret
                 if (!dhcred->empty()) {
@@ -68,6 +66,24 @@ void BaseComponent::basicPrepareDeploy()
                     LOG_DEBUG << logName() << "Using imagePullSecret " << *dhcred;
                 }
             }
+
+            if (auto tls = getArg("tls.secret")) {
+                // Use existing secret
+
+                k8api::VolumeMount vm;
+                vm.name = "tls-secret";
+                vm.mountPath = "/certs";
+                vm.readOnly = true;
+                container.volumeMounts.push_back(vm);
+
+                k8api::Volume v;
+                v.name = "tls-secret";
+                v.secret.emplace();
+                v.secret->secretName = tls.value();
+                podTemplate->spec.volumes.push_back(v);
+            }
+
+            podTemplate->spec.containers.push_back(move(container));
         }
 
         if (auto ls = getLabelSelector()) {

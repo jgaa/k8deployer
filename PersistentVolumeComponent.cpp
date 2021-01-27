@@ -23,8 +23,8 @@ PersistentVolumeComponent::PersistentVolumeComponent(const Component::ptr_t &par
 
 void PersistentVolumeComponent::prepareDeploy()
 {
-    if (auto storage = cluster_->getStorage()) {
-        persistentVolume = storage->createNewVolume(getArg("storage.capacity", "1Gi"s), *this);
+    if (auto st = cluster_->getStorage()) {
+        persistentVolume = st->createNewVolume(getArg("pv.capacity", "1Gi"), *this);
     }
 
     if (configmap.metadata.name.empty()) {

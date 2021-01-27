@@ -132,13 +132,16 @@ void StatefulSetComponent::buildDependencies()
             }
 
             conf_t svcargs;
-            // Since we create the service, give it a copy of relevant arguments..
-            for(const auto& [k, v] : args) {
-                static const array<string, 2> relevant = {"service.nodePort", "service.type"};
-                if (find(relevant.begin(), relevant.end(), k) != relevant.end()) {
-                    svcargs[k] = v;
-                }
-            }
+//            // Since we create the service, give it a copy of relevant arguments..
+//            for(const auto& [k, v] : args) {
+//                static const array<string, 2> relevant = {"service.nodePort", "service.type"};
+//                if (find(relevant.begin(), relevant.end(), k) != relevant.end()) {
+//                    svcargs[k] = v;
+//                }
+//            }
+
+            // Special arg to propagate the capacity to the pv
+            svcargs["pv.capacity"] = storageDef.capacity;
 
             for(size_t i = 0; i < getReplicas(); ++i) {
                 addChild(storageDef.volume.name + "-" + name + "-" + to_string(i),
