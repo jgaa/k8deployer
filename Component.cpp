@@ -597,8 +597,13 @@ void Component::setState(Component::State state)
         return;
     }
 
+    if (state == State::RUNNING) {
+        startTime = chrono::steady_clock::now();
+    }
+
     if (state == State::DONE) {
-        LOG_INFO << logName() << "Done.";
+        calculateElapsed();
+        LOG_INFO << logName() << "Done in " << std::fixed << std::setprecision(5) << (elapsed ? *elapsed : 0.0) << " seconds";
 
         if (executionPromise_) {
             executionPromise_->set_value();
@@ -607,7 +612,8 @@ void Component::setState(Component::State state)
     }
 
     if (state == State::FAILED) {
-        LOG_WARN << logName() << "Failed.";
+        calculateElapsed();
+        LOG_WARN << logName() << "Failed after " << std::fixed << std::setprecision(5) << (elapsed ? *elapsed : 0.0) << " seconds";
     }
 
     state_ = state;
@@ -1059,6 +1065,14 @@ void Component::sendDelete(const string &url, std::weak_ptr<Component::Task> tas
             setState(State::FAILED);
         }
     });
+}
+
+void Component::calculateElapsed()
+{
+    if (startTime) {
+        const auto ended = chrono::steady_clock::now();
+        elapsed = chrono::duration<double>(ended - *startTime).count();
+    }
 }
 
 } // ns

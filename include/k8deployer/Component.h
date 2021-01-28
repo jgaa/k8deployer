@@ -490,6 +490,8 @@ protected:
                     bool ignoreErrors = false,
                     const std::initializer_list<std::pair<std::string, std::string>>& args = {});
 
+    void calculateElapsed();
+
     State state_{State::PRE}; // From our logic
     std::string k8state_; // From the event-loop
     std::weak_ptr<Component> parent_;
@@ -503,6 +505,8 @@ protected:
     bool reverseDependencies_ = false;
     std::vector<std::weak_ptr<Component>> dependsOn_;
     Mode mode_ = Mode::CREATE;
+    std::optional<std::chrono::steady_clock::time_point> startTime;
+    std::optional<double> elapsed = {};
 };
 
 } // ns

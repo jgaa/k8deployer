@@ -15,19 +15,19 @@ kind: StatefulSet
 args:
     image: registry:2
     port: >
-        5000
+      5000
     service.type: NodePort
     service.nodePort: >
-      30123
+      30500
     pod.env:
-        REGISTRY_HTTP_ADDR=0.0.0.0:5000
-        REGISTRY_HTTP_TLS_CERTIFICATE=/certs/tls.crt
-        REGISTRY_HTTP_TLS_KEY=/certs/tls.key
+      REGISTRY_HTTP_ADDR=0.0.0.0:5000
+      REGISTRY_HTTP_TLS_CERTIFICATE=/certs/tls.crt
+      REGISTRY_HTTP_TLS_KEY=/certs/tls.key
     tls.secret: k8-wildchard
 
 storage:
     - volume:
-         name: data
-         mountPath: /var/lib/registry
-      capacity: 20Gi
+        name: data
+        mountPath: /var/lib/registry
+      capacity: 600Gi
       createVolume: true
