@@ -355,6 +355,8 @@ public:
 
     virtual std::string getNamespace() const;
 
+    void startElapsedTimer();
+
 protected:
     virtual std::string getCreationUrl() const {
         assert(false); // Implement!

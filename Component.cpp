@@ -523,6 +523,13 @@ string Component::getNamespace() const
     return Engine::instance().config().ns;
 }
 
+void Component::startElapsedTimer()
+{
+    if (!startTime) {
+      startTime = chrono::steady_clock::now();
+    }
+}
+
 void Component::addDependenciesRecursively(std::set<Component *> &contains)
 {
     for(auto& w: dependsOn_) {
@@ -595,10 +602,6 @@ void Component::setState(Component::State state)
 {
     if (state == state_) {
         return;
-    }
-
-    if (state == State::RUNNING) {
-        startTime = chrono::steady_clock::now();
     }
 
     if (state == State::DONE) {
@@ -810,6 +813,10 @@ void Component::Task::setState(Component::Task::TaskState state, bool scheduleRu
 
     const bool changed = state_ != state;
     state_ = state;
+
+    if (changed && state == TaskState::EXECUTING) {
+      component().startElapsedTimer();
+    }
 
     if (state == TaskState::DONE) {
         LOG_DEBUG << component().logName() << "task " << name() << " is done";
