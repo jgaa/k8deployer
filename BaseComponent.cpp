@@ -196,6 +196,52 @@ void BaseComponent::buildInitContainers()
                 }
             });
         }
+
+        // chown/chmod volumes
+        for (auto storageDef : storage) {
+            if (!storageDef.chownUser.empty()
+                    || !storageDef.chownGroup.empty()
+                    || !storageDef.chmodMode.empty()) {
+                k8api::Container init;
+
+                string cmd;
+                if (!storageDef.chownUser.empty()) {
+                    cmd += "chown -R "s
+                        + storageDef.chownUser
+                        + " " + storageDef.volume.mountPath + " ; ";
+                }
+
+                if (!storageDef.chownGroup.empty()) {
+                    cmd += "chgrp -R "s
+                        + storageDef.chownGroup
+                        + " " + storageDef.volume.mountPath + " ; ";
+                }
+
+                if (!storageDef.chmodMode.empty()) {
+                    cmd += "chmod -R "s
+                        + storageDef.chmodMode
+                        + " " + storageDef.volume.mountPath + " ; ";
+                }
+
+                init.command = {"sh"s,
+                                "-c"s,
+                                cmd};
+
+                init.image = "busybox";
+                init.name = "init-storage-"s + storageDef.volume.name;
+
+                LOG_DEBUG << logName()
+                          << "Adding chown/chmod. "
+                          << "initContainer " << init.name;
+
+                k8api::VolumeMount vm;
+                vm.name = storageDef.volume.name;
+                vm.mountPath = storageDef.volume.mountPath;
+                init.volumeMounts.push_back(vm);
+
+                podTemplate->spec.initContainers.push_back(move(init));
+            }
+        }
     }
 }
 

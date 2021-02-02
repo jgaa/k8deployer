@@ -13,6 +13,11 @@ struct ComponentDataDef;
 class Engine
 {
 public:
+    enum class Mode {
+        DEPLOY,
+        DELETE
+    };
+
     Engine(const Config& config);
 
     ~Engine() {
@@ -35,6 +40,10 @@ public:
         return *instance().client_;
     }
 
+    static Mode mode() noexcept {
+        return instance().mode_;
+    }
+
 private:
     void startPortForwardig();
     void readDefinitions();
@@ -44,6 +53,7 @@ private:
     const Config cfg_;
     static Engine *instance_;
     std::unique_ptr<ComponentDataDef> dataDef_;
+    Mode mode_ = Mode::DEPLOY;
 };
 
 } // ns

@@ -17,6 +17,9 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::StorageDef,
     (k8deployer::k8api::VolumeMount, volume)
     (std::string, capacity)
     (bool, createVolume)
+    (std::string, chownUser)
+    (std::string, chownGroup)
+    (std::string, chmodMode)
     );
 
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::ComponentDataDef,
@@ -55,6 +58,15 @@ Engine::Engine(const Config &config)
     restc_cpp::Request::Properties properties;
     properties.cacheMaxConnectionsPerEndpoint = 32;
     client_ = restc_cpp::RestClient::Create(properties);
+
+    if (cfg_.command == "deploy") {
+        mode_ = Mode::DEPLOY;
+    } else if (cfg_.command == "delete") {
+        mode_ = Mode::DELETE;
+    } else {
+        LOG_ERROR << "Unknown command: " << cfg_.command ;
+        throw runtime_error("Unknown command "s + cfg_.command);
+    }
 
     assert(instance_ == nullptr);
     instance_ = this;

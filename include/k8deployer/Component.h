@@ -76,6 +76,12 @@ struct StorageDef {
     k8api::VolumeMount volume;
     std::string capacity;
     bool createVolume = false;
+
+    // Use init-container to set permissions on the volume
+    // Tis is a work-around for k8s' hopelessly broken hostPath
+    std::string chownUser;
+    std::string chownGroup;
+    std::string chmodMode;
 };
 
 struct ComponentData {
