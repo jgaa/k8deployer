@@ -29,12 +29,12 @@ void ServiceComponent::prepareDeploy()
     service.spec.selector.try_emplace(selector.first, selector.second);
     service.spec.type = getArg("service.type", service.spec.type);
 
-    if (service.spec.type.empty()) {
-        if (getArg("service.nodePort")) {
-           // TODO: Add support for LoadBalancer here?
-           service.spec.type = "NodePort";
-        }
-    }
+//    if (service.spec.type.empty()) {
+//        if (getIntArg("service.nodePort", 0) > 0 && getArg("service.type", "").empty()) {
+//           // TODO: Add support for LoadBalancer here?
+//           service.spec.type = "NodePort";
+//        }
+//    }
 
     if (auto parent = parent_.lock()) {
         if (auto depl = dynamic_cast<BaseComponent *>(parent.get())) {
@@ -68,7 +68,6 @@ void ServiceComponent::prepareDeploy()
                             sport.name = "sport-" + to_string(cnt);
                         }
 
-                        // FIXME: Setting nodePort yields error: 422 Unprocessable Entity
                         if (cnt == 1 && sport.nodePort <= 0) {
                             sport.nodePort = getIntArg("service.nodePort", 0);
                         }

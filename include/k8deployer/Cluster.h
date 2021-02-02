@@ -7,13 +7,12 @@
 #include <map>
 #include "k8deployer/PortForward.h"
 #include "k8deployer/Config.h"
-//#include "k8deployer/Component.h"
 #include "k8deployer/Storage.h"
+#include "k8deployer/DataDef.h"
 
 namespace k8deployer {
 
 class Component;
-struct ComponentDataDef;
 
 class Cluster
 {
@@ -27,8 +26,7 @@ public:
     };
 
     using vars_t = std::map<std::string, std::string>;
-    Cluster(const Config& cfg, const std::string& arg, restc_cpp::RestClient& client,
-            const ComponentDataDef& def);
+    Cluster(const Config& cfg, const std::string& arg, restc_cpp::RestClient& client);
 
     ~Cluster();
 
@@ -70,6 +68,7 @@ public:
 private:
     using action_fn_t = std::function<std::future<void>()>;
     void startEventsLoop();
+    void readDefinitions();
     void createComponents();
     void setCmds();
     void parseArgs(const std::string& args);
@@ -83,11 +82,11 @@ private:
     std::string kubeconfig_; // Empty for default (no arguments)
     const Config& cfg_;
     std::shared_ptr<Component> rootComponent_;
-    const ComponentDataDef& dataDef_;
 
     action_fn_t executeCmd_;
     action_fn_t prepareCmd_;
     std::unique_ptr<Storage> storage_;
+    std::unique_ptr<ComponentDataDef> dataDef_;
 };
 
 

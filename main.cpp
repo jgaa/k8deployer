@@ -34,9 +34,15 @@ int main(int argc, char* argv[]) {
                     "storage,s",
                     po::value<string>(&config.storageEngine)->default_value(config.storageEngine),
                     "Storage engine for managed volumes")(
+                    "local-proxy-port,p",
+                    po::value<uint16_t>(&config.localPort)->default_value(config.localPort),
+                    "Local port to use for kubectl proxy (starting at)")(
                     "randomize-paths,r",
                     po::value<bool>(&config.randomizePaths)->default_value(config.randomizePaths),
                     "Add a uuid to provisioned paths (nfs) to always depoloy on a 'fresh' volume.")(
+                    "variables,v",
+                    po::value<decltype(config.rawVariables)>(&config.rawVariables),
+                    "One or more variables var=value,var=value...")(
                     "kubeconfig,k",
                     po::value<decltype(config.kubeconfigs)>(&config.kubeconfigs),
                     "One or more kubeconfigs to clusters to deploy the definition. "
@@ -51,6 +57,14 @@ int main(int argc, char* argv[]) {
             std::cout << filesystem::path(argv[0]).stem().string() << " [options]";
             std::cout << cmdline_options << std::endl;
             return -1;
+        }
+
+        // Expand variable-definitions into the config's variables property
+        for(const auto& vars : config.rawVariables) {
+            auto kv = Component::getArgAsKv(vars);
+            for(const auto& [k, v] : kv) {
+                config.variables[k] = v;
+            }
         }
 
         auto llevel = logfault::LogLevel::INFO;

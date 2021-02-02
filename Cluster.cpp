@@ -24,25 +24,60 @@ struct EventStream {
 };
 } // ns
 
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::StorageDef,
+    (k8deployer::k8api::VolumeMount, volume)
+    (std::string, capacity)
+    (bool, createVolume)
+    (std::string, chownUser)
+    (std::string, chownGroup)
+    (std::string, chmodMode)
+    );
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::ComponentDataDef,
+    // ComponentData
+    (std::string, name)
+    (k8deployer::labels_t, labels)
+    (k8deployer::conf_t, defaultArgs)
+    (k8deployer::conf_t, args)
+    (k8deployer::k8api::Job, job)
+    (k8deployer::k8api::Deployment, deployment)
+    (k8deployer::k8api::StatefulSet, statefulSet)
+    (k8deployer::k8api::Service, service)
+    (k8deployer::k8api::string_list_t, depends)
+    (std::optional<k8deployer::k8api::Secret>, secret)
+    (k8deployer::k8api::PersistentVolume, persistentVolume)
+
+    (std::optional<k8deployer::k8api::Probe>, startupProbe)
+    (std::optional<k8deployer::k8api::Probe>, livenessProbe)
+    (std::optional<k8deployer::k8api::Probe>, readinessProbe)
+    (std::vector<k8deployer::StorageDef>, storage)
+
+    // ComponentDataDef
+    (std::string, kind)
+    (std::string, parentRelation)
+    (k8deployer::ComponentDataDef::childrens_t, children)
+    );
+
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::EventStream,
                           (std::string, type)
                           (k8deployer::k8api::Event, object)
                           );
 
-namespace k8deployer {
-
 using namespace std;
 using namespace string_literals;
 using namespace restc_cpp;
 
-Cluster::Cluster(const Config &cfg, const string &arg, RestClient &client,
-                 const ComponentDataDef& def)
-    : client_{client}, cfg_{cfg}, dataDef_{def}
+namespace k8deployer {
+
+Cluster::Cluster(const Config &cfg, const string &arg, RestClient &client)
+    : client_{client}, cfg_{cfg}
 {
     parseArgs(arg);
     if (!cfg_.storageEngine.empty()) {
         storage_ = Storage::create(cfg_.storageEngine);
     }
+
+    readDefinitions();
 }
 
 Cluster::~Cluster()
@@ -145,9 +180,34 @@ void Cluster::startEventsLoop()
     });
 }
 
+void Cluster::readDefinitions()
+{
+    LOG_DEBUG << name_ << ": Creating components from " << cfg_.definitionFile;
+
+    // Load component definitions
+    dataDef_ = make_unique<ComponentDataDef>();
+
+    auto vars = cfg_.variables;
+
+    // Override / add cluster variables
+    for(const auto& [k, v]: variables_) {
+        vars[k] = v;
+    }
+
+    for(const auto& [k, v]: vars) {
+        LOG_DEBUG << "Cluster " << name_ << " has variable: " << k << '=' << v;
+    }
+
+    fileToObject(*dataDef_, cfg_.definitionFile, vars);
+    if (dataDef_->kind.empty()) {
+        LOG_ERROR << "Invalid definition file: " << cfg_.definitionFile;
+        throw runtime_error("Invalid definition "s + cfg_.definitionFile);
+    }
+}
+
 void Cluster::createComponents()
 {
-    rootComponent_ = Component::populateTree(dataDef_, *this);
+    rootComponent_ = Component::populateTree(*dataDef_, *this);
 }
 
 void Cluster::setCmds()

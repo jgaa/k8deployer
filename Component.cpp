@@ -136,7 +136,11 @@ std::optional<string> Component::getArg(const string &name) const
 
 k8api::string_list_t Component::getArgAsStringList(const string &values, const string &defaultVal) const
 {
-    auto val = getArg(values, defaultVal);
+    return getArgAsStringList(getArg(values, defaultVal));
+}
+
+k8api::string_list_t Component::getArgAsStringList(const string &values)
+{
     k8api::string_list_t rval;
 
     enum class State {
@@ -148,7 +152,7 @@ k8api::string_list_t Component::getArgAsStringList(const string &values, const s
     auto state = State::SKIPPING;
     string value;
 
-    for (const char ch : val) {
+    for (const char ch : values) {
         switch (state) {
             case State::SKIPPING:
             if (ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n') {
@@ -183,23 +187,18 @@ k8api::string_list_t Component::getArgAsStringList(const string &values, const s
         rval.push_back(value);
     }
 
-//    boost::split(list, val, boost::is_any_of(" "));
-
-//    k8api::string_list_t rval;
-//    for(const auto& segment : list) {
-//        if (segment.empty()) {
-//            continue;
-//        }
-//        rval.push_back(segment);
-//    }
-
     return rval;
 }
 
 k8api::env_vars_t Component::getArgAsEnvList(const string &values, const string &defaultVal) const
 {
+    return getArgAsEnvList(getArg(values, defaultVal));
+}
+
+k8api::env_vars_t Component::getArgAsEnvList(const string &values)
+{
     k8api::env_vars_t rval;
-    auto list = getArgAsStringList(values, defaultVal);
+    auto list = getArgAsStringList(values);
 
     for(const auto& v : list) {
         k8api::KeyValue ev;
@@ -212,6 +211,26 @@ k8api::env_vars_t Component::getArgAsEnvList(const string &values, const string 
 
         if (!ev.name.empty()) {
             rval.push_back(ev);
+        }
+    }
+
+    return rval;
+}
+
+k8api::key_values_t Component::getArgAsKv(const string &values)
+{
+    k8api::key_values_t rval;
+    auto list = getArgAsStringList(values);
+
+    for(const auto& v : list) {
+        if (auto pos = v.find('='); pos != string::npos && pos < v.size()) {
+            if (pos > 0) {
+                rval[v.substr(0, pos)] = v.substr(pos +1);
+            }
+        } else {
+            if (!v.empty()) {
+                rval[v] = "";
+            }
         }
     }
 
@@ -231,7 +250,7 @@ string Component::getArg(const string &name, const string &defaultVal) const
 int Component::getIntArg(const string &name, int defaultVal) const
 {
     auto v = getArg(name);
-    if (v) {
+    if (v && !v.value().empty()) {
         return stoi(*v);
     }
 
@@ -1081,5 +1100,114 @@ void Component::calculateElapsed()
         elapsed = chrono::duration<double>(ended - *startTime).count();
     }
 }
+
+string getVar(const std::string& name, const variables_t& vars,
+              const optional<string>& defaultValue) {
+    if (auto it = vars.find(name); it != vars.end()) {
+        return it->second;
+    }
+
+    if (auto val = getenv(name.c_str())) {
+        return val;
+    }
+
+    if (defaultValue) {
+        return *defaultValue;
+    }
+
+    return {};
+}
+
+string expandVariables(const string &json, const variables_t &vars)
+{
+    // Var: ${varname[,default value]}
+    // Default is unset/null
+
+    enum class State {
+        COPY,
+        BACKSLASH,
+        DOLLAR,
+        SCAN_NAME,
+        SCAN_DEFAUT_VALUE,
+    };
+
+    locale loc{"C"};
+    string expanded;
+    expanded.reserve(json.size());
+    auto state = State::COPY;
+    string varName;
+    optional<string> defaultValue;
+    for(auto ch : json) {
+        switch(state) {
+        case State::COPY:
+            if (ch == '\\') {
+                state = State::BACKSLASH;
+                break;
+            }
+            if (ch == '$') {
+                state = State::DOLLAR;
+                break;
+            }
+            expanded += ch;
+            break;
+        case State::BACKSLASH:
+            if (ch != '$') {
+                expanded += '\\';
+            }
+            expanded += ch;
+            state = State::COPY;
+            break;
+        case State::DOLLAR:
+            if (ch == '{') {
+                state = State::SCAN_NAME;
+                varName.clear();
+                defaultValue.reset();
+                break;
+            }
+            expanded += '$';
+            expanded += ch;
+            state = State::COPY;
+            break;
+        case State::SCAN_NAME:
+            if (isalnum(ch, loc) || ch == '.' || ch == '_') {
+                varName += ch;
+                break;
+            }
+            if (ch == ',') {
+                defaultValue.emplace();
+                state = State::SCAN_DEFAUT_VALUE;
+                break;
+            }
+commit:
+            if (ch == '}') {
+                // Commint variable
+                expanded += getVar(varName, vars, defaultValue);
+                state = State::COPY;
+                break;
+            }
+
+            LOG_ERROR << "Error scanning variable-name starting with: " << varName;
+            throw runtime_error("Error expanding macro");
+
+        case State::SCAN_DEFAUT_VALUE:
+            if (ch == '}') {
+                goto commit;
+            }
+
+            if (ch == '"') {
+                *defaultValue  += '\\';
+            }
+            *defaultValue += ch;
+        }
+    }
+
+    if (state != State::COPY) {
+        LOG_ERROR << "Error expanding macro " << varName << ": Not properly terminated with '}'";
+        throw runtime_error("Error expanding macro");
+    }
+
+    return expanded;
+}
+
 
 } // ns

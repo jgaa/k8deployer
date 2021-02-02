@@ -19,15 +19,10 @@ HostPathStorage::HostPathStorage(const string &def)
     vector<string> args;
     boost::split(args, def, boost::is_any_of(":"));
     if (args.size() != 2) {
-        throw runtime_error("There must be 4 nfs args!");
+        throw runtime_error("There must be at least 2 hostpath args!");
     }
 
     hostPath_ = args[1];
-
-    if (!boost::filesystem::is_directory(hostPath_)) {
-            LOG_ERROR << "HostPath path " << hostPath_ << " is not a directory!";
-        throw runtime_error("Nfs path must be a directory!");
-    }
 }
 
 k8api::PersistentVolume HostPathStorage::createNewVolume(const string &storageSize,

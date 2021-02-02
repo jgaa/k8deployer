@@ -16,6 +16,7 @@
 #include "k8deployer/k8/k8api.h"
 #include "k8deployer/Engine.h"
 #include "k8deployer/logging.h"
+#include "k8deployer/DataDef.h"
 
 namespace k8deployer {
 
@@ -40,15 +41,17 @@ Kind toKind(const std::string& kind);
 std::string toString(const Kind& kind);
 
 const restc_cpp::JsonFieldMapping *jsonFieldMappings();
+std::string expandVariables(const std::string& json, const variables_t& vars);
 
 /*! Reads the contents from a .json or .yaml file and returns the content as json. */
 std::string fileToJson(const std::string& pathToFile);
 
 /*! Reads the contents from a .json or .yaml file and serialize it to obj */
 template <typename T>
-void fileToObject(T& obj, const std::string& pathToFile) {
+void fileToObject(T& obj, const std::string& pathToFile, const variables_t& vars) {
     const auto json = fileToJson(pathToFile);
-    std::istringstream ifs{json};
+    const auto expandedJson = expandVariables(json, vars);
+    std::istringstream ifs{expandedJson};
     restc_cpp::serialize_properties_t properties;
     properties.ignore_unknown_properties = false;
     properties.name_mapping = jsonFieldMappings();
@@ -69,56 +72,6 @@ std::string Base64Encode(const std::string &in);
 
 std::future<void> dummyReturnFuture();
 
-using conf_t = std::map<std::string, std::string>;
-using labels_t = std::map<std::string, std::string>;
-
-struct StorageDef {
-    k8api::VolumeMount volume;
-    std::string capacity;
-    bool createVolume = false;
-
-    // Use init-container to set permissions on the volume
-    // Tis is a work-around for k8s' hopelessly broken hostPath
-    std::string chownUser;
-    std::string chownGroup;
-    std::string chmodMode;
-};
-
-struct ComponentData {
-    virtual ~ComponentData() = default;
-
-    std::string name;
-    labels_t labels;
-    conf_t defaultArgs; // Added to args and childrens args, unless overridden
-    conf_t args;
-    k8api::string_list_t depends;
-
-    // Can be populated by configuration, but normally we will do it
-    k8api::Job job;
-    k8api::Deployment deployment;
-    k8api::StatefulSet statefulSet;
-    k8api::Service service;
-    k8api::ConfigMap configmap;
-    std::optional<k8api::Secret> secret;
-    k8api::PersistentVolume persistentVolume;
-
-    // Applied to the container if it's indirectly created by k8deployer
-    std::optional<k8api::Probe> startupProbe;
-    std::optional<k8api::Probe> livenessProbe;
-    std::optional<k8api::Probe> readinessProbe;
-
-    std::vector<StorageDef> storage;
-};
-
-struct ComponentDataDef : public ComponentData {
-    // Related components owned by this; like volumes or configmaps or service.
-
-    std::string kind;
-    std::string parentRelation;
-
-    using childrens_t = std::deque<ComponentDataDef>;
-    childrens_t children;
-};
 
 /*! Tree of components to work with.
  *
@@ -292,6 +245,10 @@ public:
     std::optional<std::string> getArg(const std::string& name) const;
     k8api::string_list_t getArgAsStringList(const std::string& values, const std::string& defaultVal) const;
     k8api::env_vars_t getArgAsEnvList(const std::string& values, const std::string& defaultVal) const;
+    static k8api::string_list_t getArgAsStringList(const std::string& values);
+    static k8api::env_vars_t getArgAsEnvList(const std::string& values);
+    static k8api::key_values_t getArgAsKv(const std::string& values);
+
     std::string getArg(const std::string& name, const std::string& defaultVal) const;
     int getIntArg(const std::string& name, int defaultVal) const;
     size_t getSizetArg(const std::string &name, size_t defaultVal) const;

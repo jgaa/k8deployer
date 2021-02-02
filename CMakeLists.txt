@@ -56,6 +56,7 @@ add_executable(${PROJECT_NAME}
     include/k8deployer/PersistentVolumeComponent.h
     HostPathStorage.cpp
     include/k8deployer/HostPathStorage.h
+    include/k8deployer/DataDef.h
     )
 
 add_dependencies(${PROJECT_NAME} externalRestcCpp)

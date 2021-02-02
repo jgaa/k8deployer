@@ -2,6 +2,7 @@
 
 #include <string>
 #include <vector>
+#include <map>
 
 namespace k8deployer {
 
@@ -13,6 +14,9 @@ struct Config {
   std::vector<std::string> kubeconfigs;
   std::string storageEngine; // ex: nfs:nfshost:opt/nfs/k8:/mnt/nfs (type : host : mount-path : local path [where we can create subdirs for volumes])
   bool randomizePaths = false;
+  std::vector<std::string> rawVariables;
+
+  std::map<std::string, std::string> variables;
 };
 
 } // ns
