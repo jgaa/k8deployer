@@ -43,11 +43,12 @@ For now, an experimental kubernetes deployer in C++
 - [ ] StatefulSet
     - [x] Create
         - [x] Deal with storage
-            - [ ] Local
+            - [x] Local
             - [x] Network
                 - [x] nfs
     - [x] Delete
-        - [ ] Deal with storage
+        - [x] Deal with storage
+        - [ ] Optionally, delete the data (if possible)
     - [ ] Update
     - [ ] Verify
 
@@ -57,7 +58,7 @@ For now, an experimental kubernetes deployer in C++
 
 - [ ] Storage reservation pools / automatoc VolumeMounts
     - [x] Support NFS, manual and automatically
-    - [ ] Support single node local storage
+    - [x] Support single node local storage
     - [ ] Support AWS
     - [ ] Support GCP
     - [ ] Support Azure
@@ -76,7 +77,7 @@ For now, an experimental kubernetes deployer in C++
     - [ ] For undeploy, add option to ignore errors and try to continue.
 
 ## Bugs / limitations
-- [ ] App need to exit when the execution is complete
+- [x] App need to exit when the execution is complete
 - [x] Add readyness probe for pods
 - [x] Add alive probe for pods
 - [x] deployment.spec.affinity.nodeAffinity must be std::optional (needs support in the json serializor)
