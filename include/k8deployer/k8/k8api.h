@@ -658,6 +658,60 @@ struct StatefulSet {
     std::optional<StatefulSetStatus> status;
 };
 
+struct ServiceBackendPort {
+    std::string name;
+    std::optional<int> number;
+};
+
+struct IngressServiceBackend {
+    std::string name;
+    ServiceBackendPort port;
+};
+
+struct IngressBackend {
+    std::optional<TypedLocalObjectReference> resource;
+    std::optional<IngressServiceBackend> service;
+};
+
+struct HTTPIngressPath {
+    std::optional<IngressBackend> backend;
+    std::string path;
+    std::string pathType;
+};
+
+struct HTTPIngressRuleValue {
+    std::vector<HTTPIngressPath> paths;
+};
+
+struct IngressRule {
+    std::string host;
+    std::optional<HTTPIngressRuleValue> http;
+};
+
+struct IngressTLS {
+    string_list_t hosts;
+    std::string secretName;
+};
+
+struct IngressSpec {
+    std::optional<IngressBackend> defaultBackend;
+    std::string ingressClassName;
+    std::vector<IngressRule> rules;
+    std::vector<IngressTLS> tls;
+};
+
+struct IngressStatus {
+    LoadBalancerStatus loadBalancer;
+};
+
+struct Ingress {
+    std::string apiVersion = "networking.k8s.io/v1";
+    std::string kind = "Ingress";
+    std::optional<ObjectMeta> metadata;
+    std::optional<IngressSpec> spec;
+    std::optional<IngressStatus> status;
+};
+
 } // ns
 
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::Selector,
@@ -1254,3 +1308,56 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::StatefulSet,
     (std::optional<k8deployer::k8api::StatefulSetStatus>, status)
 );
 
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::ServiceBackendPort,
+    (std::string, name)
+    (std::optional<int>, number)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::IngressServiceBackend,
+    (std::string, name)
+    (k8deployer::k8api::ServiceBackendPort, port)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::IngressBackend,
+    (std::optional<k8deployer::k8api::TypedLocalObjectReference>, resource)
+    (std::optional<k8deployer::k8api::IngressServiceBackend>, service)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::HTTPIngressPath,
+    (std::optional<k8deployer::k8api::IngressBackend>, backend)
+    (std::string, path)
+    (std::string, pathType)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::HTTPIngressRuleValue,
+    (std::vector<k8deployer::k8api::HTTPIngressPath>, paths)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::IngressRule,
+    (std::string, host)
+    (std::optional<k8deployer::k8api::HTTPIngressRuleValue>, http)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::IngressTLS,
+    (k8deployer::k8api::string_list_t, hosts)
+    (std::string, secretName)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::IngressSpec,
+    (std::optional<k8deployer::k8api::IngressBackend>, defaultBackend)
+    (std::string, ingressClassName)
+    (std::vector<k8deployer::k8api::IngressRule>, rules)
+    (std::vector<k8deployer::k8api::IngressTLS>, tls)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::IngressStatus,
+    (k8deployer::k8api::LoadBalancerStatus, loadBalancer)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::Ingress,
+    (std::string, apiVersion)
+    (std::string, kind)
+    (std::optional<k8deployer::k8api::ObjectMeta>, metadata)
+    (std::optional<k8deployer::k8api::IngressSpec>, spec)
+    (std::optional<k8deployer::k8api::IngressStatus>, status)
+);
