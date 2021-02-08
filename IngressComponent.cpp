@@ -66,7 +66,11 @@ void IngressComponent::prepareDeploy()
                     && path[path.size() -2] == '/'
                     && path[path.size() -1] == '*') {
 
-                ip.path = path.substr(0, path.size() - 2);
+                if (path.size() > 2) {
+                    ip.path = path.substr(0, path.size() - 2);
+                } else {
+                    ip.path = "/";
+                }
                 ip.pathType = "Prefix";
             } else {
                 ip.path = path;
