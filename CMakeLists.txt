@@ -17,7 +17,6 @@ include(cmake/external-projects.cmake)
 include_directories(${CMAKE_SOURCE_DIR}/include)
 
 add_executable(${PROJECT_NAME}
-    main.cpp
     AppComponent.cpp
     BaseComponent.cpp
     Cluster.cpp
@@ -25,6 +24,8 @@ add_executable(${PROJECT_NAME}
     ConfigMapComponent.cpp
     DeploymentComponent.cpp
     Engine.cpp
+    HostPathStorage.cpp
+    IngressComponent.cpp
     JobComponent.cpp
     NfsStorage.cpp
     PersistentVolumeComponent.cpp
@@ -39,24 +40,25 @@ add_executable(${PROJECT_NAME}
     include/k8deployer/Component.h
     include/k8deployer/Config.h
     include/k8deployer/ConfigMapComponent.h
+    include/k8deployer/DataDef.h
     include/k8deployer/DeploymentComponent.h
     include/k8deployer/Engine.h
+    include/k8deployer/HostPathStorage.h
+    include/k8deployer/IngressComponent.h
     include/k8deployer/JobComponent.h
     include/k8deployer/NfsStorage.h
+    include/k8deployer/PersistentVolumeComponent.h
     include/k8deployer/PortForward.h
     include/k8deployer/SecretComponent.h
     include/k8deployer/ServiceComponent.h
     include/k8deployer/StatefulSetComponent.h
     include/k8deployer/Storage.h
+    include/k8deployer/buildDependencies.h
     include/k8deployer/k8/Event.h
     include/k8deployer/k8/k8api.h
     include/k8deployer/logging.h
     include/k8deployer/probe.h
-    include/k8deployer/buildDependencies.h
-    include/k8deployer/PersistentVolumeComponent.h
-    HostPathStorage.cpp
-    include/k8deployer/HostPathStorage.h
-    include/k8deployer/DataDef.h
+    main.cpp
     )
 
 add_dependencies(${PROJECT_NAME} externalRestcCpp)

@@ -6,19 +6,20 @@
 
 #include "restc-cpp/RequestBuilder.h"
 
-#include "k8deployer/logging.h"
-#include "k8deployer/Component.h"
 #include "k8deployer/AppComponent.h"
-#include "k8deployer/JobComponent.h"
-#include "k8deployer/DeploymentComponent.h"
-#include "k8deployer/StatefulSetComponent.h"
-#include "k8deployer/ServiceComponent.h"
-#include "k8deployer/ConfigMapComponent.h"
-#include "k8deployer/SecretComponent.h"
-#include "k8deployer/PersistentVolumeComponent.h"
 #include "k8deployer/Cluster.h"
-#include "k8deployer/k8/k8api.h"
+#include "k8deployer/Component.h"
+#include "k8deployer/ConfigMapComponent.h"
+#include "k8deployer/DeploymentComponent.h"
 #include "k8deployer/Engine.h"
+#include "k8deployer/IngressComponent.h"
+#include "k8deployer/JobComponent.h"
+#include "k8deployer/PersistentVolumeComponent.h"
+#include "k8deployer/SecretComponent.h"
+#include "k8deployer/ServiceComponent.h"
+#include "k8deployer/StatefulSetComponent.h"
+#include "k8deployer/k8/k8api.h"
+#include "k8deployer/logging.h"
 
 using namespace std;
 using namespace string_literals;
@@ -35,7 +36,8 @@ const map<string, Kind> kinds = {{"App", Kind::APP},
                                  {"Service", Kind::SERVICE},
                                  {"ConfigMap", Kind::CONFIGMAP},
                                  {"Secret", Kind::SECRET},
-                                 {"PersitentVolume", Kind::PERSISTENTVOLUME}
+                                 {"PersitentVolume", Kind::PERSISTENTVOLUME},
+                                 {"Ingress", Kind::INGRESS}
                                 };
 } // anonymous ns
 
@@ -697,6 +699,8 @@ Component::ptr_t Component::createComponent(const ComponentDataDef &def,
         return make_shared<SecretComponent>(parent, cluster, def);
     case Kind::PERSISTENTVOLUME:
         return make_shared<PersistentVolumeComponent>(parent, cluster, def);
+    case Kind::INGRESS:
+        return make_shared<IngressComponent>(parent, cluster, def);
     }
 
     throw runtime_error("Unknown kind");
@@ -1181,6 +1185,11 @@ string expandVariables(const string &json, const variables_t &vars)
 commit:
             if (ch == '}') {
                 // Commint variable
+                if (defaultValue && !defaultValue->empty() && defaultValue->at(0) == '$') {
+                    if (const auto evar = getenv(defaultValue->substr(1).c_str())) {
+                        *defaultValue = *evar;
+                    }
+                }
                 expanded += getVar(varName, vars, defaultValue);
                 state = State::COPY;
                 break;

@@ -707,7 +707,7 @@ struct IngressStatus {
 struct Ingress {
     std::string apiVersion = "networking.k8s.io/v1";
     std::string kind = "Ingress";
-    std::optional<ObjectMeta> metadata;
+    ObjectMeta metadata;
     std::optional<IngressSpec> spec;
     std::optional<IngressStatus> status;
 };
@@ -1357,7 +1357,7 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::IngressStatus,
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::Ingress,
     (std::string, apiVersion)
     (std::string, kind)
-    (std::optional<k8deployer::k8api::ObjectMeta>, metadata)
+    (k8deployer::k8api::ObjectMeta, metadata)
     (std::optional<k8deployer::k8api::IngressSpec>, spec)
     (std::optional<k8deployer::k8api::IngressStatus>, status)
 );

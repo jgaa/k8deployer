@@ -59,7 +59,20 @@ void DeploymentComponent::buildDependencies()
             }
         }
 
-        addChild(name + "-svc", Kind::SERVICE, labels, svcargs, "before");
+        auto service = addChild(name + "-svc", Kind::SERVICE, labels, svcargs, "before");
+
+        if (auto ip = getArg("ingress.paths"); ip && !ip->empty()) {
+            // Add ingress
+            conf_t iargs;
+            for(const auto& [k, v] : args) {
+                static const array<string, 2> relevant = {"ingress.secret", "ingress.paths"};
+                if (find(relevant.begin(), relevant.end(), k) != relevant.end()) {
+                    iargs[k] = v;
+                }
+            }
+
+            service->addChild(name + "-ingr", Kind::INGRESS, labels, iargs);
+        }
     }
 
     // Check for config-files --> ConfigMap

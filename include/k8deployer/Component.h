@@ -32,6 +32,7 @@ enum class Kind {
     CONFIGMAP,
     SECRET,
     PERSISTENTVOLUME,
+    INGRESS,
 };
 
 std::string slurp (const std::string& path);
@@ -320,6 +321,9 @@ public:
 
     void startElapsedTimer();
 
+    ptr_t addChild(const std::string& name, Kind kind, const labels_t& labels,
+                   const conf_t& args, const std::string& parentRelation = {});
+
 protected:
     virtual std::string getCreationUrl() const {
         assert(false); // Implement!
@@ -355,8 +359,6 @@ protected:
     // Build the DeployTasks list for this component
     tasks_t buildDeployTasks();
 
-    ptr_t addChild(const std::string& name, Kind kind, const labels_t& labels,
-                   const conf_t& args, const std::string& parentRelation = {});
     conf_t mergeArgs() const;
 
     // Get a path to root, where the current node is first in the list

@@ -4,6 +4,7 @@
 //#define RESTC_CPP_LOG_TRACE LOG_TRACE
 
 #include <sstream>
+#include <filesystem>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
@@ -46,6 +47,7 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::ComponentDataDef,
     (k8deployer::k8api::string_list_t, depends)
     (std::optional<k8deployer::k8api::Secret>, secret)
     (k8deployer::k8api::PersistentVolume, persistentVolume)
+    (k8deployer::k8api::Ingress, ingress)
 
     (std::optional<k8deployer::k8api::Probe>, startupProbe)
     (std::optional<k8deployer::k8api::Probe>, livenessProbe)
@@ -238,6 +240,7 @@ void Cluster::setCmds()
 void Cluster::parseArgs(const std::string& args)
 {
     auto [kubeconfig, vars] = split(args, ':');
+
     kubeconfig_ = kubeconfig;
 
     vector<string> pairs;
@@ -250,7 +253,8 @@ void Cluster::parseArgs(const std::string& args)
     }
 
     if (variables_["name"].empty()) {
-        auto [n, _] = split(kubeconfig_, '.');
+        filesystem::path kubepath{kubeconfig};
+        const auto n = kubepath.filename().string();
         if (n.empty()) {
             variables_["name"] = "default";
         } else {
