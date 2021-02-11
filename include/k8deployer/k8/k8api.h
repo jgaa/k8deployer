@@ -668,16 +668,58 @@ struct IngressServiceBackend {
     ServiceBackendPort port;
 };
 
-//struct IngressBackend {
-//    std::optional<TypedLocalObjectReference> resource;
-//    std::optional<IngressServiceBackend> service;
-//};
-
 struct IngressBackend {
     std::optional<TypedLocalObjectReference> resource;
+
+    // networking.k8s.io/v1
+    std::optional<IngressServiceBackend> service;
+
+    // networking.k8s.io/v1beta1
     std::string serviceName;
     std::string servicePort;
+
+    void setServiceName(const std::string& version, const std::string& name) {
+        if (version == betaName()) {
+            serviceName = name;
+        } else {
+            if (!service)
+                service.emplace();
+            service->name = name;
+        }
+    }
+
+    void setServicePortName(const std::string& version, const std::string& name) {
+        if (version == betaName()) {
+            servicePort = name;
+        } else {
+            if (!service)
+                service.emplace();
+            service->port.name = name;
+        }
+    }
+
+    std::string getServiceName(const std::string& version) const {
+        if (version == betaName())
+            return serviceName;
+        if (service)
+            return service->name;
+        return {};
+    }
+
+    std::string getServicePortName(const std::string& version) const {
+        if (version == betaName())
+            return servicePort;
+        if (service)
+            return service->port.name;
+        return {};
+    }
+
+    static const std::string& betaName() noexcept {
+        static const std::string name{"networking.k8s.io/v1beta1"};
+        return name;
+    }
 };
+
 
 struct HTTPIngressPath {
     std::optional<IngressBackend> backend;
@@ -710,16 +752,8 @@ struct IngressStatus {
     LoadBalancerStatus loadBalancer;
 };
 
-//struct Ingress {
-//    std::string apiVersion = "networking.k8s.io/v1";
-//    std::string kind = "Ingress";
-//    ObjectMeta metadata;
-//    std::optional<IngressSpec> spec;
-//    std::optional<IngressStatus> status;
-//};
-
 struct Ingress {
-    std::string apiVersion = "networking.k8s.io/v1beta1";
+    std::string apiVersion = "networking.k8s.io/v1";
     std::string kind = "Ingress";
     ObjectMeta metadata;
     std::optional<IngressSpec> spec;
@@ -1334,7 +1368,7 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::IngressServiceBackend,
 
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::IngressBackend,
     (std::optional<k8deployer::k8api::TypedLocalObjectReference>, resource)
-    //(std::optional<k8deployer::k8api::IngressServiceBackend>, service)
+    (std::optional<k8deployer::k8api::IngressServiceBackend>, service)
     (std::string, serviceName)
     (std::string, servicePort)
 );

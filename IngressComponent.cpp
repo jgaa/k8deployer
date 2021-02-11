@@ -24,6 +24,10 @@ void IngressComponent::prepareDeploy()
         ingress.metadata.namespace_ = getNamespace();
     }
 
+    if (Engine::config().useNetworkingBetaV1) {
+        ingress.apiVersion = "networking.k8s.io/v1beta1";
+    }
+
     if (auto defs = getArg("ingress.paths")) {
 
         // Format [hostname:]/path[...][/*][ new-path-definition]...
@@ -86,19 +90,15 @@ void IngressComponent::prepareDeploy()
             //       first port.
             if (!ip.backend && !parent->service.spec.ports.empty()) {
                 ip.backend.emplace();
-                ip.backend->serviceName = parent->name;
+                ip.backend->setServiceName(ingress.apiVersion, parent->name);
+                ip.backend->setServicePortName(ingress.apiVersion, parent->service.spec.ports.front().name);
                 ip.backend->servicePort = parent->service.spec.ports.front().name;
-//                ip.backend->service.emplace();
-//                ip.backend->service->name = parent->name;
-
-//                ip.backend->service->port.name = parent->service.spec.ports.front().name;
-
             }
 
             LOG_TRACE << logName()
                       << "Adding ingress path " << ip.path << " [" << ip.pathType
-                      << "] to service " << ip.backend->serviceName //ip.backend->service->name
-                      << ":" << ip.backend->servicePort; // ip.backend->service->port.name;
+                      << "] to service " << ip.backend->getServiceName(ingress.apiVersion)
+                      << ":" << ip.backend->getServicePortName(ingress.apiVersion);
 
             ir.http->paths.emplace_back(move(ip));
         }
@@ -194,7 +194,7 @@ void IngressComponent::doRemove(std::weak_ptr<Component::Task> task)
 string IngressComponent::getCreationUrl() const
 {
     static const auto url = cluster_->getUrl()
-            + "/apis/networking.k8s.io/v1/namespaces/"
+            + "/apis/" + ingress.apiVersion + "/namespaces/"
             + getNamespace() + "/ingresses";
     return url;
 }

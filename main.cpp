@@ -40,6 +40,9 @@ int main(int argc, char* argv[]) {
                     "randomize-paths,r",
                     po::value<bool>(&config.randomizePaths)->default_value(config.randomizePaths),
                     "Add a uuid to provisioned paths (nfs) to always depoloy on a 'fresh' volume.")(
+                    "use-networking-betav1",
+                    po::value<bool>(&config.useNetworkingBetaV1)->default_value(config.useNetworkingBetaV1),
+                    "Use networking betav1 (pre kubernetes 1.19) - backwards compatibility")(
                     "variables,v",
                     po::value<decltype(config.rawVariables)>(&config.rawVariables),
                     "One or more variables var=value,var=value...")(
