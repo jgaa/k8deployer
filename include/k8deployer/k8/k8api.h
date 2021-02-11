@@ -668,9 +668,15 @@ struct IngressServiceBackend {
     ServiceBackendPort port;
 };
 
+//struct IngressBackend {
+//    std::optional<TypedLocalObjectReference> resource;
+//    std::optional<IngressServiceBackend> service;
+//};
+
 struct IngressBackend {
     std::optional<TypedLocalObjectReference> resource;
-    std::optional<IngressServiceBackend> service;
+    std::string serviceName;
+    std::string servicePort;
 };
 
 struct HTTPIngressPath {
@@ -704,8 +710,16 @@ struct IngressStatus {
     LoadBalancerStatus loadBalancer;
 };
 
+//struct Ingress {
+//    std::string apiVersion = "networking.k8s.io/v1";
+//    std::string kind = "Ingress";
+//    ObjectMeta metadata;
+//    std::optional<IngressSpec> spec;
+//    std::optional<IngressStatus> status;
+//};
+
 struct Ingress {
-    std::string apiVersion = "networking.k8s.io/v1";
+    std::string apiVersion = "networking.k8s.io/v1beta1";
     std::string kind = "Ingress";
     ObjectMeta metadata;
     std::optional<IngressSpec> spec;
@@ -1320,7 +1334,9 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::IngressServiceBackend,
 
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::IngressBackend,
     (std::optional<k8deployer::k8api::TypedLocalObjectReference>, resource)
-    (std::optional<k8deployer::k8api::IngressServiceBackend>, service)
+    //(std::optional<k8deployer::k8api::IngressServiceBackend>, service)
+    (std::string, serviceName)
+    (std::string, servicePort)
 );
 
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::HTTPIngressPath,

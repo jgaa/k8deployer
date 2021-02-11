@@ -86,16 +86,19 @@ void IngressComponent::prepareDeploy()
             //       first port.
             if (!ip.backend && !parent->service.spec.ports.empty()) {
                 ip.backend.emplace();
-                ip.backend->service.emplace();
-                ip.backend->service->name = parent->name;
+                ip.backend->serviceName = parent->name;
+                ip.backend->servicePort = parent->service.spec.ports.front().name;
+//                ip.backend->service.emplace();
+//                ip.backend->service->name = parent->name;
 
-                ip.backend->service->port.name = parent->service.spec.ports.front().name;
+//                ip.backend->service->port.name = parent->service.spec.ports.front().name;
+
             }
 
             LOG_TRACE << logName()
                       << "Adding ingress path " << ip.path << " [" << ip.pathType
-                      << "] to service " << ip.backend->service->name
-                      << ":" << ip.backend->service->port.name;
+                      << "] to service " << ip.backend->serviceName //ip.backend->service->name
+                      << ":" << ip.backend->servicePort; // ip.backend->service->port.name;
 
             ir.http->paths.emplace_back(move(ip));
         }
