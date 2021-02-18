@@ -149,7 +149,7 @@ void ServiceComponent::doDeploy(std::weak_ptr<Component::Task> task)
 {
     auto url = cluster_->getUrl()
             + "/api/v1/namespaces/"
-            + service.metadata.namespace_
+            + getNamespace()
             + "/services";
 
     client().Process([this, url, task](Context& ctx) {

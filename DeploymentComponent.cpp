@@ -45,6 +45,42 @@ void DeploymentComponent::buildDependencies()
         labels["app"] = name; // Use the name as selector
     }
 
+    // Check for docker hub secrets
+    if (auto dh = getArg("imagePullSecrets.fromDockerLogin")) {
+        LOG_DEBUG << logName() << "Adding Docker credentials.";
+
+        conf_t svcargs;
+        for(const auto& [k, v] : args) {
+            static const array<string, 1> relevant = {"magePullSecrets.fromDockerLogin"};
+            if (find(relevant.begin(), relevant.end(), k) != relevant.end()) {
+                svcargs[k] = v;
+            }
+        }
+
+        auto child = addChild(name + "-dhcreds", Kind::SECRET, {}, svcargs);
+        auto& podspec = this->getPodTemplate()->spec;
+        k8api::LocalObjectReference lor = {child->name};
+        podspec.imagePullSecrets.push_back(lor);
+    }
+
+    std::string tlsSecretName;
+    if (auto tls = getArg("tlsSecret")) {
+        LOG_DEBUG << logName() << "Adding tls secret.";
+
+        conf_t tlsargs;
+        for(const auto& [k, v] : args) {
+            static const array<string, 1> relevant = {"tlsSecret"};
+            if (find(relevant.begin(), relevant.end(), k) != relevant.end()) {
+                tlsargs[k] = v;
+            }
+        }
+        auto child = addChild(name + "-tls", Kind::SECRET, {}, tlsargs);
+        tlsSecretName = child->name;
+        auto& podspec = this->getPodTemplate()->spec;
+        k8api::LocalObjectReference lor = {child->name};
+        podspec.imagePullSecrets.push_back(lor);
+    }
+
     // A deployment normally needs a service
     const auto serviceEnabled = getBoolArg("service.enabled");
     if (!hasKindAsChild(Kind::SERVICE) && ((serviceEnabled && *serviceEnabled) || !serviceEnabled)) {
@@ -64,6 +100,10 @@ void DeploymentComponent::buildDependencies()
         if (auto ip = getArg("ingress.paths"); ip && !ip->empty()) {
             // Add ingress
             conf_t iargs;
+            if (!tlsSecretName.empty()) {
+                // Explicit set "ingress.secret" will override below
+                iargs["ingress.secret"] = tlsSecretName;
+            }
             for(const auto& [k, v] : args) {
                 static const array<string, 2> relevant = {"ingress.secret", "ingress.paths"};
                 if (find(relevant.begin(), relevant.end(), k) != relevant.end()) {
@@ -117,25 +157,6 @@ void DeploymentComponent::buildDependencies()
             container.volumeMounts.push_back(vm);
         }
     }
-
-//    --- Broken when we use non-https transport
-//    // Check for docker hub secrets
-//    if (auto dh = getArg("imagePullSecrets.fromDockerLogin")) {
-//        LOG_DEBUG << logName() << "Adding Docker credentials.";
-
-//        conf_t svcargs;
-//        for(const auto& [k, v] : args) {
-//            static const array<string, 1> relevant = {"magePullSecrets.fromDockerLogin"};
-//            if (find(relevant.begin(), relevant.end(), k) != relevant.end()) {
-//                svcargs[k] = v;
-//            }
-//        }
-
-//        auto child = addChild(name + "-dhcreds", Kind::SECRET, {}, svcargs);
-//        k8api::PodSpec *podspec = {};
-//        k8api::LocalObjectReference lor = {child->name};
-//        podspec->imagePullSecrets.push_back(lor);
-//    }
 }
 
 void DeploymentComponent::doDeploy(std::weak_ptr<Task> task)

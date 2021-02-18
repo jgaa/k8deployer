@@ -27,15 +27,34 @@ SecretComponent::SecretComponent(const Component::ptr_t &parent, Cluster &cluste
 void SecretComponent::prepareDeploy()
 {
     if (!prepared_) {
-        if (configmap.metadata.name.empty()) {
-            configmap.metadata.name = name;
+        if (!secret) {
+            secret.emplace();
         }
 
-        if (configmap.metadata.namespace_.empty()) {
-            configmap.metadata.namespace_ = Engine::config().ns;
+        if (secret->metadata.name.empty()) {
+            secret->metadata.name = name;
         }
 
-        if (auto dockerSecret = getArg("imagePullSecrets.fromDockerLogin")) {
+        if (secret->metadata.namespace_.empty()) {
+            secret->metadata.namespace_ = getNamespace();
+        }
+
+        enum class Type {
+            UNKNOWN,
+            TLS,
+            DHCRED
+        };
+
+        // Try to determine type from name
+        Type type = Type::UNKNOWN;
+        if (boost::algorithm::ends_with(name, "-tls")) {
+            type = Type::TLS;
+        } else if (boost::algorithm::ends_with(name, "-dhcreds")) {
+            type = Type::DHCRED;
+        }
+
+        if (auto dockerSecret = getArg("imagePullSecrets.fromDockerLogin")
+                ; dockerSecret && (type == Type::DHCRED || type == Type::UNKNOWN)) {
             fromFile_ = *dockerSecret;
             if (!filesystem::is_regular_file(fromFile_)) {
                 LOG_ERROR << logName() << "Not a file: " << fromFile_;
@@ -44,13 +63,27 @@ void SecretComponent::prepareDeploy()
 
             LOG_TRACE << logName() << " Docker login file: " << fromFile_;
 
-            secret = k8api::Secret{};
-            secret->data["dockerconfigjson"] = Base64Encode(slurp(fromFile_));
+            secret->data[".dockerconfigjson"] = Base64Encode(slurp(fromFile_));
             secret->type = "kubernetes.io/dockerconfigjson";
 
-            const auto key = filesystem::path{fromFile_}.filename();
-            configmap.binaryData[key] = Base64Encode(slurp(fromFile_));
+        } else if (auto tlsSecret = getArgAsKv(getArg("tlsSecret", {}))
+                   ; !tlsSecret.empty() && (type == Type::TLS || type == Type::UNKNOWN)) {
+            if (tlsSecret.find("key") == tlsSecret.end()) {
+                LOG_ERROR << "tlsSecret: Missing `key=` entry for secret " << name;
+                throw runtime_error("Missing data for secret");
+            }
 
+            if (tlsSecret.find("crt") == tlsSecret.end()) {
+                LOG_ERROR << "tlsSecret: Missing `crt=` entry for secret " << name;
+                throw runtime_error("Missing data for secret");
+            }
+
+            secret->data["tls.key"] = Base64Encode(slurp(tlsSecret.at("key")));
+            secret->data["tls.crt"] = Base64Encode(slurp(tlsSecret.at("crt")));
+            secret->type = "kubernetes.io/tls";
+        } else if (secret->type.empty()){
+            LOG_ERROR << "No data given for secret: " << name;
+            throw runtime_error("Missing data for secret");
         }
 
         prepared_ = true;
@@ -98,7 +131,7 @@ void SecretComponent::doDeploy(std::weak_ptr<Component::Task> task)
 {
     auto url = cluster_->getUrl()
             + "/api/v1/namespaces/"
-            + service.metadata.namespace_
+            + getNamespace()
             + "/secrets";
 
     client().Process([this, url, task](Context& ctx) {
@@ -107,7 +140,8 @@ void SecretComponent::doDeploy(std::weak_ptr<Component::Task> task)
                   << "Sending Secret "
                   << secret->metadata.name;
 
-        LOG_TRACE << "Payload: " << toJson(secret);
+        assert(secret);
+        LOG_TRACE << "Payload: " << toJson(*secret);
 
         try {
             auto reply = RequestBuilder{ctx}.Post(url)
