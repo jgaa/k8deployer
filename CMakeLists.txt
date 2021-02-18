@@ -27,6 +27,7 @@ add_executable(${PROJECT_NAME}
     HostPathStorage.cpp
     IngressComponent.cpp
     JobComponent.cpp
+    Kubeconfig.cpp
     NfsStorage.cpp
     PersistentVolumeComponent.cpp
     PortForward.cpp
@@ -46,6 +47,7 @@ add_executable(${PROJECT_NAME}
     include/k8deployer/HostPathStorage.h
     include/k8deployer/IngressComponent.h
     include/k8deployer/JobComponent.h
+    include/k8deployer/Kubeconfig.h
     include/k8deployer/NfsStorage.h
     include/k8deployer/PersistentVolumeComponent.h
     include/k8deployer/PortForward.h
@@ -60,7 +62,7 @@ add_executable(${PROJECT_NAME}
     main.cpp
     )
 
-add_dependencies(${PROJECT_NAME} externalRestcCpp)
+add_dependencies(${PROJECT_NAME} externalRestcCpp externalLogfault)
 set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 17)
 
 IF(CMAKE_BUILD_TYPE MATCHES Debug)

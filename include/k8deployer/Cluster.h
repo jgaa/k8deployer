@@ -9,6 +9,7 @@
 #include "k8deployer/Config.h"
 #include "k8deployer/Storage.h"
 #include "k8deployer/DataDef.h"
+#include "k8deployer/Kubeconfig.h"
 
 namespace k8deployer {
 
@@ -26,7 +27,7 @@ public:
     };
 
     using vars_t = std::map<std::string, std::string>;
-    Cluster(const Config& cfg, const std::string& arg, restc_cpp::RestClient& client);
+    Cluster(const Config& cfg, const std::string& arg);
 
     ~Cluster();
 
@@ -35,13 +36,14 @@ public:
     }
 
     restc_cpp::RestClient& client() noexcept {
-        return client_;
+        assert(client_);
+        return *client_;
     }
 
-    void startProxy();
-    bool waitForProxyToStart() {
-        return portFwd_->waitForStarted();
-    }
+    //void startProxy();
+//    bool waitForProxyToStart() {
+//        return portFwd_->waitForStarted();
+//    }
 
     std::string getVars() const;
     void setState(State state) {
@@ -67,6 +69,7 @@ public:
 
 private:
     using action_fn_t = std::function<std::future<void>()>;
+    void loadKubeconfig();
     void startEventsLoop();
     void readDefinitions();
     void createComponents();
@@ -75,10 +78,11 @@ private:
     std::pair<std::string, std::string> split(const std::string& str, char ch) const;
 
     State state_{State::INIT};
+    std::string url_;
     std::string name_;
     std::unique_ptr<PortForward> portFwd_;
     vars_t variables_;
-    restc_cpp::RestClient& client_;
+    std::shared_ptr<restc_cpp::RestClient> client_;
     std::string kubeconfig_; // Empty for default (no arguments)
     const Config& cfg_;
     std::shared_ptr<Component> rootComponent_;

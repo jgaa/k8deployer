@@ -998,7 +998,7 @@ const JsonFieldMapping *jsonFieldMappings()
     return &mappings;
 }
 
-string fileToJson(const string &pathToFile)
+string fileToJson(const string &pathToFile, bool assumeYaml)
 {
     if (!filesystem::is_regular_file(pathToFile)) {
         LOG_ERROR << "Not a file: " << pathToFile;
@@ -1008,7 +1008,7 @@ string fileToJson(const string &pathToFile)
     string json;
     const filesystem::path path{pathToFile};
     const auto ext = path.extension();
-    if (ext == ".yaml") {
+    if (assumeYaml || ext == ".yaml") {
         // https://www.commandlinefu.com/commands/view/12218/convert-yaml-to-json
         const auto expr = R"(import sys, yaml, json; json.dump(yaml.load(open(")"s
                 + pathToFile
@@ -1044,7 +1044,7 @@ void Component::sendDelete(const string &url, std::weak_ptr<Component::Task> tas
                            bool ignoreErrors,
                            const initializer_list<std::pair<string, string>>& args)
 {
-    Engine::client().Process([this, url, task, ignoreErrors, args](auto& ctx) {
+    client().Process([this, url, task, ignoreErrors, args](auto& ctx) {
 
         LOG_TRACE << logName() << "Sending DELETE " << url;
 

@@ -35,10 +35,10 @@ public:
         return instance().cfg_;
     }
 
-    static restc_cpp::RestClient& client() noexcept {
-        assert(instance().client_);
-        return *instance().client_;
-    }
+//    static restc_cpp::RestClient& client() noexcept {
+//        assert(instance().client_);
+//        return *instance().client_;
+//    }
 
     static Mode mode() noexcept {
         return instance().mode_;
@@ -47,7 +47,7 @@ public:
 private:
     void startPortForwardig();
 
-    std::unique_ptr<restc_cpp::RestClient> client_;
+    //std::unique_ptr<restc_cpp::RestClient> client_;
     std::vector<std::unique_ptr<Cluster>> clusters_;
     const Config cfg_;
     static Engine *instance_;

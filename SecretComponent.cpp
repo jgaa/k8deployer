@@ -101,7 +101,7 @@ void SecretComponent::doDeploy(std::weak_ptr<Component::Task> task)
             + service.metadata.namespace_
             + "/secrets";
 
-    Engine::client().Process([this, url, task](Context& ctx) {
+    client().Process([this, url, task](Context& ctx) {
 
         LOG_DEBUG << logName()
                   << "Sending Secret "
@@ -157,7 +157,7 @@ void SecretComponent::doRemove(std::weak_ptr<Component::Task> task)
             + secret->metadata.namespace_
             + "/secrets/" + name;
 
-    Engine::client().Process([this, url, task](Context& ctx) {
+    client().Process([this, url, task](Context& ctx) {
 
         LOG_DEBUG << logName()
                   << "Deleting Secret "

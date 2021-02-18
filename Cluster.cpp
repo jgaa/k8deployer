@@ -71,8 +71,8 @@ using namespace restc_cpp;
 
 namespace k8deployer {
 
-Cluster::Cluster(const Config &cfg, const string &arg, RestClient &client)
-    : client_{client}, cfg_{cfg}
+Cluster::Cluster(const Config &cfg, const string &arg)
+    : cfg_{cfg}
 {
     parseArgs(arg);
     if (!cfg_.storageEngine.empty()) {
@@ -87,11 +87,11 @@ Cluster::~Cluster()
 
 }
 
-void Cluster::startProxy()
-{
-    portFwd_ = make_unique<PortForward>(client_.GetIoService(), cfg_, kubeconfig_, name());
-    portFwd_->start();
-}
+//void Cluster::startProxy()
+//{
+//    portFwd_ = make_unique<PortForward>(client_.GetIoService(), cfg_, kubeconfig_, name());
+//    portFwd_->start();
+//}
 
 string Cluster::getVars() const
 {
@@ -109,14 +109,16 @@ string Cluster::getVars() const
 
 string Cluster::getUrl() const
 {
-    return "http://127.0.0.1:"s
-            + to_string(portFwd_->getPort());
+//    return "http://127.0.0.1:"s
+//            + to_string(portFwd_->getPort());
+    return url_;
 }
 
 std::future<void> Cluster::prepare()
 {
     setState(State::INIT);
     LOG_INFO << name () << " Preparing ...";
+    loadKubeconfig();
     setCmds();
     startEventsLoop();
     createComponents();
@@ -132,12 +134,39 @@ std::future<void> Cluster::execute()
     return executeCmd_();
 }
 
+void Cluster::loadKubeconfig()
+{
+    auto kc = Kubeconfig::load(kubeconfig_);
+
+    // Prepare tls for rest client
+    auto tls = make_shared<boost::asio::ssl::context>(
+                boost::asio::ssl::context{ boost::asio::ssl::context::tls_client });
+
+    tls->set_options(boost::asio::ssl::context::default_workarounds
+    | boost::asio::ssl::context::no_sslv2
+    | boost::asio::ssl::context::no_sslv3);
+
+    const auto ca = kc->getCaCert();
+    tls->add_certificate_authority({ca.data(), ca.size()});
+
+    const auto cs = kc->getClientCert();
+    tls->use_certificate({cs.data(), cs.size()}, boost::asio::ssl::context_base::pem);
+
+    const auto key = kc->getClientKey();
+    tls->use_private_key({key.data(), key.size()}, boost::asio::ssl::context_base::pem);
+
+    restc_cpp::Request::Properties properties;
+    properties.cacheMaxConnectionsPerEndpoint = 32;
+    client_ = restc_cpp::RestClient::Create(tls, properties);
+
+    url_ = kc->getServer();
+}
+
 void Cluster::startEventsLoop()
 {
     LOG_DEBUG << "Starting event-loops";
-    client_.Process([this](Context& ctx) {
-        const auto url = "http://127.0.0.1:"s + to_string(portFwd_->getPort())
-                + "/api/v1/events";
+    client_->Process([this](Context& ctx) {
+        const auto url = url_ + "/api/v1/events";
 
         auto prop = make_shared<Request::Properties>();
         prop->recvTimeout = (60 * 60 * 24) * 1000;

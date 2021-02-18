@@ -55,9 +55,9 @@ Engine *Engine::instance_;
 Engine::Engine(const Config &config)
     : cfg_{config}
 {
-    restc_cpp::Request::Properties properties;
-    properties.cacheMaxConnectionsPerEndpoint = 32;
-    client_ = restc_cpp::RestClient::Create(properties);
+//    restc_cpp::Request::Properties properties;
+//    properties.cacheMaxConnectionsPerEndpoint = 32;
+//    client_ = restc_cpp::RestClient::Create(properties);
 
     if (cfg_.command == "deploy") {
         mode_ = Mode::DEPLOY;
@@ -76,10 +76,10 @@ void Engine::run()
 {
     // Create cluster instances
     for(auto& k: cfg_.kubeconfigs) {
-        clusters_.emplace_back(make_unique<Cluster>(cfg_, k, *client_));
+        clusters_.emplace_back(make_unique<Cluster>(cfg_, k));
     }
 
-    startPortForwardig();
+    //startPortForwardig();
 
     std::deque<future<void>> futures;
 
@@ -107,31 +107,35 @@ void Engine::run()
     }
 
     LOG_INFO << "Done. Shutting down proxies.";
-    try {
-        client_->GetIoService().stop();
-    } catch (const exception& ex) {
-        LOG_WARN << "Caugtht exception from asio shutdown: " << ex.what();
+    for(auto& cluster : clusters_) {
+        try {
+            cluster->client().GetIoService().stop();
+        } catch (const exception& ex) {
+            LOG_WARN << "Caugtht exception from asio shutdown: " << ex.what();
+        }
     }
 
-    client_->CloseWhenReady();
+    for(auto& cluster : clusters_) {
+        cluster->client().CloseWhenReady();
+    }
 }
 
 void Engine::startPortForwardig()
 {
     for(auto& cluster : clusters_) {
-        cluster->startProxy();
+        //cluster->startProxy();
     }
 
-    bool success = true;
-    for(auto& cluster : clusters_) {
-        if (!cluster->waitForProxyToStart()) {
-            LOG_ERROR << "Failed to start proxying to cluster " << cluster->name();
-            success = false;
-        }
-    }
+//    bool success = true;
+//    for(auto& cluster : clusters_) {
+//        if (!cluster->waitForProxyToStart()) {
+//            LOG_ERROR << "Failed to start proxying to cluster " << cluster->name();
+//            success = false;
+//        }
+//    }
 
-    if (!success) {
-        throw runtime_error("Failed to start proxying");
-    }
+//    if (!success) {
+//        throw runtime_error("Failed to start proxying");
+//    }
 }
 }

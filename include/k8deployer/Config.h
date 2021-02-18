@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <regex>
 
 namespace k8deployer {
 
@@ -16,7 +17,7 @@ struct Config {
   bool randomizePaths = false;
   bool useNetworkingBetaV1 = false;
   std::vector<std::string> rawVariables;
-
+  std::string excludeFilter;
   std::map<std::string, std::string> variables;
 };
 

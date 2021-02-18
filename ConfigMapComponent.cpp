@@ -101,7 +101,7 @@ void ConfigMapComponent::doDeploy(std::weak_ptr<Component::Task> task)
             + configmap.metadata.namespace_
             + "/configmaps";
 
-    Engine::client().Process([this, url, task](Context& ctx) {
+    client().Process([this, url, task](Context& ctx) {
 
         LOG_DEBUG << logName()
                   << "Sending ConfigMap "
@@ -157,7 +157,7 @@ void ConfigMapComponent::doRemove(std::weak_ptr<Component::Task> task)
             + configmap.metadata.namespace_
             + "/configmaps/" + name;
 
-    Engine::client().Process([this, url, task](Context& ctx) {
+    client().Process([this, url, task](Context& ctx) {
 
         LOG_DEBUG << logName()
                   << "Deleting ConfigMap "

@@ -45,7 +45,7 @@ const restc_cpp::JsonFieldMapping *jsonFieldMappings();
 std::string expandVariables(const std::string& json, const variables_t& vars);
 
 /*! Reads the contents from a .json or .yaml file and returns the content as json. */
-std::string fileToJson(const std::string& pathToFile);
+std::string fileToJson(const std::string& pathToFile, bool assumeYaml = false);
 
 /*! Reads the contents from a .json or .yaml file and serialize it to obj */
 template <typename T>
@@ -259,6 +259,10 @@ public:
         return *cluster_;
     }
 
+    restc_cpp::RestClient& client() {
+        return cluster().client();
+    }
+
     static ptr_t populateTree(const ComponentDataDef &def, Cluster& cluster);
 
     // Called on the root component
@@ -390,7 +394,7 @@ protected:
         //  2) We have no guarantee regarding the lifetime of the data object.
         auto json = toJson(data);
 
-        Engine::client().Process([this, url, task, json=std::move(json), requestType](auto& ctx) {
+        cluster_->client().Process([this, url, task, json=std::move(json), requestType](auto& ctx) {
             std::string taskName = "***";
             if (auto t = task.lock()) {
                 taskName = t->name();

@@ -14,7 +14,7 @@ void sendProbe(Component& component, const std::string& url,
                std::function<void(const std::optional<T>& object, Component::K8ObjectState state)> onDone,
                TvalidateFn && validate)
 {
-    Engine::client().Process([url, &component,
+        component.client().Process([url, &component,
                              onDone=std::move(onDone),
                              validate=std::move(validate)](auto& ctx) {
 

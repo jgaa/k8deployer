@@ -152,7 +152,7 @@ void ServiceComponent::doDeploy(std::weak_ptr<Component::Task> task)
             + service.metadata.namespace_
             + "/services";
 
-    Engine::client().Process([this, url, task](Context& ctx) {
+    client().Process([this, url, task](Context& ctx) {
 
         LOG_DEBUG << logName()
                   << "Sending Service "
@@ -206,7 +206,7 @@ void ServiceComponent::doRemove(std::weak_ptr<Component::Task> task)
             + service.metadata.namespace_
             + "/services/" + name;
 
-    Engine::client().Process([this, url, task](Context& ctx) {
+    client().Process([this, url, task](Context& ctx) {
 
         LOG_DEBUG << logName()
                   << "Deleting Service "
