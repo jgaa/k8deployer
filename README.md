@@ -15,8 +15,10 @@ For now, an experimental kubernetes deployer in C++
 
 - [ ] Deployment
     - [x] Create
-        - [ ] Environment variables from args (key=value,...)
+        - [x] Environment variables from args (key=value,...)
         - [ ] Environment variables from ConfigMap
+        - [ ] Environment variables from Secrets
+        - [ ] Apply Resource limits
     - [x] Delete
     - [ ] Update
     - [ ] Verify
@@ -41,6 +43,8 @@ For now, an experimental kubernetes deployer in C++
     - [x] TLS secret (read crt/key from pem files)
     - [ ] Optimize secrets, so we only have one object per actual secret
     - [x] Change protocol to https:// (directly to cluster) in order to create secrets
+    - [ ] Generate passwords and store them in secrets during deployment
+        - [ ] Glue to environment variables 
 
 - [ ] StatefulSet
     - [x] Create
@@ -48,9 +52,22 @@ For now, an experimental kubernetes deployer in C++
             - [x] Local
             - [x] Network
                 - [x] nfs
+        - [ ] Apply Resource limits
     - [x] Delete
         - [x] Deal with storage
         - [ ] Optionally, delete the data (if possible)
+    - [ ] Update
+    - [ ] Verify
+    
+- [x] Ingress
+    - [x] Hosts
+    - [x] Paths
+    - [x] TLS / Certs
+
+- [ ] DaemonSet
+    - [ ] Create
+        - [ ] Apply Resource limits
+    - [ ] Delete
     - [ ] Update
     - [ ] Verify
 
@@ -61,6 +78,7 @@ For now, an experimental kubernetes deployer in C++
 - [ ] Storage reservation pools / automatoc VolumeMounts
     - [x] Support NFS, manual and automatically
     - [x] Support single node local storage
+    - [x] Support automatic claim providers (tested with minikube)
     - [ ] Support AWS
     - [ ] Support GCP
     - [ ] Support Azure
@@ -72,6 +90,10 @@ For now, an experimental kubernetes deployer in C++
     - [x] Relate events to components.
     - [x] Update component state from events
     - [x] Trigger next action(s) from state changes
+
+- [ ] RBAC
+    - [ ] Create roles
+    - [ ] Refer components to roles
 
 - [ ] Error handling
     - [ ] Fail fast on errors, stop deployments and try to roll back
