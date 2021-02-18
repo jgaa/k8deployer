@@ -160,6 +160,8 @@ void Cluster::loadKubeconfig()
     client_ = restc_cpp::RestClient::Create(tls, properties);
 
     url_ = kc->getServer();
+
+    LOG_INFO << name() << " Will connect directly to: " << url_;
 }
 
 void Cluster::startEventsLoop()
