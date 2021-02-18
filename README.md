@@ -37,8 +37,10 @@ For now, an experimental kubernetes deployer in C++
 - [ ] Secrets
     - [x] Docker repositoiry secrets
         - [x] Use in podspec
+        - [x] Read from docker's config file
+    - [x] TLS secret (read crt/key from pem files)
     - [ ] Optimize secrets, so we only have one object per actual secret
-    - [ ] Change protocol to https:// (directly to cluster) in order to create secrets
+    - [x] Change protocol to https:// (directly to cluster) in order to create secrets
 
 - [ ] StatefulSet
     - [x] Create
