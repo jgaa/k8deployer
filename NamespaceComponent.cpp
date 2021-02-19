@@ -111,4 +111,9 @@ string NamespaceComponent::getCreationUrl() const
     return url;
 }
 
+string NamespaceComponent::getAccessUrl() const
+{
+    return getCreationUrl() + "/" + namespace_.metadata.name;
+}
+
 } // ns

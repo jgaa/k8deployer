@@ -20,6 +20,7 @@ private:
     void doDeploy(std::weak_ptr<Task> task);
     void doRemove(std::weak_ptr<Task> task);
     std::string getCreationUrl() const override;
+    std::string getAccessUrl() const override;
 };
 
 } // ns

@@ -76,7 +76,8 @@ void Component::init()
 
     if (isRoot()) {
         if (Engine::config().autoMaintainNamespace) {
-            addChild(getNamespace(), Kind::NAMESPACE);
+            auto ns = addChild(getNamespace() + "-ns", Kind::NAMESPACE);
+            ns->namespace_.metadata.name = getNamespace();
         }
     }
 

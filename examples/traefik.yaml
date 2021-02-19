@@ -10,6 +10,31 @@ args:
     --logLevel=INFO
     --defaultentrypoints=https
     --entrypoints=Name:https Address::443 TLS
-  ingress.paths: >
-    traefik-${name}.${domain,k8.lastviking.eu}:
-    /*
+  ingress.paths: "traefik-${name}.${domain,k8.lastviking.eu}: /*"
+serviceAccount:
+  name: traefik-ingress-controller
+  clusterRules:
+    - apiGroups:
+        - ""
+      resources:
+        - services
+        - endpoints
+        - secrets
+      verbs:
+        - get
+        - list
+        - watch
+    - apiGroups:
+        - extensions
+      resources:
+        - ingresses
+      verbs:
+        - get
+        - list
+        - watch
+    - apiGroups:
+      - extensions
+      resources:
+      - ingresses/status
+      verbs:
+      - update
