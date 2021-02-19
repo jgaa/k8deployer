@@ -20,6 +20,7 @@ struct Config {
   std::string excludeFilter;
   std::string includeFilter = ".*";
   std::map<std::string, std::string> variables;
+  bool autoMaintainNamespace = false;
 };
 
 } // ns

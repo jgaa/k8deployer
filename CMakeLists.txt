@@ -28,6 +28,7 @@ add_executable(${PROJECT_NAME}
     IngressComponent.cpp
     JobComponent.cpp
     Kubeconfig.cpp
+    NamespaceComponent.cpp
     NfsStorage.cpp
     PersistentVolumeComponent.cpp
     PortForward.cpp
@@ -48,6 +49,7 @@ add_executable(${PROJECT_NAME}
     include/k8deployer/IngressComponent.h
     include/k8deployer/JobComponent.h
     include/k8deployer/Kubeconfig.h
+    include/k8deployer/NamespaceComponent.h
     include/k8deployer/NfsStorage.h
     include/k8deployer/PersistentVolumeComponent.h
     include/k8deployer/PortForward.h

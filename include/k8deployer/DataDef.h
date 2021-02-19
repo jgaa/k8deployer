@@ -39,6 +39,7 @@ struct ComponentData {
     std::optional<k8api::Secret> secret;
     k8api::PersistentVolume persistentVolume;
     k8api::Ingress ingress;
+    k8api::Namespace namespace_;
 
     // Applied to the container if it's indirectly created by k8deployer
     std::optional<k8api::Probe> startupProbe;

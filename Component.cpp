@@ -15,6 +15,7 @@
 #include "k8deployer/IngressComponent.h"
 #include "k8deployer/JobComponent.h"
 #include "k8deployer/PersistentVolumeComponent.h"
+#include "k8deployer/NamespaceComponent.h"
 #include "k8deployer/SecretComponent.h"
 #include "k8deployer/ServiceComponent.h"
 #include "k8deployer/StatefulSetComponent.h"
@@ -37,7 +38,8 @@ const map<string, Kind> kinds = {{"App", Kind::APP},
                                  {"ConfigMap", Kind::CONFIGMAP},
                                  {"Secret", Kind::SECRET},
                                  {"PersitentVolume", Kind::PERSISTENTVOLUME},
-                                 {"Ingress", Kind::INGRESS}
+                                 {"Ingress", Kind::INGRESS},
+                                 {"Namespace", Kind::NAMESPACE}
                                 };
 } // anonymous ns
 
@@ -69,6 +71,13 @@ void Component::init()
 {
     setState(State::CREATING);
     effectiveArgs_ = mergeArgs();
+
+    if (isRoot()) {
+        if (Engine::config().autoMaintainNamespace) {
+            addChild(getNamespace(), Kind::NAMESPACE);
+        }
+    }
+
     initChildren();
     validate();
 }
@@ -433,6 +442,33 @@ bool Component::isBlockedOnDependency() const
 // Assumes that all components are created, including generated ones
 void Component::scanDependencies()
 {
+    if (isRoot()) {
+
+        // If we have a component for the namespace, make all
+        // components using the namespace depend on it.
+        const auto ns = getNamespace();
+        Component *namespaceComponent = {};
+        forAllComponents([&](Component& c) {
+            if (c.kind_ == Kind::NAMESPACE) {
+                if (c.name == ns) {
+                  namespaceComponent = &c;
+              }
+            }
+        });
+
+        if (namespaceComponent) {
+            forAllComponents([&](Component& c) {
+                if (c.kind_ != Kind::NAMESPACE
+                        && c.kind_ != Kind::APP) {
+                    if (std::find(c.depends.begin(), c.depends.end(), namespaceComponent->name) == c.depends.end()) {
+                        LOG_TRACE << c.logName() << "Adding dependency to " << namespaceComponent->logName();
+                        c.depends.push_back(namespaceComponent->name);
+                    }
+                }
+            });
+        }
+    }
+
     if (mode_ == Mode::CREATE) {
         for (const auto& depName : depends) {
             forAllComponents([&](Component& c) {
@@ -544,7 +580,11 @@ void Component::evaluate()
 
 string Component::getNamespace() const
 {
-    return Engine::instance().config().ns;
+    if (auto ns = cluster_->getVar("namespace")) {
+        return *ns;
+    }
+
+    return Engine::config().ns;
 }
 
 void Component::startElapsedTimer()
@@ -645,9 +685,11 @@ void Component::setState(Component::State state)
 
     state_ = state;
 
-    if (auto parent = parent_.lock()) {
-        parent->evaluate();
-        scheduleRunTasks();
+    if (state_ >= State::RUNNING) {
+        if (auto parent = parent_.lock()) {
+            parent->evaluate();
+            scheduleRunTasks();
+        }
     }
 }
 
@@ -704,6 +746,8 @@ Component::ptr_t Component::createComponent(const ComponentDataDef &def,
         return make_shared<PersistentVolumeComponent>(parent, cluster, def);
     case Kind::INGRESS:
         return make_shared<IngressComponent>(parent, cluster, def);
+    case Kind::NAMESPACE:
+        return make_shared<NamespaceComponent>(parent, cluster, def);
     }
 
     throw runtime_error("Unknown kind");
@@ -795,7 +839,14 @@ Component::ptr_t Component::addChild(const string &name, Kind kind, const labels
     assert(cluster_);
     auto component = createComponent(def, shared_from_this(), *cluster_);
     component->init();
-    children_.push_back(component);
+
+    if (kind == Kind::NAMESPACE && Engine::instance().mode() == Engine::Mode::DEPLOY) {
+        // Namespaces must be created before components using them
+        children_.push_front(component);
+    } else {
+        children_.push_back(component);
+    }
+
     return component;
 }
 
@@ -1056,7 +1107,7 @@ void Component::sendDelete(const string &url, std::weak_ptr<Component::Task> tas
 {
     client().Process([this, url, task, ignoreErrors, args](auto& ctx) {
 
-        LOG_TRACE << logName() << "Sending DELETE " << url;
+        LOG_DEBUG << logName() << "Sending DELETE " << url;
 
         try {
             auto reply = restc_cpp::RequestBuilder{ctx}.Req(url, Request::Type::DELETE, args)
@@ -1076,7 +1127,7 @@ void Component::sendDelete(const string &url, std::weak_ptr<Component::Task> tas
             if (err.http_response.status_code == 404) {
                 // Perfectly OK
                 if (auto taskInstance = task.lock()) {
-                    LOG_TRACE << logName()
+                    LOG_DEBUG << logName()
                              << "Ignoring failed DELETE request: " << err.http_response.status_code
                              << ' ' << err.http_response.reason_phrase
                              << ": \"" << err.what()

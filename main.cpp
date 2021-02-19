@@ -32,6 +32,12 @@ int main(int argc, char* argv[]) {
                     po::value<string>(&config.includeFilter)->default_value(config.includeFilter),
                     "Include filter for components. This is a regex against the component's names. "
                     "If used, all non-matching components are excluded.")(
+                    "manage-namespace,N",
+                    po::value<bool>(&config.autoMaintainNamespace)->default_value(config.autoMaintainNamespace),
+                    "Create and delete namespaces as needed")(
+                    "use-networking-betav1",
+                    po::value<bool>(&config.useNetworkingBetaV1)->default_value(config.useNetworkingBetaV1),
+                    "Use networking betav1 (pre kubernetes 1.19) - backwards compatibility")(
                     "log-level,l",
                     po::value<string>(&log_level)->default_value(log_level),
                     "Log-level to use; one of 'info', 'debug', 'trace'")(
@@ -52,7 +58,7 @@ int main(int argc, char* argv[]) {
                     "Use networking betav1 (pre kubernetes 1.19) - backwards compatibility")(
                     "variables,v",
                     po::value<decltype(config.rawVariables)>(&config.rawVariables),
-                    "One or more variables var=value,var=value...")(
+                    "One or more variables var=value WS var=value...")(
                     "kubeconfig,k",
                     po::value<decltype(config.kubeconfigs)>(&config.kubeconfigs),
                     "One or more kubeconfigs to clusters to deploy the definition. "

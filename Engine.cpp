@@ -92,9 +92,9 @@ void Engine::run()
         f.get();
     }
 
-    // Let the events backlog be safely ignored...
-    // TODO: Use the futures above to hold the clusters back until the event backlog is received
-    this_thread::sleep_for(5s);
+//    // Let the events backlog be safely ignored...
+//    // TODO: Use the futures above to hold the clusters back until the event backlog is received
+//    this_thread::sleep_for(5s);
     futures.clear();
 
     for(auto& cluster : clusters_) {

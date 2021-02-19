@@ -107,6 +107,15 @@ string Cluster::getVars() const
     return out.str();
 }
 
+std::optional<string> Cluster::getVar(const string &key) const
+{
+    if (auto it = variables_.find(key); it != variables_.end()) {
+        return it->second;
+    }
+
+    return {};
+}
+
 string Cluster::getUrl() const
 {
 //    return "http://127.0.0.1:"s
@@ -126,7 +135,7 @@ std::future<void> Cluster::prepare()
         LOG_WARN << name() << " No components. Nothing to do.";
         return dummyReturnFuture();
     }
-    startEventsLoop();
+    //startEventsLoop();
     assert(prepareCmd_);
     return prepareCmd_();
 }
@@ -135,7 +144,7 @@ std::future<void> Cluster::execute()
 {
     if (executeCmd_) {
         setState(State::EXECUTING);
-        LOG_INFO << name () << " Executing ...";
+        LOG_INFO << name () << " " << verb_ << " ...";
         assert(executeCmd_);
         return executeCmd_();
     }
@@ -230,18 +239,26 @@ void Cluster::readDefinitions()
     // Load component definitions
     dataDef_ = make_unique<ComponentDataDef>();
 
-    auto vars = cfg_.variables;
+    {
+        auto vars = cfg_.variables;
 
-    // Override / add cluster variables
-    for(const auto& [k, v]: variables_) {
-        vars[k] = v;
+        // Override / merge cluster variables
+        for(const auto& [k, v]: variables_) {
+            vars[k] = v;
+        }
+
+        variables_ = move(vars);
     }
 
-    for(const auto& [k, v]: vars) {
+    if (variables_.find("namespace") == variables_.end()) {
+        variables_["namespace"] = Engine::config().ns;
+    }
+
+    for(const auto& [k, v]: variables_) {
         LOG_DEBUG << "Cluster " << name_ << " has variable: " << k << '=' << v;
     }
 
-    fileToObject(*dataDef_, cfg_.definitionFile, vars);
+    fileToObject(*dataDef_, cfg_.definitionFile, variables_);
     if (dataDef_->kind.empty()) {
         LOG_ERROR << "Invalid definition file: " << cfg_.definitionFile;
         throw runtime_error("Invalid definition "s + cfg_.definitionFile);
@@ -256,6 +273,7 @@ void Cluster::createComponents()
 void Cluster::setCmds()
 {
     if (cfg_.command == "deploy") {
+        verb_ = "Deploying";
         executeCmd_ = [this] {
             return rootComponent_->deploy();
         };
@@ -265,6 +283,7 @@ void Cluster::setCmds()
             return dummyReturnFuture();
         };
     } else if (cfg_.command == "delete") {
+        verb_ = "Deleting";
         executeCmd_ = [this] {
             return rootComponent_->remove();
         };

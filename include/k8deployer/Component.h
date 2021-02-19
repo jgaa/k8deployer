@@ -33,6 +33,7 @@ enum class Kind {
     SECRET,
     PERSISTENTVOLUME,
     INGRESS,
+    NAMESPACE,
 };
 
 std::string slurp (const std::string& path);
@@ -208,6 +209,7 @@ public:
         void addAllDependencies(std::set<Task *>& tasks);
 
         bool startProbeAfterApply = false;
+        bool dontFailIfAlreadyExists = false;
 
     private:
         // All dependencies must be DONE before the task goes in READY state
@@ -325,8 +327,12 @@ public:
 
     void startElapsedTimer();
 
-    ptr_t addChild(const std::string& name, Kind kind, const labels_t& labels,
-                   const conf_t& args, const std::string& parentRelation = {});
+    ptr_t addChild(const std::string& name, Kind kind, const labels_t& labels = {},
+                   const conf_t& args = {}, const std::string& parentRelation = {});
+
+    bool isRoot() const {
+        return parent_.expired();
+    }
 
 protected:
     virtual std::string getCreationUrl() const {
@@ -439,6 +445,19 @@ protected:
                     }
                 }
 
+                if (err.http_response.status_code == 409) {
+                    if (auto t = task.lock()) {
+                        if (t->mode() == Mode::CREATE && t->dontFailIfAlreadyExists) {
+                            LOG_DEBUG << logName()
+                                      << "Applying task " << taskName << " to existing resource. Probably ok: "
+                                      << err.http_response.status_code << ' '
+                                      << err.http_response.reason_phrase;
+                            t->setState(Task::TaskState::DONE);
+                            return;
+                        }
+                    }
+                }
+
                 LOG_WARN << logName()
                          << "Apply task " << taskName << ": Request failed: " << err.http_response.status_code
                          << ' ' << err.http_response.reason_phrase
@@ -462,6 +481,7 @@ protected:
                     const std::initializer_list<std::pair<std::string, std::string>>& args = {});
 
     void calculateElapsed();
+    void addDependencyToNamespace();
 
     State state_{State::PRE}; // From our logic
     std::string k8state_; // From the event-loop

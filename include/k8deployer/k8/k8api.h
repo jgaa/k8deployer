@@ -760,6 +760,32 @@ struct Ingress {
     std::optional<IngressStatus> status;
 };
 
+struct NamespaceSpec {
+    string_list_t finalizers;
+};
+
+struct NamespaceCondition {
+    std::string lastTransitionTime;
+    std::string message;
+    std::string reason;
+    std::string status;
+    std::string type;
+};
+
+struct NamespaceStatus {
+    std::vector<NamespaceCondition> conditions;
+    std::string phase;
+};
+
+struct Namespace {
+    std::string apiVersion = "v1";
+    std::string kind = "Namespace";
+    ObjectMeta metadata;
+    std::optional<NamespaceSpec> spec;
+    std::optional<NamespaceStatus> status;
+};
+
+
 } // ns
 
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::Selector,
@@ -1410,4 +1436,29 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::Ingress,
     (k8deployer::k8api::ObjectMeta, metadata)
     (std::optional<k8deployer::k8api::IngressSpec>, spec)
     (std::optional<k8deployer::k8api::IngressStatus>, status)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::NamespaceSpec,
+    (k8deployer::k8api::string_list_t, finalizers)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::NamespaceCondition,
+    (std::string, lastTransitionTime)
+    (std::string, message)
+    (std::string, reason)
+    (std::string, status)
+    (std::string, type)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::NamespaceStatus,
+    (std::vector<k8deployer::k8api::NamespaceCondition>, conditions)
+    (std::string, phase)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::Namespace,
+    (std::string, apiVersion)
+    (std::string, kind)
+    (k8deployer::k8api::ObjectMeta, metadata)
+    (std::optional<k8deployer::k8api::NamespaceSpec>, spec)
+    (std::optional<k8deployer::k8api::NamespaceStatus>, status)
 );

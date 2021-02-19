@@ -193,7 +193,7 @@ void IngressComponent::doRemove(std::weak_ptr<Component::Task> task)
 
 string IngressComponent::getCreationUrl() const
 {
-    static const auto url = cluster_->getUrl()
+    const auto url = cluster_->getUrl()
             + "/apis/" + ingress.apiVersion + "/namespaces/"
             + getNamespace() + "/ingresses";
     return url;

@@ -49,6 +49,9 @@ public:
     void setState(State state) {
         state_ = state;
     }
+
+    std::optional<std::string> getVar(const std::string& key) const;
+
     State state() const noexcept {
         return state_;
     }
@@ -91,6 +94,7 @@ private:
     action_fn_t prepareCmd_;
     std::unique_ptr<Storage> storage_;
     std::unique_ptr<ComponentDataDef> dataDef_;
+    std::string verb_ = "Executing";
 };
 
 
