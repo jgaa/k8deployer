@@ -710,6 +710,13 @@ Component::ptr_t Component::populate(const ComponentDataDef &def,
                          Cluster &cluster,
                          const Component::ptr_t &parent)
 {
+    const static regex filter{Engine::config().excludeFilter};
+
+    if (regex_match(def.name, filter)) {
+        LOG_INFO << cluster.name() << " Excluding filtered component: " << def.name;
+        return {};
+    }
+
     auto component = createComponent(def, parent, cluster);
     if (def.parentRelation == "before") {
         component->parentRelation_ = ParentRelation::BEFORE;
@@ -720,10 +727,9 @@ Component::ptr_t Component::populate(const ComponentDataDef &def,
     }
 
     for(auto& childDef : def.children) {
-        auto child = populate(childDef, cluster, component);
-                //createComponent(childDef, component, cluster);
-        component->children_.push_back(child);
-        //populate(childDef, cluster, child);
+        if (auto child = populate(childDef, cluster, component)) {
+            component->children_.push_back(child);
+        }
     }
 
     return component;
