@@ -18,6 +18,7 @@ struct Config {
   bool useNetworkingBetaV1 = false;
   std::vector<std::string> rawVariables;
   std::string excludeFilter;
+  std::string includeFilter = ".*";
   std::map<std::string, std::string> variables;
 };
 

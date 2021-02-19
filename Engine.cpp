@@ -106,7 +106,7 @@ void Engine::run()
         f.get();
     }
 
-    LOG_INFO << "Done. Shutting down proxies.";
+    LOG_INFO << "Done. Shutting down background threads and async IO.";
     for(auto& cluster : clusters_) {
         try {
             cluster->client().GetIoService().stop();

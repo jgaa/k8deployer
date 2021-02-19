@@ -119,19 +119,29 @@ std::future<void> Cluster::prepare()
     setState(State::INIT);
     LOG_INFO << name () << " Preparing ...";
     loadKubeconfig();
+
     setCmds();
-    startEventsLoop();
     createComponents();
+    if (!rootComponent_) {
+        LOG_WARN << name() << " No components. Nothing to do.";
+        return dummyReturnFuture();
+    }
+    startEventsLoop();
     assert(prepareCmd_);
     return prepareCmd_();
 }
 
 std::future<void> Cluster::execute()
 {
-    setState(State::EXECUTING);
-    LOG_INFO << name () << " Executing ...";
-    assert(executeCmd_);
-    return executeCmd_();
+    if (executeCmd_) {
+        setState(State::EXECUTING);
+        LOG_INFO << name () << " Executing ...";
+        assert(executeCmd_);
+        return executeCmd_();
+    }
+
+    setState(State::DONE);
+    return dummyReturnFuture();
 }
 
 void Cluster::loadKubeconfig()

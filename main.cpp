@@ -28,6 +28,10 @@ int main(int argc, char* argv[]) {
                     "exclude,e",
                     po::value<string>(&config.excludeFilter)->default_value(config.excludeFilter),
                     "Exclude filter for components. This is a regex against the component's names")(
+                    "include,i",
+                    po::value<string>(&config.includeFilter)->default_value(config.includeFilter),
+                    "Include filter for components. This is a regex against the component's names. "
+                    "If used, all non-matching components are excluded.")(
                     "log-level,l",
                     po::value<string>(&log_level)->default_value(log_level),
                     "Log-level to use; one of 'info', 'debug', 'trace'")(

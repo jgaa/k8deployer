@@ -271,9 +271,12 @@ size_t Component::getSizetArg(const string &name, size_t defaultVal) const
 
 Component::ptr_t Component::populateTree(const ComponentDataDef &def, Cluster &cluster)
 {
-    auto root = populate(def, cluster, {});
-    root->init();
-    return root;
+    if (auto root = populate(def, cluster, {})) {
+        root->init();
+        return root;
+    }
+
+    return {};
 }
 
 void Component::prepareDeploy()
@@ -710,9 +713,10 @@ Component::ptr_t Component::populate(const ComponentDataDef &def,
                          Cluster &cluster,
                          const Component::ptr_t &parent)
 {
-    const static regex filter{Engine::config().excludeFilter};
+    const static regex excludeFilter{Engine::config().excludeFilter};
+    const static regex includeFilter{Engine::config().includeFilter};
 
-    if (regex_match(def.name, filter)) {
+    if (regex_match(def.name, excludeFilter) || !regex_match(def.name, includeFilter)) {
         LOG_INFO << cluster.name() << " Excluding filtered component: " << def.name;
         return {};
     }
