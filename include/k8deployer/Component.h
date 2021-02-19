@@ -34,6 +34,7 @@ enum class Kind {
     PERSISTENTVOLUME,
     INGRESS,
     NAMESPACE,
+    DAEMONSET,
 };
 
 std::string slurp (const std::string& path);

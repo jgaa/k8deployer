@@ -785,6 +785,51 @@ struct Namespace {
     std::optional<NamespaceStatus> status;
 };
 
+struct RollingUpdateDaemonSet {
+    size_t maxUnavailable = 0;
+};
+
+struct DaemonSetUpdateStrategy {
+    std::optional<RollingUpdateDaemonSet> rollingUpdate;
+    std::string type;
+};
+
+struct DaemonSetSpec {
+    size_t minReadySeconds = 0;
+    size_t revisionHistoryLimit = 0;
+    LabelSelector selector;
+    PodTemplateSpec template_;
+    std::optional<DaemonSetUpdateStrategy> updateStrategy;
+};
+
+struct DaemonSetCondition {
+    std::string lastTransitionTime;
+    std::string message;
+    std::string reason;
+    std::string status;
+    std::string type;
+};
+
+struct DaemonSetStatus {
+    size_t collisionCount = 0;
+    std::vector<DaemonSetCondition> conditions;
+    size_t currentNumberScheduled = 0;
+    size_t desiredNumberScheduled = 0;
+    size_t numberAvailable = 0;
+    size_t numberMisscheduled = 0;
+    size_t numberReady = 0;
+    size_t numberUnavailable = 0;
+    size_t observedGeneration = 0;
+    size_t updatedNumberScheduled = 0;
+};
+
+struct DaemonSet {
+    std::string apiVersion = "apps/v1";
+    std::string kind = "DaemonSet";
+    ObjectMeta metadata;
+    std::optional<DaemonSetSpec> spec;
+    std::optional<DaemonSetStatus> status;
+};
 
 } // ns
 
@@ -1461,4 +1506,50 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::Namespace,
     (k8deployer::k8api::ObjectMeta, metadata)
     (std::optional<k8deployer::k8api::NamespaceSpec>, spec)
     (std::optional<k8deployer::k8api::NamespaceStatus>, status)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::RollingUpdateDaemonSet,
+    (size_t, maxUnavailable)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::DaemonSetUpdateStrategy,
+    (std::optional<k8deployer::k8api::RollingUpdateDaemonSet>, rollingUpdate)
+    (std::string, type)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::DaemonSetSpec,
+    (size_t, minReadySeconds)
+    (size_t, revisionHistoryLimit)
+    (k8deployer::k8api::LabelSelector, selector)
+    (k8deployer::k8api::PodTemplateSpec, template_)
+    (std::optional<k8deployer::k8api::DaemonSetUpdateStrategy>, updateStrategy)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::DaemonSetCondition,
+    (std::string, lastTransitionTime)
+    (std::string, message)
+    (std::string, reason)
+    (std::string, status)
+    (std::string, type)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::DaemonSetStatus,
+    (size_t, collisionCount)
+    (std::vector<k8deployer::k8api::DaemonSetCondition>, conditions)
+    (size_t, currentNumberScheduled)
+    (size_t, desiredNumberScheduled)
+    (size_t, numberAvailable)
+    (size_t, numberMisscheduled)
+    (size_t, numberReady)
+    (size_t, numberUnavailable)
+    (size_t, observedGeneration)
+    (size_t, updatedNumberScheduled)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::DaemonSet,
+    (std::string, apiVersion)
+    (std::string, kind)
+    (k8deployer::k8api::ObjectMeta, metadata)
+    (std::optional<k8deployer::k8api::DaemonSetSpec>, spec)
+    (std::optional<k8deployer::k8api::DaemonSetStatus>, status)
 );

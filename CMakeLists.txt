@@ -22,6 +22,7 @@ add_executable(${PROJECT_NAME}
     Cluster.cpp
     Component.cpp
     ConfigMapComponent.cpp
+    DaemonSetComponent.cpp
     DeploymentComponent.cpp
     Engine.cpp
     HostPathStorage.cpp
@@ -42,6 +43,7 @@ add_executable(${PROJECT_NAME}
     include/k8deployer/Component.h
     include/k8deployer/Config.h
     include/k8deployer/ConfigMapComponent.h
+    include/k8deployer/DaemonSetComponent.h
     include/k8deployer/DataDef.h
     include/k8deployer/DeploymentComponent.h
     include/k8deployer/Engine.h

@@ -34,6 +34,7 @@ struct ComponentData {
     k8api::Job job;
     k8api::Deployment deployment;
     k8api::StatefulSet statefulSet;
+    k8api::DaemonSet daemonset;
     k8api::Service service;
     k8api::ConfigMap configmap;
     std::optional<k8api::Secret> secret;

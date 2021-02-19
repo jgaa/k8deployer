@@ -168,7 +168,8 @@ void BaseComponent::buildInitContainers()
                    if (c.getKind() == Kind::SERVICE) {
                        target = &c;
                    } else if (c.getKind() == Kind::DEPLOYMENT
-                              || c.getKind() == Kind::STATEFULSET) {
+                              || c.getKind() == Kind::STATEFULSET
+                              || c.getKind() == Kind::DAEMONSET) {
                        for(auto& cc : c.getChildren()) {
                            if (cc->getKind() == Kind::SERVICE) {
                                target = cc.get();

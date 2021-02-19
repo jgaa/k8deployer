@@ -1,0 +1,15 @@
+name: traefik-app
+kind: DaemonSet
+args: 
+  image: traefik:v1.7
+  port: >
+    8080
+  pod.args:
+    --api
+    --kubernetes
+    --logLevel=INFO
+    --defaultentrypoints=https
+    --entrypoints=Name:https Address::443 TLS
+  ingress.paths: >
+    traefik-${name}.${domain,k8.lastviking.eu}:
+    /*

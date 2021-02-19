@@ -10,12 +10,13 @@
 #include "k8deployer/Cluster.h"
 #include "k8deployer/Component.h"
 #include "k8deployer/ConfigMapComponent.h"
+#include "k8deployer/DaemonSetComponent.h"
 #include "k8deployer/DeploymentComponent.h"
 #include "k8deployer/Engine.h"
 #include "k8deployer/IngressComponent.h"
 #include "k8deployer/JobComponent.h"
-#include "k8deployer/PersistentVolumeComponent.h"
 #include "k8deployer/NamespaceComponent.h"
+#include "k8deployer/PersistentVolumeComponent.h"
 #include "k8deployer/SecretComponent.h"
 #include "k8deployer/ServiceComponent.h"
 #include "k8deployer/StatefulSetComponent.h"
@@ -39,7 +40,8 @@ const map<string, Kind> kinds = {{"App", Kind::APP},
                                  {"Secret", Kind::SECRET},
                                  {"PersitentVolume", Kind::PERSISTENTVOLUME},
                                  {"Ingress", Kind::INGRESS},
-                                 {"Namespace", Kind::NAMESPACE}
+                                 {"Namespace", Kind::NAMESPACE},
+                                 {"DaemonSet", Kind::DAEMONSET}
                                 };
 } // anonymous ns
 
@@ -598,8 +600,9 @@ void Component::addDependenciesRecursively(std::set<Component *> &contains)
 {
     for(auto& w: dependsOn_) {
         if (auto c = w.lock()) {
-            contains.insert(c.get());
-            c->addDependenciesRecursively(contains);
+            if (contains.insert(c.get()).second) {
+                c->addDependenciesRecursively(contains);
+            }
         }
     }
 }
@@ -748,6 +751,8 @@ Component::ptr_t Component::createComponent(const ComponentDataDef &def,
         return make_shared<IngressComponent>(parent, cluster, def);
     case Kind::NAMESPACE:
         return make_shared<NamespaceComponent>(parent, cluster, def);
+    case Kind::DAEMONSET:
+        return make_shared<DaemonSetComponent>(parent, cluster, def);
     }
 
     throw runtime_error("Unknown kind");
