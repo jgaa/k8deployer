@@ -18,7 +18,7 @@ void BaseComponent::basicPrepareDeploy()
         }
 
         if (meta->namespace_.empty()) {
-            meta->namespace_ = Engine::config().ns;
+            meta->namespace_ = getNamespace();
         }
 
         auto selector = getSelector();
@@ -30,6 +30,15 @@ void BaseComponent::basicPrepareDeploy()
 
             if (podTemplate->metadata.name.empty()) {
                 podTemplate->metadata.name = name;
+            }
+
+            if (securityContext && !podTemplate->spec.securityContext) {
+                podTemplate->spec.securityContext = *securityContext;
+            }
+
+            if (auto arg = getArg("serviceAccountName")
+                    ; arg && podTemplate->spec.serviceAccountName.empty()) {
+                podTemplate->spec.serviceAccountName = *arg;
             }
 
             podTemplate->metadata.labels.try_emplace(selector.first, selector.second);

@@ -41,6 +41,14 @@ struct ComponentData {
     k8api::PersistentVolume persistentVolume;
     k8api::Ingress ingress;
     k8api::Namespace namespace_;
+    k8api::Role role;
+    k8api::ClusterRole clusterrole;
+    k8api::RoleBinding rolebinding;
+    k8api::ClusterRoleBinding clusterrolebinding;
+    k8api::ServiceAccount serviceaccount;
+
+    // Set on podspec if defined on components using podspecs
+    std::optional<k8api::PodSecurityContext> securityContext;
 
     // Applied to the container if it's indirectly created by k8deployer
     std::optional<k8api::Probe> startupProbe;

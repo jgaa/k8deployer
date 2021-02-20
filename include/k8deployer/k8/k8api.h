@@ -397,21 +397,98 @@ struct HostAlias {
     std::string ip;
 };
 
-using host_aliases_t = std::vector<HostAlias>;
+struct SELinuxOptions {
+    std::string level;
+    std::string role;
+    std::string type;
+    std::string user;
+};
+
+struct SeccompProfile {
+    std::string localhostProfile;
+    std::string type;
+};
+
+struct Sysctl {
+    std::string name;
+    std::string value;
+};
+
+struct WindowsSecurityContextOptions{
+    std::string gmsaCredentialSpec;
+    std::string gmsaCredentialSpecName;
+    std::string runAsUserName;
+};
+
+struct PodSecurityContext {
+    std::optional<int> fsGroup;
+    std::string fsGroupChangePolicy;
+    std::optional<int> runAsGroup;
+    std::optional<bool> runAsNonRoot;
+    std::optional<int> runAsUser;
+    std::optional<SELinuxOptions> seLinuxOptions;
+    std::optional<SeccompProfile> seccompProfile;
+    std::vector<int> supplementalGroups;
+    std::vector<Sysctl> sysctls;
+    std::optional<WindowsSecurityContextOptions> windowsOptions;
+};
+
+struct Toleration {
+    std::string effect;
+    std::string key;
+    std::string operator_;
+    std::optional<int> tolerationSeconds;
+    std::string value;
+};
+
+struct PodReadinessGate {
+   std::string conditionType;
+};
+
+struct PodDNSConfigOption {
+   std::string name;
+   std::string value;
+};
+
+struct PodDNSConfig {
+    string_list_t nameservers;
+    std::vector<PodDNSConfigOption> options;
+    string_list_t searches;
+};
 
 struct PodSpec {
+    size_t activeDeadlineSeconds = 0;
     std::optional<Affinity> affinity;
+    std::optional<bool> automountServiceAccountToken;
     containers_t containers;
-    bool enableServiceLinks = true;
+    std::optional<PodDNSConfig> dnsConfig;
+    std::string dnsPolicy;
+    std::optional<bool> enableServiceLinks;
+    // std::vector<EphemeralContainer> ephemeralContainers
+    std::vector<HostAlias> hostAliases;
+    std::optional<bool> hostIPC;
+    std::optional<bool> hostNetwork;
+    std::optional<bool> hostPID;
     std::string hostname;
     local_object_references_t imagePullSecrets;
     containers_t initContainers;
     std::string nodeName;
+    key_values_t nodeSelector;
+    std::string preemptionPolicy;
+    std::optional<int> priority;
+    std::string priorityClassName;
+    std::vector<PodReadinessGate> readinessGates;
+    std::string runtimeClassName;
+    std::string schedulerName;
+    std::optional<PodSecurityContext> securityContext;
+    std::string serviceAccountName;
+    std::optional<bool> setHostnameAsFQDN;
+    std::optional<bool> shareProcessNamespace;
+    std::string subdomain;
+    std::vector<Toleration> tolerations;
     std::string restartPolicy;
     tolology_spread_constraints_t topologySpreadConstraints;
-    bool hostPID = false;
     volumes_t volumes;
-    host_aliases_t hostAliases;
 };
 
 struct PodTemplateSpec {
@@ -831,6 +908,71 @@ struct DaemonSet {
     std::optional<DaemonSetStatus> status;
 };
 
+struct PolicyRule {
+    string_list_t apiGroups;
+    string_list_t nonResourceURLs;
+    string_list_t resourceNames;
+    string_list_t resources;
+    string_list_t verbs;
+};
+
+struct Role {
+    std::string apiVersion = "rbac.authorization.k8s.io/v1";
+    std::string kind = "Role";
+    ObjectMeta metadata;
+    std::vector<PolicyRule> rules;
+};
+
+struct RoleRef {
+    std::string apiGroup;
+    std::string kind;
+    std::string name;
+};
+
+struct Subject {
+    std::string apiGroup;
+    std::string kind;
+    std::string name;
+    std::string namespace_;
+};
+
+struct RoleBinding {
+    std::string apiVersion = "rbac.authorization.k8s.io/v1";
+    std::string kind = "RoleBinding";
+    ObjectMeta metadata;
+    RoleRef roleRef;
+    std::vector<Subject> subjects;
+};
+
+struct AggregationRule {
+    std::vector<LabelSelector> clusterRoleSelectors;
+};
+
+struct ClusterRole {
+    std::string apiVersion = "rbac.authorization.k8s.io/v1";
+    std::string kind = "ClusterRole";
+    ObjectMeta metadata;
+    std::optional<AggregationRule> aggregationRule;
+    std::vector<PolicyRule> rules;
+};
+
+struct ClusterRoleBinding {
+    std::string apiVersion = "rbac.authorization.k8s.io/v1";
+    std::string kind = "ClusterRoleBinding";
+    ObjectMeta metadata;
+    RoleRef roleRef;
+    std::vector<Subject> subjects;
+};
+
+struct ServiceAccount {
+    std::string apiVersion = "v1";
+    std::string kind = "ServiceAccount";
+    ObjectMeta metadata;
+    std::optional<bool> automountServiceAccountToken;
+    std::vector<LocalObjectReference> imagePullSecrets;
+    std::vector<ObjectReference> secrets;
+};
+
 } // ns
 
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::Selector,
@@ -1162,20 +1304,100 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::HostAlias,
     (std::string, ip)
 );
 
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::SELinuxOptions,
+    (std::string, level)
+    (std::string, role)
+    (std::string, type)
+    (std::string, user)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::SeccompProfile,
+    (std::string, localhostProfile)
+    (std::string, type)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::Sysctl,
+    (std::string, name)
+    (std::string, value)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::WindowsSecurityContextOptions,
+    (std::string, gmsaCredentialSpec)
+    (std::string, gmsaCredentialSpecName)
+    (std::string, runAsUserName)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::PodSecurityContext,
+    (std::optional<int>, fsGroup)
+    (std::string, fsGroupChangePolicy)
+    (std::optional<int>, runAsGroup)
+    (std::optional<bool>, runAsNonRoot)
+    (std::optional<int>, runAsUser)
+    (std::optional<k8deployer::k8api::SELinuxOptions>, seLinuxOptions)
+    (std::optional<k8deployer::k8api::SeccompProfile>, seccompProfile)
+    (std::vector<int>, supplementalGroups)
+    (std::vector<k8deployer::k8api::Sysctl>, sysctls)
+    (std::optional<k8deployer::k8api::WindowsSecurityContextOptions>, windowsOptions)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::Toleration,
+    (std::string, effect)
+    (std::string, key)
+    (std::string, operator_)
+    (std::optional<int>, tolerationSeconds)
+    (std::string, value)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::PodReadinessGate,
+    (std::string, conditionType)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::PodDNSConfigOption,
+    (std::string, name)
+    (std::string, value)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::PodDNSConfig,
+    (k8deployer::k8api::string_list_t, nameservers)
+    (std::vector<k8deployer::k8api::PodDNSConfigOption>, options)
+    (k8deployer::k8api::string_list_t, searches)
+);
+
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::PodSpec,
+    (size_t, activeDeadlineSeconds)
     (std::optional<k8deployer::k8api::Affinity>, affinity)
+    (std::optional<bool>, automountServiceAccountToken)
     (k8deployer::k8api::containers_t, containers)
-    (bool, enableServiceLinks)
+    (std::optional<k8deployer::k8api::PodDNSConfig>, dnsConfig)
+    (std::string, dnsPolicy)
+    (std::optional<bool>, enableServiceLinks)
+    (std::vector<k8deployer::k8api::HostAlias>, hostAliases)
+    (std::optional<bool>, hostIPC)
+    (std::optional<bool>, hostNetwork)
+    (std::optional<bool>, hostPID)
     (std::string, hostname)
     (k8deployer::k8api::local_object_references_t, imagePullSecrets)
     (k8deployer::k8api::containers_t, initContainers)
     (std::string, nodeName)
+    (k8deployer::k8api::key_values_t, nodeSelector)
+    (std::string, preemptionPolicy)
+    (std::optional<int>, priority)
+    (std::string, priorityClassName)
+    (std::vector<k8deployer::k8api::PodReadinessGate>, readinessGates)
+    (std::string, runtimeClassName)
+    (std::string, schedulerName)
+    (std::optional<k8deployer::k8api::PodSecurityContext>, securityContext)
+    (std::string, serviceAccountName)
+    (std::optional<bool>, setHostnameAsFQDN)
+    (std::optional<bool>, shareProcessNamespace)
+    (std::string, subdomain)
+    (std::vector<k8deployer::k8api::Toleration>, tolerations)
     (std::string, restartPolicy)
     (k8deployer::k8api::tolology_spread_constraints_t, topologySpreadConstraints)
-    (bool, hostPID)
     (k8deployer::k8api::volumes_t, volumes)
-    (k8deployer::k8api::host_aliases_t, hostAliases)
 );
+
+
 
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::PodTemplateSpec,
     (k8deployer::k8api::ObjectMeta, metadata)
@@ -1552,4 +1774,69 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::DaemonSet,
     (k8deployer::k8api::ObjectMeta, metadata)
     (std::optional<k8deployer::k8api::DaemonSetSpec>, spec)
     (std::optional<k8deployer::k8api::DaemonSetStatus>, status)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::PolicyRule,
+    (k8deployer::k8api::string_list_t, apiGroups)
+    (k8deployer::k8api::string_list_t, nonResourceURLs)
+    (k8deployer::k8api::string_list_t, resourceNames)
+    (k8deployer::k8api::string_list_t, resources)
+    (k8deployer::k8api::string_list_t, verbs)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::Role,
+    (std::string, apiVersion)
+    (std::string, kind)
+    (k8deployer::k8api::ObjectMeta, metadata)
+    (std::vector<k8deployer::k8api::PolicyRule>, rules)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::RoleRef,
+    (std::string, apiGroup)
+    (std::string, kind)
+    (std::string, name)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::Subject,
+    (std::string, apiGroup)
+    (std::string, kind)
+    (std::string, name)
+    (std::string, namespace_)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::RoleBinding,
+    (std::string, apiVersion)
+    (std::string, kind)
+    (k8deployer::k8api::ObjectMeta, metadata)
+    (k8deployer::k8api::RoleRef, roleRef)
+    (std::vector<k8deployer::k8api::Subject>, subjects)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::AggregationRule,
+    (std::vector<k8deployer::k8api::LabelSelector>, clusterRoleSelectors)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::ClusterRole,
+    (std::string, apiVersion)
+    (std::string, kind)
+    (k8deployer::k8api::ObjectMeta, metadata)
+    (std::optional<k8deployer::k8api::AggregationRule>, aggregationRule)
+    (std::vector<k8deployer::k8api::PolicyRule>, rules)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::ClusterRoleBinding,
+    (std::string, apiVersion)
+    (std::string, kind)
+    (k8deployer::k8api::ObjectMeta, metadata)
+    (k8deployer::k8api::RoleRef, roleRef)
+    (std::vector<k8deployer::k8api::Subject>, subjects)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::ServiceAccount,
+    (std::string, apiVersion)
+    (std::string, kind)
+    (k8deployer::k8api::ObjectMeta, metadata)
+    (std::optional<bool>, automountServiceAccountToken)
+    (std::vector<k8deployer::k8api::LocalObjectReference>, imagePullSecrets)
+    (std::vector<k8deployer::k8api::ObjectReference>, secrets)
 );

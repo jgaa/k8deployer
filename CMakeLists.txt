@@ -20,6 +20,8 @@ add_executable(${PROJECT_NAME}
     AppComponent.cpp
     BaseComponent.cpp
     Cluster.cpp
+    ClusterRoleBindingComponent.cpp
+    ClusterRoleComponent.cpp
     Component.cpp
     ConfigMapComponent.cpp
     DaemonSetComponent.cpp
@@ -33,13 +35,18 @@ add_executable(${PROJECT_NAME}
     NfsStorage.cpp
     PersistentVolumeComponent.cpp
     PortForward.cpp
+    RoleBindingComponent.cpp
+    RoleComponent.cpp
     SecretComponent.cpp
+    ServiceAccountComponent.cpp
     ServiceComponent.cpp
     StatefulSetComponent.cpp
     Storage.cpp
     include/k8deployer/AppComponent.h
     include/k8deployer/BaseComponent.h
     include/k8deployer/Cluster.h
+    include/k8deployer/ClusterRoleBindingComponent.h
+    include/k8deployer/ClusterRoleComponent.h
     include/k8deployer/Component.h
     include/k8deployer/Config.h
     include/k8deployer/ConfigMapComponent.h
@@ -55,7 +62,10 @@ add_executable(${PROJECT_NAME}
     include/k8deployer/NfsStorage.h
     include/k8deployer/PersistentVolumeComponent.h
     include/k8deployer/PortForward.h
+    include/k8deployer/RoleBindingComponent.h
+    include/k8deployer/RoleComponent.h
     include/k8deployer/SecretComponent.h
+    include/k8deployer/ServiceAccountComponent.h
     include/k8deployer/ServiceComponent.h
     include/k8deployer/StatefulSetComponent.h
     include/k8deployer/Storage.h

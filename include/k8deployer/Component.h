@@ -35,6 +35,11 @@ enum class Kind {
     INGRESS,
     NAMESPACE,
     DAEMONSET,
+    ROLE,
+    CLUSTERROLE,
+    ROLEBINDING,
+    CLUSTERROLEBINDING,
+    SERVICEACCOUNT
 };
 
 std::string slurp (const std::string& path);
@@ -406,7 +411,7 @@ protected:
             if (auto t = task.lock()) {
                 taskName = t->name();
             }
-            LOG_DEBUG << logName() << "Applying task " << taskName;
+            LOG_DEBUG << logName() << "Applying task " << taskName << " to " << url;
             LOG_TRACE << logName() << "Applying payload for task " << taskName << ": " << json;
             std::string contentType = "application/json; charset=utf-8";
             if (requestType == restc_cpp::Request::Type::PATCH) {
@@ -428,6 +433,9 @@ protected:
                     if (t->startProbeAfterApply) {
                         t->setState(Task::TaskState::WAITING);
                         t->schedulePoll();
+                    } else {
+                        // Assume that tasks that don't need polling are OK after create.
+                        t->setState(Task::TaskState::DONE);
                     }
                 }
 
@@ -437,7 +445,7 @@ protected:
                     if (auto t = task.lock()) {
                         if (t->mode() == Mode::REMOVE) {
                             LOG_DEBUG << logName()
-                                      << "Applying task " << taskName << " to already deleted resource. Probably ok: "
+                                      << "Applying REMOVE task " << taskName << " to already deleted resource. Probably ok: "
                                       << err.http_response.status_code << ' '
                                       << err.http_response.reason_phrase;
                             t->setState(Task::TaskState::DONE);

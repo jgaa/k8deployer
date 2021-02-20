@@ -8,6 +8,8 @@
 
 #include "k8deployer/AppComponent.h"
 #include "k8deployer/Cluster.h"
+#include "k8deployer/ClusterRoleBindingComponent.h"
+#include "k8deployer/ClusterRoleComponent.h"
 #include "k8deployer/Component.h"
 #include "k8deployer/ConfigMapComponent.h"
 #include "k8deployer/DaemonSetComponent.h"
@@ -17,7 +19,10 @@
 #include "k8deployer/JobComponent.h"
 #include "k8deployer/NamespaceComponent.h"
 #include "k8deployer/PersistentVolumeComponent.h"
+#include "k8deployer/RoleBindingComponent.h"
+#include "k8deployer/RoleComponent.h"
 #include "k8deployer/SecretComponent.h"
+#include "k8deployer/ServiceAccountComponent.h"
 #include "k8deployer/ServiceComponent.h"
 #include "k8deployer/StatefulSetComponent.h"
 #include "k8deployer/k8/k8api.h"
@@ -41,7 +46,12 @@ const map<string, Kind> kinds = {{"App", Kind::APP},
                                  {"PersitentVolume", Kind::PERSISTENTVOLUME},
                                  {"Ingress", Kind::INGRESS},
                                  {"Namespace", Kind::NAMESPACE},
-                                 {"DaemonSet", Kind::DAEMONSET}
+                                 {"DaemonSet", Kind::DAEMONSET},
+                                 {"Role", Kind::ROLE},
+                                 {"ClusterRole", Kind::CLUSTERROLE},
+                                 {"RoleBinding", Kind::ROLEBINDING},
+                                 {"ClusterRoleBinding", Kind::CLUSTERROLEBINDING},
+                                 {"ServiceAccount", Kind::SERVICEACCOUNT},
                                 };
 } // anonymous ns
 
@@ -754,6 +764,16 @@ Component::ptr_t Component::createComponent(const ComponentDataDef &def,
         return make_shared<NamespaceComponent>(parent, cluster, def);
     case Kind::DAEMONSET:
         return make_shared<DaemonSetComponent>(parent, cluster, def);
+    case Kind::ROLE:
+        return make_shared<RoleComponent>(parent, cluster, def);
+    case Kind::CLUSTERROLE:
+        return make_shared<ClusterRoleComponent>(parent, cluster, def);
+    case Kind::ROLEBINDING:
+        return make_shared<RoleBindingComponent>(parent, cluster, def);
+    case Kind::CLUSTERROLEBINDING:
+        return make_shared<ClusterRoleBindingComponent>(parent, cluster, def);
+    case Kind::SERVICEACCOUNT:
+        return make_shared<ServiceAccountComponent>(parent, cluster, def);
     }
 
     throw runtime_error("Unknown kind");
