@@ -32,7 +32,7 @@ void ClusterRoleBindingComponent::prepareDeploy()
 
     for(auto& s: clusterrolebinding.subjects) {
         if (s.namespace_.empty()) {
-            s.namespace_ = getNamespace();
+            s.namespace_ = Component::getNamespace();
         }
     }
 

@@ -13,41 +13,6 @@
 using namespace std;
 using namespace chrono_literals;
 
-//BOOST_FUSION_ADAPT_STRUCT(k8deployer::StorageDef,
-//    (k8deployer::k8api::VolumeMount, volume)
-//    (std::string, capacity)
-//    (bool, createVolume)
-//    (std::string, chownUser)
-//    (std::string, chownGroup)
-//    (std::string, chmodMode)
-//    );
-
-//BOOST_FUSION_ADAPT_STRUCT(k8deployer::ComponentDataDef,
-//    // ComponentData
-//    (std::string, name)
-//    (k8deployer::labels_t, labels)
-//    (k8deployer::conf_t, defaultArgs)
-//    (k8deployer::conf_t, args)
-//    (k8deployer::k8api::Job, job)
-//    (k8deployer::k8api::Deployment, deployment)
-//    (k8deployer::k8api::StatefulSet, statefulSet)
-//    (k8deployer::k8api::Service, service)
-//    (k8deployer::k8api::string_list_t, depends)
-//    (std::optional<k8deployer::k8api::Secret>, secret)
-//    (k8deployer::k8api::PersistentVolume, persistentVolume)
-
-//    (std::optional<k8deployer::k8api::Probe>, startupProbe)
-//    (std::optional<k8deployer::k8api::Probe>, livenessProbe)
-//    (std::optional<k8deployer::k8api::Probe>, readinessProbe)
-//    (std::vector<k8deployer::StorageDef>, storage)
-
-//    // ComponentDataDef
-//    (std::string, kind)
-//    (std::string, parentRelation)
-//    (k8deployer::ComponentDataDef::childrens_t, children)
-//    );
-
-
 namespace k8deployer {
 
 Engine *Engine::instance_;
@@ -63,6 +28,8 @@ Engine::Engine(const Config &config)
         mode_ = Mode::DEPLOY;
     } else if (cfg_.command == "delete") {
         mode_ = Mode::DELETE;
+    } else if (cfg_.command == "depends") {
+        mode_ = Mode::SHOW_DEPENDENCIES;
     } else {
         LOG_ERROR << "Unknown command: " << cfg_.command ;
         throw runtime_error("Unknown command "s + cfg_.command);

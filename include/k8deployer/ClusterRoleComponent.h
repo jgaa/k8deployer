@@ -10,6 +10,9 @@ public:
     ClusterRoleComponent(const Component::ptr_t& parent, Cluster& cluster, const ComponentData& data);
 
     void prepareDeploy() override;
+    std::string getNamespace() const override {
+        return {};
+    }
 
 protected:
     void addDeploymentTasks(tasks_t& tasks) override;

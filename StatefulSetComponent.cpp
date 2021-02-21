@@ -97,8 +97,6 @@ void StatefulSetComponent::addRemovementTasks(Component::tasks_t &tasks)
 
 void StatefulSetComponent::buildDependencies()
 {
-    const auto isDeploying = Engine::mode() == Engine::Mode::DEPLOY;
-
     DeploymentComponent::buildDependencies();
 
     if (auto replicas = getArg("replicas")) {

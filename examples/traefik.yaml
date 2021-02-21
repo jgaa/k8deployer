@@ -9,10 +9,11 @@ args:
     --kubernetes
     --logLevel=INFO
     --defaultentrypoints=https
-    --entrypoints=Name:https Address::443 TLS
+    '--entrypoints=Name:https Address::443 TLS'
+    '--entrypoints=Name:http Address::80'
   ingress.paths: "traefik-${name}.${domain,k8.lastviking.eu}: /*"
   serviceAccountName: traefik-ingress-controller
-securityContext:
+podSecurityContext:
   capabilities:
     drop:
       - ALL

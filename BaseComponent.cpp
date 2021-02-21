@@ -32,8 +32,8 @@ void BaseComponent::basicPrepareDeploy()
                 podTemplate->metadata.name = name;
             }
 
-            if (securityContext && !podTemplate->spec.securityContext) {
-                podTemplate->spec.securityContext = *securityContext;
+            if (podSpecSecurityContext && !podTemplate->spec.securityContext) {
+                podTemplate->spec.securityContext = *podSpecSecurityContext;
             }
 
             if (auto arg = getArg("serviceAccountName")
@@ -50,6 +50,10 @@ void BaseComponent::basicPrepareDeploy()
             container.env = getArgAsEnvList("pod.env", ""s);
             container.command = getArgAsStringList("pod.command", ""s);
             container.imagePullPolicy = getArg("imagePullPolicy", {});
+
+            if (podSecurityContext) {
+                container.securityContext = *podSecurityContext;
+            }
 
             if (auto ports = getArgAsStringList("port", ""s); !ports.empty()) {
                 for(const auto& port: ports) {
@@ -92,6 +96,8 @@ void BaseComponent::basicPrepareDeploy()
                 podTemplate->spec.volumes.push_back(v);
             }
 
+            // TODO: Consider to merge existing pod if it exists
+            // (if the user declared it to set some poperties)
             podTemplate->spec.containers.push_back(move(container));
         }
 
@@ -110,10 +116,6 @@ void BaseComponent::addDeploymentTasks(Component::tasks_t& tasks)
             buildInitContainers(); // This must be done after all components are initialized
             task.setState(Task::TaskState::EXECUTING);
             doDeploy(task.weak_from_this());
-            task.setState(Task::TaskState::WAITING);
-            if (probe(nullptr)) {
-                task.schedulePoll();
-            }
         }
 
         // Monitoring?
@@ -143,6 +145,7 @@ void BaseComponent::addDeploymentTasks(Component::tasks_t& tasks)
         task.evaluate();
     });
 
+    task->startProbeAfterApply = probe(nullptr);
     tasks.push_back(task);
     Component::addDeploymentTasks(tasks);
 }

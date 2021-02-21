@@ -15,7 +15,8 @@ class Engine
 public:
     enum class Mode {
         DEPLOY,
-        DELETE
+        DELETE,
+        SHOW_DEPENDENCIES
     };
 
     Engine(const Config& config);

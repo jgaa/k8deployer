@@ -11,6 +11,7 @@ public:
         : Component(parent, cluster, data)
     {
         kind_ = Kind::SERVICE;
+        parentRelation_ = ParentRelation::AFTER;
     }
 
     void prepareDeploy() override;

@@ -11,6 +11,9 @@ public:
 
     void prepareDeploy() override;
     bool probe(std::function<void (K8ObjectState)>) override;
+    std::string getNamespace() const override {
+        return {};
+    }
 
 protected:
     void addDeploymentTasks(tasks_t& tasks) override;

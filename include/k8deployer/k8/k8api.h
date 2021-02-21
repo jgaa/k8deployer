@@ -168,6 +168,53 @@ struct Probe {
     std::optional<int> timeoutSeconds;
 };
 
+struct SELinuxOptions {
+    std::string level;
+    std::string role;
+    std::string type;
+    std::string user;
+};
+
+struct SeccompProfile {
+    std::string localhostProfile;
+    std::string type;
+};
+
+struct Sysctl {
+    std::string name;
+    std::string value;
+};
+
+struct WindowsSecurityContextOptions {
+    std::string gmsaCredentialSpec;
+    std::string gmsaCredentialSpecName;
+    std::string runAsUserName;
+};
+
+struct Capabilities {
+    string_list_t add;
+    string_list_t drop;
+};
+
+struct SecurityContext {
+    bool allowPrivilegeEscalation = false;
+    std::optional<Capabilities> capabilities;
+    bool privileged = false;
+    std::string procMount;
+    bool readOnlyRootFilesystem = false;
+    std::optional<int> runAsGroup;
+    bool runAsNonRoot = false;
+    std::optional<int> runAsUser;
+    std::optional<SELinuxOptions> seLinuxOptions;
+    std::optional<SeccompProfile> seccompProfile;
+    std::optional<WindowsSecurityContextOptions> windowsOptions;
+};
+
+struct ResourceRequirements {
+    key_values_t limits;
+    key_values_t requests;
+};
+
 struct Container {
     std::string name;
     string_list_t args;
@@ -180,6 +227,14 @@ struct Container {
     std::optional<Probe> startupProbe;
     std::optional<Probe> livenessProbe;
     std::optional<Probe> readinessProbe;
+    std::optional<SecurityContext> securityContext;
+    std::optional<ResourceRequirements> resources;
+    bool stdin = false;
+    bool stdinOnce = false;
+    std::string terminationMessagePath;
+    std::string terminationMessagePolicy;
+    bool tty = false;
+    std::string workingDir;
 };
 
 using containers_t = std::vector<Container>;
@@ -395,29 +450,6 @@ struct PersistentVolume {
 struct HostAlias {
     string_list_t hostnames;
     std::string ip;
-};
-
-struct SELinuxOptions {
-    std::string level;
-    std::string role;
-    std::string type;
-    std::string user;
-};
-
-struct SeccompProfile {
-    std::string localhostProfile;
-    std::string type;
-};
-
-struct Sysctl {
-    std::string name;
-    std::string value;
-};
-
-struct WindowsSecurityContextOptions{
-    std::string gmsaCredentialSpec;
-    std::string gmsaCredentialSpecName;
-    std::string runAsUserName;
 };
 
 struct PodSecurityContext {
@@ -655,11 +687,6 @@ struct TypedLocalObjectReference {
     std::string apiGroup;
     std::string kind;
     std::string name;
-};
-
-struct ResourceRequirements {
-    key_values_t limits;
-    key_values_t requests;
 };
 
 struct PersistentVolumeClaimCondition {
@@ -1096,6 +1123,30 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::Probe,
     (std::optional<int>, timeoutSeconds)
 );
 
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::Capabilities,
+    (k8deployer::k8api::string_list_t, add)
+    (k8deployer::k8api::string_list_t, drop)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::SecurityContext,
+    (bool, allowPrivilegeEscalation)
+    (std::optional<k8deployer::k8api::Capabilities>, capabilities)
+    (bool, privileged)
+    (std::string, procMount)
+    (bool, readOnlyRootFilesystem)
+    (std::optional<int>, runAsGroup)
+    (bool, runAsNonRoot)
+    (std::optional<int>, runAsUser)
+    (std::optional<k8deployer::k8api::SELinuxOptions>, seLinuxOptions)
+    (std::optional<k8deployer::k8api::SeccompProfile>, seccompProfile)
+    (std::optional<k8deployer::k8api::WindowsSecurityContextOptions>, windowsOptions)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::ResourceRequirements,
+    (k8deployer::k8api::key_values_t, limits)
+    (k8deployer::k8api::key_values_t, requests)
+);
+
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::Container,
     (std::string, name)
     (k8deployer::k8api::string_list_t, args)
@@ -1108,6 +1159,14 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::Container,
     (std::optional<k8deployer::k8api::Probe>, startupProbe)
     (std::optional<k8deployer::k8api::Probe>, livenessProbe)
     (std::optional<k8deployer::k8api::Probe>, readinessProbe)
+    (std::optional<k8deployer::k8api::SecurityContext>, securityContext)
+    (std::optional<k8deployer::k8api::ResourceRequirements>, resources)
+    (bool, stdin)
+    (bool, stdinOnce)
+    (std::string, terminationMessagePath)
+    (std::string, terminationMessagePolicy)
+    (bool, tty)
+    (std::string, workingDir)
 );
 
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::RollingUpdateDeployment,
@@ -1299,11 +1358,6 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::Volume,
     (std::optional<k8deployer::k8api::SecretVolumeSource>, secret)
 );
 
-BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::HostAlias,
-    (k8deployer::k8api::string_list_t, hostnames)
-    (std::string, ip)
-);
-
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::SELinuxOptions,
     (std::string, level)
     (std::string, role)
@@ -1325,6 +1379,11 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::WindowsSecurityContextOptions,
     (std::string, gmsaCredentialSpec)
     (std::string, gmsaCredentialSpecName)
     (std::string, runAsUserName)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::HostAlias,
+    (k8deployer::k8api::string_list_t, hostnames)
+    (std::string, ip)
 );
 
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::PodSecurityContext,
@@ -1569,11 +1628,6 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::TypedLocalObjectReference,
     (std::string, apiGroup)
     (std::string, kind)
     (std::string, name)
-);
-
-BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::ResourceRequirements,
-    (k8deployer::k8api::key_values_t, limits)
-    (k8deployer::k8api::key_values_t, requests)
 );
 
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::PersistentVolumeClaimCondition,

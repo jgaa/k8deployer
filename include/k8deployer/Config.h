@@ -21,6 +21,7 @@ struct Config {
   std::string includeFilter = ".*";
   std::map<std::string, std::string> variables;
   bool autoMaintainNamespace = false;
+  std::string dotfile = "k8deployer.dot";
 };
 
 } // ns

@@ -40,12 +40,12 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::ComponentDataDef,
     (k8deployer::labels_t, labels)
     (k8deployer::conf_t, defaultArgs)
     (k8deployer::conf_t, args)
+    (k8deployer::k8api::string_list_t, depends)
     (k8deployer::k8api::Job, job)
     (k8deployer::k8api::Deployment, deployment)
     (k8deployer::k8api::StatefulSet, statefulSet)
     (k8deployer::k8api::DaemonSet, daemonset)
     (k8deployer::k8api::Service, service)
-    (k8deployer::k8api::string_list_t, depends)
     (std::optional<k8deployer::k8api::Secret>, secret)
     (k8deployer::k8api::PersistentVolume, persistentVolume)
     (k8deployer::k8api::Ingress, ingress)   
@@ -55,7 +55,8 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::ComponentDataDef,
     (k8deployer::k8api::RoleBinding, rolebinding)
     (k8deployer::k8api::ClusterRoleBinding, clusterrolebinding)
     (k8deployer::k8api::ServiceAccount, serviceaccount)
-    (std::optional<k8deployer::k8api::PodSecurityContext>, securityContext)
+    (std::optional<k8deployer::k8api::SecurityContext>, podSecurityContext)
+    (std::optional<k8deployer::k8api::PodSecurityContext>, podSpecSecurityContext)
     (std::optional<k8deployer::k8api::Probe>, startupProbe)
     (std::optional<k8deployer::k8api::Probe>, livenessProbe)
     (std::optional<k8deployer::k8api::Probe>, readinessProbe)
@@ -279,27 +280,37 @@ void Cluster::createComponents()
 
 void Cluster::setCmds()
 {
-    if (cfg_.command == "deploy") {
+    switch(Engine::mode()) {
+    case Engine::Mode::DEPLOY:
         verb_ = "Deploying";
         executeCmd_ = [this] {
             return rootComponent_->deploy();
         };
         prepareCmd_ = [this] {
-            rootComponent_->prepareDeploy();
-            rootComponent_->scanDependencies();
+            rootComponent_->prepare();
             return dummyReturnFuture();
         };
-    } else if (cfg_.command == "delete") {
+        break;
+    case Engine::Mode::DELETE:
         verb_ = "Deleting";
         executeCmd_ = [this] {
             return rootComponent_->remove();
         };
         prepareCmd_ = [this] {
-            rootComponent_->prepareDeploy();
+            rootComponent_->prepare();
             return dummyReturnFuture();
         };
-    } else  {
-        LOG_ERROR << "Unknown command: " << cfg_.command;
+        break;
+    case Engine::Mode::SHOW_DEPENDENCIES:
+            verb_ = "Scanning Dependencies";
+            executeCmd_ = [this] {
+                return rootComponent_->dumpDependencies();
+            };
+            prepareCmd_ = [this] {
+                rootComponent_->prepare();
+                return dummyReturnFuture();
+            };
+        break;
     }
 }
 

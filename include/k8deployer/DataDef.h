@@ -47,8 +47,11 @@ struct ComponentData {
     k8api::ClusterRoleBinding clusterrolebinding;
     k8api::ServiceAccount serviceaccount;
 
+    // Set on pods if defined on components using podspecs
+    std::optional<k8api::SecurityContext> podSecurityContext;
+
     // Set on podspec if defined on components using podspecs
-    std::optional<k8api::PodSecurityContext> securityContext;
+    std::optional<k8api::PodSecurityContext> podSpecSecurityContext;
 
     // Applied to the container if it's indirectly created by k8deployer
     std::optional<k8api::Probe> startupProbe;

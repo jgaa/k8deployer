@@ -208,14 +208,16 @@ public:
 
         static const std::string& toString(const TaskState& state);
 
-        void addDependency(const wptr_t& task) {
-            dependencies_.push_back(task);
-        }
+        void addDependency(const wptr_t& task);
 
         void addAllDependencies(std::set<Task *>& tasks);
 
         bool startProbeAfterApply = false;
         bool dontFailIfAlreadyExists = false;
+
+        const std::deque<wptr_t>& dependencies() const {
+            return dependencies_;
+        }
 
     private:
         // All dependencies must be DONE before the task goes in READY state
@@ -274,11 +276,15 @@ public:
     static ptr_t populateTree(const ComponentDataDef &def, Cluster& cluster);
 
     // Called on the root component
+    void prepare();
+
     virtual void prepareDeploy();
 
     // Called on the root component
     // Let clusters deploy themselfs in parallell
     std::future<void> deploy();
+
+    std::future<void> dumpDependencies();
 
     // Called on the root component
     // Let clusters delete themselfs in parallell
@@ -365,12 +371,11 @@ protected:
                                      const Component::ptr_t& parent);
 
     void init();
-    void prepare();
     void validate();
     bool hasKindAsChild(Kind kind) const;
     Component * getFirstKindAmongChildren(Kind kind);
     void initChildren();
-    std::future<void> execute(std::function<void(tasks_t&)> fn);
+    std::future<void> execute();
 
     // Build the DeployTasks list for this component
     tasks_t buildDeployTasks();
@@ -490,7 +495,11 @@ protected:
                     const std::initializer_list<std::pair<std::string, std::string>>& args = {});
 
     void calculateElapsed();
-    void addDependencyToNamespace();
+    //void addDependencyToNamespace();
+
+    // Adds the dependency if it don't already exists
+    void addDependency(Component& component);
+    static void prepareTasks(tasks_t& tasks, bool reverseDependencies);
 
     State state_{State::PRE}; // From our logic
     std::string k8state_; // From the event-loop
@@ -502,7 +511,6 @@ protected:
     childrens_t children_;
     std::unique_ptr<tasks_t> tasks_;
     std::unique_ptr<std::promise<void>> executionPromise_;
-    bool reverseDependencies_ = false;
     std::vector<std::weak_ptr<Component>> dependsOn_;
     Mode mode_ = Mode::CREATE;
     std::optional<std::chrono::steady_clock::time_point> startTime;

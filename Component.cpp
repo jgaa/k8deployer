@@ -122,9 +122,8 @@ std::string Base64Encode(const std::string &in) {
 
 Component::Component(const Component::ptr_t &parent, Cluster &cluster, const ComponentData &data)
     : ComponentData(data), parent_{parent}, cluster_{&cluster},
-      mode_{Engine::instance().config().command == "delete" ? Mode::REMOVE : Mode::CREATE}
+      mode_{Engine::mode() == Engine::Mode::DELETE ? Mode::REMOVE : Mode::CREATE}
 {
-
 }
 
 string Component::logName() const noexcept
@@ -301,6 +300,25 @@ Component::ptr_t Component::populateTree(const ComponentDataDef &def, Cluster &c
     return {};
 }
 
+void Component::prepare()
+{
+    tasks_ = make_unique<tasks_t>();
+    switch(Engine::mode()) {
+    case Engine::Mode::DEPLOY:
+    case Engine::Mode::SHOW_DEPENDENCIES:
+        prepareDeploy();
+        addDeploymentTasks(*tasks_);
+        prepareTasks(*tasks_, false);
+        scanDependencies();
+        break;
+    case Engine::Mode::DELETE:
+        addRemovementTasks(*tasks_);
+        prepareTasks(*tasks_, true);
+        scanDependencies();
+        break;
+    }
+}
+
 void Component::prepareDeploy()
 {
     for(auto& child : children_) {
@@ -310,75 +328,67 @@ void Component::prepareDeploy()
 
 std::future<void> Component::deploy()
 {
-    return execute([this](tasks_t& tasks) {
-        addDeploymentTasks(tasks);
-    });
+    assert(isRoot());
+    return execute();
+}
+
+std::future<void> Component::dumpDependencies()
+{
+    const auto dotName = name + "-" + Engine::config().dotfile;
+    std::ofstream out{dotName};
+
+    if (out.is_open()) {
+        LOG_INFO << "Dumping dependencies to: " << dotName;
+
+        out << "digraph {" << endl;
+        out << "   subgraph components {" << endl;
+        out << R"(      label="Components";)" << endl;
+
+        forAllComponents([&](Component& c) {
+            for (const auto& dep : c.dependsOn_) {
+                if (auto d = dep.lock()) {
+                    out << "      \"" << boost::trim_right_copy(c.logName())
+                        << "\" -> \"" << boost::trim_right_copy(d->logName()) << '"' << endl;
+                }
+            }
+        });
+
+        out << "   }" << endl;
+
+        if (tasks_) {
+            out << "   subgraph tasks {" << endl;
+            out << R"(      label="Tasks";)" << endl;
+
+            for(const auto& t : *tasks_) {
+                for (const auto& dw: t->dependencies()) {
+                    if (auto d = dw.lock()) {
+                        out << "      \"" << boost::trim_right_copy(t->component().logName()) << '.' << t->name()
+                            << "\" -> \""
+                            << boost::trim_right_copy(d->component().logName()) << '.' << d->name()
+                            << '"' << endl;
+                    }
+                }
+            }
+
+            out << "   }" << endl;
+        }
+
+        out << "}" << endl;
+    }
+
+    return dummyReturnFuture();
 }
 
 std::future<void> Component::remove()
 {
-    reverseDependencies_ = true;
-    return execute([this](tasks_t& tasks) {
-        addRemovementTasks(tasks);
-    });
+//    tasks_ = make_unique<tasks_t>();
+//    addRemovementTasks(*tasks_);
+//    prepareTasks(*tasks_, true);
+    return execute();
 }
 
-std::future<void> Component::execute(std::function<void(tasks_t&)> fn)
+std::future<void> Component::execute()
 {
-    // Built list of tasks
-    tasks_ = make_unique<tasks_t>();
-    fn(*tasks_);
-
-    // Set dependencies
-    for(auto& task : *tasks_) {
-        auto relation = task->component().parentRelation();
-        if (reverseDependencies_) {
-            if (relation == ParentRelation::AFTER) {
-                relation = ParentRelation::BEFORE;
-            } else if (relation == ParentRelation::BEFORE) {
-                relation = ParentRelation::AFTER;
-            }
-        }
-
-        switch(relation) {
-        case ParentRelation::AFTER:
-            // The task depend on parent task(s)
-            if (auto parent = task->component().parent_.lock()) {
-                for(auto ptask : *tasks_) {
-                    if (&ptask->component() == parent.get()) {
-                        LOG_TRACE << logName() << "Task " << task->name() << " depends on " << ptask->name();
-                        task->addDependency(ptask->weak_from_this());
-                    }
-                }
-            }
-            break;
-        case ParentRelation::BEFORE:
-            // The parent's tasks depend on the task(s)
-            if (auto parent = task->component().parent_.lock()) {
-                for(auto ptask : *tasks_) {
-                    if (&ptask->component() == parent.get()) {
-                        LOG_TRACE << logName() << "Task " << ptask->name() << " depends on " << task->name();
-                        ptask->addDependency(task->weak_from_this());
-                    }
-                }
-            }
-            break;
-        case ParentRelation::INDEPENDENT:
-            ; // Don't matter
-        }
-    }
-
-    // Check for circular dependencies
-    for (const auto& task : *tasks_) {
-        std::set<Task *> allDeps;
-        task->addAllDependencies(allDeps);
-        if (auto it = allDeps.find(task.get()) ; it != allDeps.end()) {
-            LOG_ERROR << logName() << "task " << task->name() << " Circular dependency to "
-            << (*it)->component().logName() << (*it)->name();
-            throw runtime_error("Circular dependency");
-        }
-    }
-
     // Execute via asio's executor
     cluster().client().GetIoService().post([self = weak_from_this()] {
        if (auto component = self.lock()) {
@@ -412,6 +422,10 @@ labels_t::value_type Component::getSelector()
 
 void Component::scheduleRunTasks()
 {
+    if (cluster_->state() != Cluster::State::EXECUTING) {
+        return;
+    }
+
     evaluate();
     schedule([wself = getRoot().weak_from_this()] {
        if (auto self = wself.lock()) {
@@ -457,25 +471,21 @@ void Component::scanDependencies()
 {
     if (isRoot()) {
 
-        // If we have a component for the namespace, make all
-        // components using the namespace depend on it.
+        // If we have components for namespaces, make all
+        // components using these namespace depend on them.
         const auto ns = getNamespace();
-        Component *namespaceComponent = {};
+        std::map<std::string, Component *> nsComponents;
         forAllComponents([&](Component& c) {
             if (c.kind_ == Kind::NAMESPACE) {
-                if (c.name == ns) {
-                  namespaceComponent = &c;
-              }
+                nsComponents[c.namespace_.metadata.name] = &c;
             }
         });
 
-        if (namespaceComponent) {
+        if (!nsComponents.empty()) {
             forAllComponents([&](Component& c) {
-                if (c.kind_ != Kind::NAMESPACE
-                        && c.kind_ != Kind::APP) {
-                    if (std::find(c.depends.begin(), c.depends.end(), namespaceComponent->name) == c.depends.end()) {
-                        LOG_TRACE << c.logName() << "Adding dependency to " << namespaceComponent->logName();
-                        c.depends.push_back(namespaceComponent->name);
+                if (const auto ns = c.getNamespace(); !ns.empty()) {
+                    if (auto it = nsComponents.find(c.getNamespace()); it != nsComponents.end()) {
+                        c.addDependency(*it->second);
                     }
                 }
             });
@@ -486,25 +496,26 @@ void Component::scanDependencies()
         for (const auto& depName : depends) {
             forAllComponents([&](Component& c) {
                 if (depName == c.name) {
-
-                    // Check for circular dependencies
-                    std::set<Component *> deps;
-                    c.addDependenciesRecursively(deps);
-                    if (deps.find(this) != deps.end()) {
-                        LOG_ERROR << logName() << "Detected circular dependency with: " << c.logName();
-                        throw runtime_error("Circular dependency");
-                    }
-
-                    dependsOn_.push_back(c.weak_from_this());
-                    LOG_DEBUG << logName() << "Component depends on " << c.logName();
+                    addDependency(c);
                 }
             });
         }
+
+//        for(const auto& child: children_) {
+//            if (child->parentRelation() == ParentRelation::BEFORE) {
+//                addDependency(*child);
+//            } else if (child->parentRelation() == ParentRelation::AFTER) {
+//                child->addDependency(*this);
+//            }
+
+//            child->scanDependencies();
+//        }
     }
 
     for(const auto& child: children_) {
         child->scanDependencies();
     }
+
 }
 
 Component &Component::getRoot()
@@ -597,6 +608,10 @@ string Component::getNamespace() const
         return *ns;
     }
 
+    if (auto p = parent_.lock()) {
+        return p->getNamespace();
+    }
+
     return Engine::config().ns;
 }
 
@@ -639,7 +654,7 @@ void Component::processEvent(const k8api::Event& event)
 }
 
 void Component::runTasks() {
-    if (!tasks_) {
+    if (!tasks_ || cluster_->state() != Cluster::State::EXECUTING) {
         return;
     }
 
@@ -865,14 +880,7 @@ Component::ptr_t Component::addChild(const string &name, Kind kind, const labels
     assert(cluster_);
     auto component = createComponent(def, shared_from_this(), *cluster_);
     component->init();
-
-    if (kind == Kind::NAMESPACE && Engine::instance().mode() == Engine::Mode::DEPLOY) {
-        // Namespaces must be created before components using them
-        children_.push_front(component);
-    } else {
-        children_.push_back(component);
-    }
-
+    children_.push_back(component);
     return component;
 }
 
@@ -1063,6 +1071,17 @@ const string &Component::Task::toString(const Component::Task::TaskState &state)
     return names.at(static_cast<size_t>(state));
 }
 
+void Component::Task::addDependency(const Component::Task::wptr_t &task) {
+    if (auto t = task.lock()) {
+        for(auto wd: dependencies_) {
+            if (wd.lock() == t) {
+                return; // Already there
+            }
+        }
+        dependencies_.push_back(task);
+    }
+}
+
 void Component::Task::addAllDependencies(std::set<Component::Task *> &tasks)
 {
     for(auto& d : dependencies_) {
@@ -1189,6 +1208,89 @@ void Component::calculateElapsed()
     if (startTime) {
         const auto ended = chrono::steady_clock::now();
         elapsed = chrono::duration<double>(ended - *startTime).count();
+    }
+}
+
+void Component::addDependency(Component &component)
+{
+    if (&component == this) {
+        LOG_ERROR << logName() << "Cannot add dependency to myslelf!";
+        throw runtime_error("Cannot depend on myself!");
+    }
+
+    std::set<Component *> deps;
+    component.addDependenciesRecursively(deps);
+    if (deps.find(this) != deps.end()) {
+        LOG_ERROR << logName() << "Detected circular dependency with: " << component.logName();
+        throw runtime_error("Circular dependency");
+    }
+
+    for(const auto& w : dependsOn_) {
+        if (const auto c = w.lock()) {
+            if (c.get() == &component) {
+                return;
+            }
+        }
+    }
+
+    LOG_DEBUG << logName() << "Component depends on " << component.logName();
+    dependsOn_.push_back(component.weak_from_this());
+}
+
+void Component::prepareTasks(tasks_t& tasks, bool reverseDependencies)
+{
+//    // Built list of tasks
+//    tasks_ = make_unique<tasks_t>();
+//    fn(*tasks_);
+
+    // Set dependencies
+    for(auto& task : tasks) {
+        auto relation = task->component().parentRelation();
+        if (reverseDependencies) {
+            if (relation == ParentRelation::AFTER) {
+                relation = ParentRelation::BEFORE;
+            } else if (relation == ParentRelation::BEFORE) {
+                relation = ParentRelation::AFTER;
+            }
+        }
+
+        switch(relation) {
+        case ParentRelation::AFTER:
+            // The task depend on parent task(s)
+            if (auto parent = task->component().parent_.lock()) {
+                for(auto ptask : tasks) {
+                    if (&ptask->component() == parent.get()) {
+                        LOG_TRACE << task->component().logName() << "Task " << task->name() << " depends on " << ptask->name();
+                        task->addDependency(ptask->weak_from_this());
+                    }
+                }
+            }
+            break;
+        case ParentRelation::BEFORE:
+            // The parent's tasks depend on the task(s)
+            if (auto parent = task->component().parent_.lock()) {
+                for(auto ptask : tasks) {
+                    if (&ptask->component() == parent.get()) {
+                        LOG_TRACE << task->component().logName() << "Task " << ptask->name() << " depends on " << task->name();
+                        ptask->addDependency(task->weak_from_this());
+                    }
+                }
+            }
+            break;
+        case ParentRelation::INDEPENDENT:
+            ; // Don't matter
+        }
+    }
+
+    // Check for circular dependencies
+    for (const auto& task : tasks) {
+        std::set<Task *> allDeps;
+        task->addAllDependencies(allDeps);
+        if (auto it = allDeps.find(task.get()) ; it != allDeps.end()) {
+            LOG_ERROR << task->component().logName() << "task " << task->name() << " Circular dependency to "
+            << (*it)->component().logName() << (*it)->name();
+            throw runtime_error("Circular dependency");
+        }
     }
 }
 

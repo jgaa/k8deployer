@@ -35,15 +35,12 @@ int main(int argc, char* argv[]) {
                     "manage-namespace,N",
                     po::value<bool>(&config.autoMaintainNamespace)->default_value(config.autoMaintainNamespace),
                     "Create and delete namespaces as needed")(
-                    "use-networking-betav1",
-                    po::value<bool>(&config.useNetworkingBetaV1)->default_value(config.useNetworkingBetaV1),
-                    "Use networking betav1 (pre kubernetes 1.19) - backwards compatibility")(
                     "log-level,l",
                     po::value<string>(&log_level)->default_value(log_level),
                     "Log-level to use; one of 'info', 'debug', 'trace'")(
                     "command,c",
                     po::value<string>(&config.command)->default_value(config.command),
-                    "Comand; one of: deploy, delete, redeploy, describe, status")(
+                    "Comand; one of: 'deploy', 'delete', 'depends'")(
                     "storage,s",
                     po::value<string>(&config.storageEngine)->default_value(config.storageEngine),
                     "Storage engine for managed volumes")(
