@@ -435,7 +435,7 @@ protected:
                       << reply->GetHttpResponse().reason_phrase;
 
                 if (auto t = task.lock()) {
-                    if (t->startProbeAfterApply) {
+                    if (t->startProbeAfterApply /* && Engine::mode() != Engine::Mode::DELETE*/) {
                         t->setState(Task::TaskState::WAITING);
                         t->schedulePoll();
                     } else {

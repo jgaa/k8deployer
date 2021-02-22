@@ -75,6 +75,9 @@ bool DaemonSetComponent::probe(std::function<void (Component::K8ObjectState)> fn
                 fn(state);
             }
             }, [](const auto& data) {
+                if (Engine::mode() == Engine::Mode::DELETE) {
+                    return false; // Done when deleted
+                }
                 return data.status->numberReady > 0;
             }
         );

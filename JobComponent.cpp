@@ -40,9 +40,11 @@ bool JobComponent::probe(std::function<void (Component::K8ObjectState)> fn)
                     fn(state);
                 }
             }, [] (const auto& data) {
-                for(const auto& cond : data.status->conditions) {
-                    if (cond.type == "Complete" && cond.status == "True") {
-                        return true;
+                if (Engine::mode() == Engine::Mode::DEPLOY) {
+                    for(const auto& cond : data.status->conditions) {
+                        if (cond.type == "Complete" && cond.status == "True") {
+                            return true;
+                        }
                     }
                 }
                 return false;

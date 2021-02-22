@@ -312,6 +312,7 @@ void Component::prepare()
         scanDependencies();
         break;
     case Engine::Mode::DELETE:
+        prepareDeploy();
         addRemovementTasks(*tasks_);
         prepareTasks(*tasks_, true);
         scanDependencies();
@@ -423,6 +424,7 @@ labels_t::value_type Component::getSelector()
 void Component::scheduleRunTasks()
 {
     if (cluster_->state() != Cluster::State::EXECUTING) {
+        LOG_TRACE << logName() << "Skipping schedule. Cluster is is state " << static_cast<int>(cluster_->state());
         return;
     }
 
@@ -469,6 +471,7 @@ bool Component::isBlockedOnDependency() const
 // Assumes that all components are created, including generated ones
 void Component::scanDependencies()
 {
+    const auto reverse = mode_ == Mode::REMOVE;
     if (isRoot()) {
 
         // If we have components for namespaces, make all
@@ -485,21 +488,27 @@ void Component::scanDependencies()
             forAllComponents([&](Component& c) {
                 if (const auto ns = c.getNamespace(); !ns.empty()) {
                     if (auto it = nsComponents.find(c.getNamespace()); it != nsComponents.end()) {
-                        c.addDependency(*it->second);
+                        if (reverse)
+                            it->second->addDependency(c);
+                        else
+                            c.addDependency(*it->second);
                     }
                 }
             });
         }
     }
 
-    if (mode_ == Mode::CREATE) {
+    //if (mode_ == Mode::CREATE) {
         for (const auto& depName : depends) {
             forAllComponents([&](Component& c) {
                 if (depName == c.name) {
-                    addDependency(c);
+                    if (reverse)
+                        c.addDependency(*this);
+                    else
+                        addDependency(c);
                 }
             });
-        }
+      //  }
 
 //        for(const auto& child: children_) {
 //            if (child->parentRelation() == ParentRelation::BEFORE) {
@@ -655,6 +664,7 @@ void Component::processEvent(const k8api::Event& event)
 
 void Component::runTasks() {
     if (!tasks_ || cluster_->state() != Cluster::State::EXECUTING) {
+        LOG_TRACE << logName() << "Skipping runTasks. Cluster is is state " << static_cast<int>(cluster_->state());
         return;
     }
 
@@ -1243,42 +1253,46 @@ void Component::prepareTasks(tasks_t& tasks, bool reverseDependencies)
 //    tasks_ = make_unique<tasks_t>();
 //    fn(*tasks_);
 
-    // Set dependencies
-    for(auto& task : tasks) {
-        auto relation = task->component().parentRelation();
-        if (reverseDependencies) {
-            if (relation == ParentRelation::AFTER) {
-                relation = ParentRelation::BEFORE;
-            } else if (relation == ParentRelation::BEFORE) {
-                relation = ParentRelation::AFTER;
-            }
-        }
+    const bool isDelete = Engine::mode() == Engine::Mode::DELETE;
 
-        switch(relation) {
-        case ParentRelation::AFTER:
-            // The task depend on parent task(s)
-            if (auto parent = task->component().parent_.lock()) {
-                for(auto ptask : tasks) {
-                    if (&ptask->component() == parent.get()) {
-                        LOG_TRACE << task->component().logName() << "Task " << task->name() << " depends on " << ptask->name();
-                        task->addDependency(ptask->weak_from_this());
-                    }
+    // Set dependencies
+    if (!isDelete) {
+        for(auto& task : tasks) {
+            auto relation = task->component().parentRelation();
+            if (reverseDependencies) {
+                if (relation == ParentRelation::AFTER) {
+                    relation = ParentRelation::BEFORE;
+                } else if (relation == ParentRelation::BEFORE) {
+                    relation = ParentRelation::AFTER;
                 }
             }
-            break;
-        case ParentRelation::BEFORE:
-            // The parent's tasks depend on the task(s)
-            if (auto parent = task->component().parent_.lock()) {
-                for(auto ptask : tasks) {
-                    if (&ptask->component() == parent.get()) {
-                        LOG_TRACE << task->component().logName() << "Task " << ptask->name() << " depends on " << task->name();
-                        ptask->addDependency(task->weak_from_this());
+
+            switch(relation) {
+            case ParentRelation::AFTER:
+                // The task depend on parent task(s)
+                if (auto parent = task->component().parent_.lock()) {
+                    for(auto ptask : tasks) {
+                        if (&ptask->component() == parent.get()) {
+                            LOG_TRACE << task->component().logName() << "Task " << task->name() << " depends on " << ptask->name();
+                            task->addDependency(ptask->weak_from_this());
+                        }
                     }
                 }
+                break;
+            case ParentRelation::BEFORE:
+                // The parent's tasks depend on the task(s)
+                if (auto parent = task->component().parent_.lock()) {
+                    for(auto ptask : tasks) {
+                        if (&ptask->component() == parent.get()) {
+                            LOG_TRACE << task->component().logName() << "Task " << ptask->name() << " depends on " << task->name();
+                            ptask->addDependency(task->weak_from_this());
+                        }
+                    }
+                }
+                break;
+            case ParentRelation::INDEPENDENT:
+                ; // Don't matter
             }
-            break;
-        case ParentRelation::INDEPENDENT:
-            ; // Don't matter
         }
     }
 

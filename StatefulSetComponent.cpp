@@ -132,14 +132,6 @@ void StatefulSetComponent::buildDependencies()
             }
 
             conf_t svcargs;
-//            // Since we create the service, give it a copy of relevant arguments..
-//            for(const auto& [k, v] : args) {
-//                static const array<string, 2> relevant = {"service.nodePort", "service.type"};
-//                if (find(relevant.begin(), relevant.end(), k) != relevant.end()) {
-//                    svcargs[k] = v;
-//                }
-//            }
-
             // Special arg to propagate the capacity to the pv
             svcargs["pv.capacity"] = storageDef.capacity;
 
@@ -198,11 +190,16 @@ bool StatefulSetComponent::probe(std::function<void (Component::K8ObjectState)> 
                 fn(state);
             }
             }, [](const auto& data) {
+
                 // TODO: We may have to allow a lower number of replicas to signal ready...
                 const size_t replicas = (data.spec->replicas ? *data.spec->replicas : 1);
 
                 LOG_TRACE << "Probe verify: replicas = " << replicas
                           << ", readyReplicas = " << (data.status ? to_string(data.status->readyReplicas) : "[null]"s);
+
+                if (Engine::mode() == Engine::Mode::DELETE) {
+                    return data.status->readyReplicas == 0;
+                }
 
                 return data.status->readyReplicas == replicas;
             }

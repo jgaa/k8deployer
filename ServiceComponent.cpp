@@ -103,7 +103,7 @@ bool ServiceComponent::probe(std::function<void (Component::K8ObjectState)> fn)
                 }
             }, [](const auto& data) {
                 // If it exists, it's probably OK...
-                return true;
+                return Engine::mode() == Engine::Mode::DEPLOY;
             }
         );
     }

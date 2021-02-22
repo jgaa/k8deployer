@@ -46,8 +46,10 @@ bool NamespaceComponent::probe(std::function<void (Component::K8ObjectState)> fn
                     fn(state);
                 }
             }, [](const auto& data) {
-                if (data.status) {
-                    return data.status->phase == "Active";
+                if (Engine::mode() == Engine::Mode::DEPLOY) {
+                    if (data.status) {
+                        return data.status->phase == "Active";
+                    }
                 }
                 return false;
             }

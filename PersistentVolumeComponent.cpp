@@ -53,7 +53,10 @@ bool PersistentVolumeComponent::probe(std::function<void (Component::K8ObjectSta
                     fn(state);
                 }
             }, [] (const auto& data) {
-                return data.status->phase == "Available";
+                if (Engine::mode() == Engine::Mode::DEPLOY) {
+                    return data.status->phase == "Available";
+                }
+                return false;
             }
         );
     }
