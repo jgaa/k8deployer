@@ -79,6 +79,27 @@ using namespace restc_cpp;
 
 namespace k8deployer {
 
+namespace {
+string ipFromUrl(const string& url) {
+    string ip;
+
+    if (const auto pos = url.find("://") ; pos && pos != string::npos) {
+        ip = url.substr(pos +3);
+
+        if (auto end = ip.find(":") ; end && end != string::npos) {
+            ip = ip.substr(0, end);
+        }
+
+        if (auto end = ip.find("/") ; end && end != string::npos) {
+            ip = ip.substr(0, end);
+        }
+    }
+
+    return ip;
+}
+
+}
+
 Cluster::Cluster(const Config &cfg, const string &arg)
     : cfg_{cfg}
 {
@@ -86,8 +107,6 @@ Cluster::Cluster(const Config &cfg, const string &arg)
     if (!cfg_.storageEngine.empty()) {
         storage_ = Storage::create(cfg_.storageEngine);
     }
-
-    readDefinitions();
 }
 
 Cluster::~Cluster()
@@ -136,7 +155,7 @@ std::future<void> Cluster::prepare()
     setState(State::INIT);
     LOG_INFO << name () << " Preparing ...";
     loadKubeconfig();
-
+    readDefinitions();
     setCmds();
     createComponents();
     if (!rootComponent_) {
@@ -258,9 +277,8 @@ void Cluster::readDefinitions()
         variables_ = move(vars);
     }
 
-    if (variables_.find("namespace") == variables_.end()) {
-        variables_["namespace"] = Engine::config().ns;
-    }
+    variables_.insert({"namespace", Engine::config().ns});
+    variables_.insert({"clusterIp", ipFromUrl(url_)});
 
     for(const auto& [k, v]: variables_) {
         LOG_DEBUG << "Cluster " << name_ << " has variable: " << k << '=' << v;
