@@ -390,7 +390,7 @@ struct VolumeAttachmentSpec {
 
 struct KeyToPath {
     std::string key;
-    int mode = 0644;
+    std::optional<int> mode;
     std::string path;
 };
 
@@ -1319,7 +1319,7 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::VolumeAttachmentSpec,
 
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::KeyToPath,
     (std::string, key)
-    (int, mode)
+    (std::optional<int>, mode)
     (std::string, path)
 );
 

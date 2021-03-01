@@ -133,14 +133,13 @@ void DeploymentComponent::buildDependencies()
         // Add the configmap as a volume to the first pod
         k8api::Volume volume;
         volume.name = cf->configmap.metadata.name;
-        volume.configMap = {};
+        volume.configMap.emplace();
         volume.configMap->name = cf->configmap.metadata.name;
 
         for(auto& [k, _] : cf->configmap.binaryData) {
             k8api::KeyToPath ktp;
             ktp.key = k;
             ktp.path = k;
-            ktp.mode = 0440;
             volume.configMap->items.push_back(ktp);
         }
 

@@ -11,6 +11,14 @@ using namespace std;
 using namespace k8deployer;
 
 int main(int argc, char* argv[]) {
+
+    try {
+        locale loc("");
+    } catch (const std::exception& e) {
+        std::cout << "Locales in Linux are fundamentally broken. Never worked. Never will. Overriding the current mess with LC_ALL=C" << endl;
+        setenv("LC_ALL", "C", 1);
+    }
+
     Config config;
     {
         std::string log_level = "info";
@@ -53,6 +61,9 @@ int main(int argc, char* argv[]) {
                     "use-networking-betav1",
                     po::value<bool>(&config.useNetworkingBetaV1)->default_value(config.useNetworkingBetaV1),
                     "Use networking betav1 (pre kubernetes 1.19) - backwards compatibility")(
+                    "skip-dep-init-containers",
+                    po::value<bool>(&config.skipDependencyInitContainers)->default_value(config.skipDependencyInitContainers),
+                    "Skip creation of init-containers used to enforce startup-order after the deploment")(
                     "variables,v",
                     po::value<decltype(config.rawVariables)>(&config.rawVariables),
                     "One or more variables var=value WS var=value...")(

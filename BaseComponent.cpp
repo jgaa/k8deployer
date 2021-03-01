@@ -201,11 +201,17 @@ void BaseComponent::buildInitContainers()
                     init.image = "busybox";
                     init.name = "init-"s + c.name + "-" + target->name;
 
-                    LOG_DEBUG << c.logName()
-                              << "Adding dependency to " << target->logName()
-                              << "initContainer " << init.name;
+                    if (Engine::config().skipDependencyInitContainers) {
+                        LOG_INFO << logName()
+                                 << "Skipping dependency to " << target->logName()
+                                 << "initContainer " << init.name;
+                    } else {
+                      LOG_DEBUG << logName()
+                                << "Adding dependency to " << target->logName()
+                                << "initContainer " << init.name;
 
-                    podTemplate->spec.initContainers.push_back(move(init));
+                      podTemplate->spec.initContainers.push_back(move(init));
+                    }
                 }
             });
         }
