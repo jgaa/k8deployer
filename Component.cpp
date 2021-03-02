@@ -3,6 +3,7 @@
 #include <algorithm>
 
 #include <boost/algorithm/string.hpp>
+#include <boost/process.hpp>
 
 #include "restc-cpp/RequestBuilder.h"
 
@@ -810,6 +811,12 @@ Component::ptr_t Component::populate(const ComponentDataDef &def,
 {
     const static regex excludeFilter{Engine::config().excludeFilter};
     const static regex includeFilter{Engine::config().includeFilter};
+    const static regex enableFilter{Engine::config().enabledFilter};
+
+    if (!def.enabled && !regex_match(def.name, enableFilter)) {
+        LOG_INFO << cluster.name() << " Excluding disabled component: " << def.name;
+        return {};
+    }
 
     if (regex_match(def.name, excludeFilter) || !regex_match(def.name, includeFilter)) {
         LOG_INFO << cluster.name() << " Excluding filtered component: " << def.name;

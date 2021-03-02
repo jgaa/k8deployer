@@ -25,6 +25,7 @@ struct ComponentData {
     virtual ~ComponentData() = default;
 
     std::string name;
+    bool enabled = true;
     labels_t labels;
     conf_t defaultArgs; // Added to args and childrens args, unless overridden
     conf_t args;

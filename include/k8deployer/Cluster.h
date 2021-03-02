@@ -5,7 +5,6 @@
 #include "restc-cpp/restc-cpp.h"
 
 #include <map>
-#include "k8deployer/PortForward.h"
 #include "k8deployer/Config.h"
 #include "k8deployer/Storage.h"
 #include "k8deployer/DataDef.h"
@@ -83,7 +82,6 @@ private:
     State state_{State::INIT};
     std::string url_;
     std::string name_;
-    std::unique_ptr<PortForward> portFwd_;
     vars_t variables_;
     std::shared_ptr<restc_cpp::RestClient> client_;
     std::string kubeconfig_; // Empty for default (no arguments)

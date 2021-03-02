@@ -37,6 +37,7 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::StorageDef,
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::ComponentDataDef,
     // ComponentData
     (std::string, name)
+    (bool, enabled)
     (k8deployer::labels_t, labels)
     (k8deployer::conf_t, defaultArgs)
     (k8deployer::conf_t, args)

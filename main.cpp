@@ -27,6 +27,7 @@ int main(int argc, char* argv[]) {
         po::options_description general("Options");
 
         general.add_options()("help,h", "Print help and exit")(
+                    "version", "print version string and exit")(
                     "definition-file,d",
                     po::value<string>(&config.definitionFile)->default_value(config.definitionFile),
                     "Definition file to deploy")(
@@ -36,6 +37,10 @@ int main(int argc, char* argv[]) {
                     "exclude,e",
                     po::value<string>(&config.excludeFilter)->default_value(config.excludeFilter),
                     "Exclude filter for components. This is a regex against the component's names")(
+                    "enable",
+                    po::value<string>(&config.enabledFilter)->default_value(config.enabledFilter),
+                    "Enable disabled componnet(s). This is a regex against the component's names. "
+                    "This can be used to enable commonly disabled component(s) without altering the definition file.")(
                     "include,i",
                     po::value<string>(&config.includeFilter)->default_value(config.includeFilter),
                     "Include filter for components. This is a regex against the component's names. "
@@ -52,9 +57,6 @@ int main(int argc, char* argv[]) {
                     "storage,s",
                     po::value<string>(&config.storageEngine)->default_value(config.storageEngine),
                     "Storage engine for managed volumes")(
-                    "local-proxy-port,p",
-                    po::value<uint16_t>(&config.localPort)->default_value(config.localPort),
-                    "Local port to use for kubectl proxy (starting at)")(
                     "randomize-paths,r",
                     po::value<bool>(&config.randomizePaths)->default_value(config.randomizePaths),
                     "Add a uuid to provisioned paths (nfs) to always depoloy on a 'fresh' volume.")(
@@ -81,6 +83,11 @@ int main(int argc, char* argv[]) {
             std::cout << filesystem::path(argv[0]).stem().string() << " [options]";
             std::cout << cmdline_options << std::endl;
             return -1;
+        }
+
+        if (vm.count("version")) {
+            std::cout << filesystem::path(argv[0]).stem().string() << ' '  << K8DEPLOYER_VERSION << endl;
+            return -2;
         }
 
         // Expand variable-definitions into the config's variables property
@@ -110,7 +117,7 @@ int main(int argc, char* argv[]) {
             config.kubeconfigs.push_back(""); // Use the default kubeconfig, whatever that is
         }
 
-        LOG_INFO << "Log level: " << log_level;
+        LOG_INFO << filesystem::path(argv[0]).stem().string() << ' ' << K8DEPLOYER_VERSION  ". Log level: " << log_level;
     }
 
     try {

@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.8)
-project (k8deployer VERSION 0.0.1 LANGUAGES CXX)
+project (k8deployer VERSION 0.0.2 LANGUAGES CXX)
+
+add_definitions(-DK8DEPLOYER_VERSION=\"${CMAKE_PROJECT_VERSION}\")
 
 find_package(ZLIB REQUIRED)
 find_package(OpenSSL REQUIRED)
@@ -34,7 +36,7 @@ add_executable(${PROJECT_NAME}
     NamespaceComponent.cpp
     NfsStorage.cpp
     PersistentVolumeComponent.cpp
-    PortForward.cpp
+    #PortForward.cpp
     RoleBindingComponent.cpp
     RoleComponent.cpp
     SecretComponent.cpp
@@ -61,7 +63,7 @@ add_executable(${PROJECT_NAME}
     include/k8deployer/NamespaceComponent.h
     include/k8deployer/NfsStorage.h
     include/k8deployer/PersistentVolumeComponent.h
-    include/k8deployer/PortForward.h
+    #include/k8deployer/PortForward.h
     include/k8deployer/RoleBindingComponent.h
     include/k8deployer/RoleComponent.h
     include/k8deployer/SecretComponent.h
