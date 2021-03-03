@@ -291,7 +291,7 @@ size_t Component::getSizetArg(const string &name, size_t defaultVal) const
     return defaultVal;
 }
 
-Component::ptr_t Component::populateTree(const ComponentDataDef &def, Cluster &cluster)
+Component::ptr_t Component::populateTree(ComponentDataDef &def, Cluster &cluster)
 {
     if (auto root = populate(def, cluster, {})) {
         root->init();
@@ -805,41 +805,149 @@ Component::ptr_t Component::createComponent(const ComponentDataDef &def,
     throw runtime_error("Unknown kind");
 }
 
-Component::ptr_t Component::populate(const ComponentDataDef &def,
-                         Cluster &cluster,
-                         const Component::ptr_t &parent)
+namespace {
+template<typename T, typename fnT>
+void walk_tree(T& d, const fnT &fn) {
+  fn(d);
+  for(auto& c : d.children) {
+    walk_tree(c, fn);
+  }
+}
+
+} // ns
+
+Component::ptr_t Component::populate(ComponentDataDef &def,
+                                     Cluster &cluster,
+                                     const Component::ptr_t &parent)
 {
-    const static regex excludeFilter{Engine::config().excludeFilter};
-    const static regex includeFilter{Engine::config().includeFilter};
-    const static regex enableFilter{Engine::config().enabledFilter};
+  const static regex excludeFilter{Engine::config().excludeFilter};
+  const static regex includeFilter{Engine::config().includeFilter};
+  const static regex enableFilter{Engine::config().enabledFilter};
 
-    if (!def.enabled && !regex_match(def.name, enableFilter)) {
-        LOG_INFO << cluster.name() << " Excluding disabled component: " << def.name;
-        return {};
-    }
+  if (!parent) {
+      // Entry level. Let's deal with components with the same
+      // names and use variant to decide which to use.
+      // We will simply disable the not choosen ones and let the
+      // enable filter deal with it.
 
-    if (regex_match(def.name, excludeFilter) || !regex_match(def.name, includeFilter)) {
-        LOG_INFO << cluster.name() << " Excluding filtered component: " << def.name;
-        return {};
-    }
+      multimap<std::string, ComponentDataDef *> components;
+      // Get all components indexed by name
+      walk_tree(def, [&components](auto& def) {
+          components.emplace(def.name, &def);
+        });
 
-    auto component = createComponent(def, parent, cluster);
-    if (def.parentRelation == "before") {
-        component->parentRelation_ = ParentRelation::BEFORE;
-    } else if (def.parentRelation == "after") {
-        component->parentRelation_ = ParentRelation::AFTER;
-    } else if (def.parentRelation == "independent") {
-        component->parentRelation_ = ParentRelation::INDEPENDENT;
-    }
+      for(const auto& spec : Engine::config().variants) {
+          auto kvlist = getArgAsKv(spec);
+          for(const auto& [k, variant] : kvlist) {
+              regex filter{k};
+              std::vector<ComponentDataDef *> matches;
 
-    for(auto& childDef : def.children) {
-        if (auto child = populate(childDef, cluster, component)) {
-            component->children_.push_back(child);
+              // Find candicates
+              decltype (components) candidates;
+              for(auto& [k, v] : components) {
+                  if (regex_match(k, filter)) {
+                      candidates.emplace(k, v);
+                    }
+                }
+
+              if (candidates.empty()) {
+                  LOG_WARN << cluster.name() << " Found no candidades for variants filter: " << k;
+                  continue;
+                }
+
+              for(auto& [_, c]: candidates) {
+                  if (c->variant == variant) {
+                      if (!c->enabled) {
+                          LOG_INFO << cluster.name() << " Using variant " << variant
+                                   << " of component with name " << c->name;
+                          c->enabled = true;
+                        }
+
+                      // Disable all other components with the same name
+                      walk_tree(def, [&cluster, v=variant, n=c->name](auto& def) {
+                         if (def.name == n && def.variant != v) {
+                             LOG_INFO << cluster.name() << " Disabeling variant "
+                                      << (def.variant.empty() ? "[default]"s : def.variant)
+                                      << " of component with name " << def.name
+                                      << " because you asked me to use variant '" << v << "'";
+                             def.enabled = false;
+                         }
+                        });
+                    }
+                }
+            }
+        }
+
+      // Now, check for all names defined multiple times and disable
+      // variants if the default is enabled.
+      for(auto& [name, _] : components) {
+          auto range = components.equal_range(name);
+          auto active_count = 0;
+          bool default_enabled = false;
+          for(auto it = range.first; it != range.second; ++it) {
+              if (it->second->enabled) {
+                  ++active_count;
+                  if (it->second->variant.empty()) {
+                      default_enabled = true;
+                    }
+                }
+            }
+
+          // Disable variants
+          if (active_count > 1 && default_enabled) {
+              for(auto it = range.first; it != range.second; ++it) {
+                  auto c = it->second;
+                  if (!c->variant.empty() && c->enabled) {
+                      c->enabled = false;
+                      LOG_INFO << cluster.name() << " Disabeling variant "
+                               << (c->variant.empty() ? "[default]"s : c->variant)
+                               << " of component with name " << c->name
+                               << " because the default component is enabled.";
+                    }
+                }
+            }
         }
     }
 
-    return component;
+  if (!def.enabled && !regex_match(def.name, enableFilter)) {
+      LOG_INFO << cluster.name() << " Excluding disabled component: " << def.FullName();
+      return {};
+    }
+
+  if (regex_match(def.name, excludeFilter) || !regex_match(def.name, includeFilter)) {
+      LOG_INFO << cluster.name() << " Excluding filtered component: " << def.FullName();
+      return {};
+    }
+
+  auto component = createComponent(def, parent, cluster);
+  if (def.parentRelation == "before") {
+      component->parentRelation_ = ParentRelation::BEFORE;
+    } else if (def.parentRelation == "after") {
+      component->parentRelation_ = ParentRelation::AFTER;
+    } else if (def.parentRelation == "independent") {
+      component->parentRelation_ = ParentRelation::INDEPENDENT;
+    }
+
+  for(auto& childDef : def.children) {
+      if (auto child = populate(childDef, cluster, component)) {
+          component->children_.push_back(child);
+        }
+    }
+
+  std::set<std::string_view> names;
+  component->walkAndExecuteFn([&](auto& c) {
+      if (c.enabled) {
+          if (!names.insert(c.name).second) {
+              LOG_ERROR << cluster.name() << " More than one component with name "
+                        << c.name << " is active. Names must be unique. Baling out.";
+              throw runtime_error{"Invalid definition - component names must be unique."};
+            }
+        }
+    });
+
+  return component;
 }
+
 
 std::future<void> dummyReturnFuture()
 {

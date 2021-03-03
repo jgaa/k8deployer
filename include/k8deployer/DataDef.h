@@ -25,6 +25,7 @@ struct ComponentData {
     virtual ~ComponentData() = default;
 
     std::string name;
+    std::string variant;
     bool enabled = true;
     labels_t labels;
     conf_t defaultArgs; // Added to args and childrens args, unless overridden
@@ -60,6 +61,12 @@ struct ComponentData {
     std::optional<k8api::Probe> readinessProbe;
 
     std::vector<StorageDef> storage;
+
+    std::string FullName() {
+      if (variant.empty())
+        return name;
+      return name + ":" + variant;
+    }
 };
 
 struct ComponentDataDef : public ComponentData {

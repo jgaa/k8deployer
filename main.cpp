@@ -69,6 +69,13 @@ int main(int argc, char* argv[]) {
                     "variables,v",
                     po::value<decltype(config.rawVariables)>(&config.rawVariables),
                     "One or more variables var=value WS var=value...")(
+                    "variant,V",
+                    po::value<decltype(config.variants)>(&config.variants),
+                    "Variant override: componentNameRegEx=variant. This argument can be repeated. "
+                    "This can be used declare several components with the same name but different variant names "
+                    "and then specify which one to use at the command line. Useful for deploying telepresence or debugging."
+                    "By default, a component without a variant name will be used."
+                    "pods.")(
                     "kubeconfig,k",
                     po::value<decltype(config.kubeconfigs)>(&config.kubeconfigs),
                     "One or more kubeconfigs to clusters to deploy the definition. "

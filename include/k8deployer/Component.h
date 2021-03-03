@@ -273,7 +273,7 @@ public:
         return cluster().client();
     }
 
-    static ptr_t populateTree(const ComponentDataDef &def, Cluster& cluster);
+    static ptr_t populateTree(ComponentDataDef &def, Cluster& cluster);
 
     // Called on the root component
     void prepare();
@@ -366,7 +366,7 @@ protected:
                                      const Component::ptr_t& parent,
                                      Cluster& cluster);
 
-    static Component::ptr_t populate(const ComponentDataDef &def,
+    static Component::ptr_t populate(ComponentDataDef &def,
                                      Cluster& cluster,
                                      const Component::ptr_t& parent);
 

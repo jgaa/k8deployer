@@ -23,6 +23,7 @@ struct Config {
   bool autoMaintainNamespace = false;
   std::string dotfile = "k8deployer.dot";
   bool skipDependencyInitContainers = false;
+  std::vector<std::string> variants;
 };
 
 } // ns

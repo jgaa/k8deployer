@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project (k8deployer VERSION 0.0.2 LANGUAGES CXX)
+project (k8deployer VERSION 0.0.3 LANGUAGES CXX)
 
 add_definitions(-DK8DEPLOYER_VERSION=\"${CMAKE_PROJECT_VERSION}\")
 
