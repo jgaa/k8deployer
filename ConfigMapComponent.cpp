@@ -32,7 +32,7 @@ void ConfigMapComponent::prepareDeploy()
         }
 
         if (configmap.metadata.namespace_.empty()) {
-            configmap.metadata.namespace_ = Engine::config().ns;
+            configmap.metadata.namespace_ = getNamespace();
         }
 
         if (auto fileNames = getArg("config.fromFile")) {
@@ -98,7 +98,7 @@ void ConfigMapComponent::doDeploy(std::weak_ptr<Component::Task> task)
 {
     auto url = cluster_->getUrl()
             + "/api/v1/namespaces/"
-            + configmap.metadata.namespace_
+            + getNamespace()
             + "/configmaps";
 
     client().Process([this, url, task](Context& ctx) {
@@ -154,7 +154,7 @@ void ConfigMapComponent::doRemove(std::weak_ptr<Component::Task> task)
 {
     auto url = cluster_->getUrl()
             + "/api/v1/namespaces/"
-            + configmap.metadata.namespace_
+            + getNamespace()
             + "/configmaps/" + name;
 
     client().Process([this, url, task](Context& ctx) {

@@ -63,6 +63,9 @@ int main(int argc, char* argv[]) {
                     "use-networking-betav1",
                     po::value<bool>(&config.useNetworkingBetaV1)->default_value(config.useNetworkingBetaV1),
                     "Use networking betav1 (pre kubernetes 1.19) - backwards compatibility")(
+                    "use-cluster-name-as-namespace,C",
+                    po::value<bool>(&config.useClusterNameAsNamespace)->default_value(config.useClusterNameAsNamespace),
+                    "Use the cluster-name as k8s namespace for the individual clusters.")(
                     "skip-dep-init-containers",
                     po::value<bool>(&config.skipDependencyInitContainers)->default_value(config.skipDependencyInitContainers),
                     "Skip creation of init-containers used to enforce startup-order after the deploment")(

@@ -114,7 +114,7 @@ void PersistentVolumeComponent::doRemove(std::weak_ptr<Component::Task> task)
 
 string PersistentVolumeComponent::getCreationUrl() const
 {
-    static const auto url = cluster_->getUrl() + "/api/v1/persistentvolumes";
+    auto url = cluster_->getUrl() + "/api/v1/persistentvolumes";
     return url;
 }
 

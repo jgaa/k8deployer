@@ -204,7 +204,7 @@ void Cluster::loadKubeconfig()
     tls->use_private_key({key.data(), key.size()}, boost::asio::ssl::context_base::pem);
 
     restc_cpp::Request::Properties properties;
-    properties.cacheMaxConnectionsPerEndpoint = 32;
+    properties.cacheMaxConnectionsPerEndpoint = 64;
     client_ = restc_cpp::RestClient::Create(tls, properties);
 
     url_ = kc->getServer();
@@ -279,7 +279,8 @@ void Cluster::readDefinitions()
         variables_ = move(vars);
     }
 
-    variables_.insert({"namespace", Engine::config().ns});
+    variables_.insert({"namespace",
+                       Engine::config().useClusterNameAsNamespace ? name() : Engine::config().ns});
     variables_.insert({"clusterIp", ipFromUrl(url_)});
 
     for(const auto& [k, v]: variables_) {

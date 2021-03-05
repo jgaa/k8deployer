@@ -56,7 +56,7 @@ void DaemonSetComponent::doRemove(std::weak_ptr<Component::Task> task)
 
 string DaemonSetComponent::getCreationUrl() const
 {
-    static const auto url = cluster_->getUrl()
+    const auto url = cluster_->getUrl()
             + "/apis/apps/v1/namespaces/"
             + getNamespace()
             + "/daemonsets";

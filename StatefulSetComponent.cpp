@@ -114,7 +114,10 @@ void StatefulSetComponent::buildDependencies()
     for (auto storageDef : storage) {
 
         if (storageDef.volume.name.empty()) {
-            storageDef.volume.name = "storage";
+            // Provisioned volumes are not assigned to a namespace, so in order
+            // to get their names unique when deploing in parallell to multiple clusters
+            // we have to add the namespace.
+            storageDef.volume.name = getNamespace() + "-storage";
         }
 
         if (storageDef.capacity.empty()) {
@@ -171,7 +174,7 @@ void StatefulSetComponent::doRemove(std::weak_ptr<Component::Task> task)
 
 string StatefulSetComponent::getCreationUrl() const
 {
-    static const auto url = cluster_->getUrl()
+    const auto url = cluster_->getUrl()
             + "/apis/apps/v1/namespaces/"
             + getNamespace()
             + "/statefulsets";

@@ -20,7 +20,7 @@ void ServiceComponent::prepareDeploy()
     }
 
     if (service.metadata.namespace_.empty()) {
-        service.metadata.namespace_ = Engine::config().ns;
+        service.metadata.namespace_ = getNamespace();
     }
 
     auto selector = getSelector();
@@ -91,7 +91,7 @@ bool ServiceComponent::probe(std::function<void (Component::K8ObjectState)> fn)
     if (fn) {
         auto url = cluster_->getUrl()
                 + "/api/v1/namespaces/"
-                + service.metadata.namespace_
+                + getNamespace()
                 + "/services/" + name;
 
         sendProbe<k8api::Service>(*this, url,

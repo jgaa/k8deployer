@@ -28,7 +28,7 @@ void DeploymentComponent::prepareDeploy()
 
 string DeploymentComponent::getCreationUrl() const
 {
-    static const auto url = cluster_->getUrl()
+    const auto url = cluster_->getUrl()
             + "/apis/apps/v1/namespaces/"
             + deployment.metadata.namespace_
             + "/deployments";
