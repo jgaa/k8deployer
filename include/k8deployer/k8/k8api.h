@@ -152,10 +152,8 @@ struct Time {
 };
 
 struct TCPSocketAction {
-    std::string effect;
-    std::string key;
-    std::string timeAdded;
-    std::string value;
+    std::string host;
+    std::string port;
 };
 
 struct Probe {
@@ -1095,10 +1093,8 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::Time,
 )
 
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::TCPSocketAction,
-    (std::string, effect)
-    (std::string, key)
-    (std::string, timeAdded)
-    (std::string, value)
+    (std::string, host)
+    (std::string, port)
 )
 
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::HTTPGetAction,
