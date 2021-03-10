@@ -170,7 +170,8 @@ k8api::string_list_t Component::getArgAsStringList(const string &values)
     enum class State {
         SKIPPING,
         IN_STRING,
-        IN_QUOTED_STRING
+        IN_QUOTED_STRING,
+        IN_SQUARE_BRANCETS
     };
 
     auto state = State::SKIPPING;
@@ -195,12 +196,19 @@ k8api::string_list_t Component::getArgAsStringList(const string &values)
                 state = State::SKIPPING;
                 continue;
             }
+            if (ch == '[') {
+                state = State::IN_SQUARE_BRANCETS;
+            }
         case State::IN_QUOTED_STRING:
             if (ch == '\'') {
                 rval.push_back(value);
                 value.clear();
                 state = State::SKIPPING;
                 continue;
+            }
+        case State::IN_SQUARE_BRANCETS:
+            if (ch == ']') {
+                state = State::IN_STRING;
             }
         }
 
@@ -225,10 +233,40 @@ k8api::env_vars_t Component::getArgAsEnvList(const string &values)
     auto list = getArgAsStringList(values);
 
     for(const auto& v : list) {
-        k8api::KeyValue ev;
+        k8api::EnvVar ev;
         if (auto pos = v.find('='); pos != string::npos && pos < v.size()) {
             ev.name = v.substr(0, pos);
             ev.value = v.substr(pos +1);
+
+            static const string fieldPath{"$[fieldPath"};
+            if (ev.value.substr(0,fieldPath.size()) == fieldPath) {
+              ev.valueFrom.emplace();
+              ev.valueFrom->fieldRef.emplace();
+              auto startpos = ev.value.find(':');
+              if (startpos == string::npos) {
+                  LOG_ERROR << "Invalud fieldPath definition for variable " << ev.name
+                            << ". contain ':'";
+                  throw runtime_error("Invalid fieldPath");
+              }
+              ++startpos;
+              while(ev.value.at(startpos) == ' ') {
+                ++startpos;
+              }
+              auto endpos = ev.value.find(']');
+              if (endpos == string::npos || endpos < startpos) {
+                  LOG_ERROR << "Invalud fieldPath definition for variable " << ev.name
+                            << ". Must end with ']'";
+                  throw runtime_error("Invalid fieldPath");
+              }
+              if (endpos < 4) {
+                  LOG_ERROR << "Invalud fieldPath definition for variable " << ev.name
+                            << ". No valid fieldf path.";
+                  throw runtime_error("Invalid fieldPath");
+              }
+              ev.valueFrom->fieldRef->fieldPath = ev.value.substr(startpos, endpos - startpos);
+              ev.value.clear();
+            }
+
         } else {
             ev.name = v; // Just an empty variable
         }

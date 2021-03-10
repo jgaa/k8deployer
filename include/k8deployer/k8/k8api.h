@@ -26,7 +26,23 @@ struct KeyValue {
     std::string name;
     std::string value;
 };
-using env_vars_t = std::vector<KeyValue>;
+
+struct ObjectFieldSelector {
+    std::string apiVersion = "v1";
+    std::string fieldPath;
+};
+
+struct EnvVarSource {
+    std::optional<ObjectFieldSelector> fieldRef;
+};
+
+struct EnvVar {
+    std::string name;
+    std::string value;
+    std::optional<EnvVarSource> valueFrom;
+};
+
+using env_vars_t = std::vector<EnvVar>;
 
 struct OwnerReference {
     std::string apiVersion;
@@ -127,8 +143,6 @@ struct VolumeMount {
 };
 
 using volume_mounts_t = std::vector<VolumeMount>;
-
-using env_vars_t = std::vector<KeyValue>;
 
 struct HTTPGetAction {
     using http_headers_t = std::vector<KeyValue>;
@@ -1007,6 +1021,21 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::Selector,
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::KeyValue,
     (std::string, name)
     (std::string, value)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::ObjectFieldSelector,
+    (std::string, apiVersion)
+    (std::string, fieldPath)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::EnvVarSource,
+    (std::optional<k8deployer::k8api::ObjectFieldSelector>, fieldRef)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::EnvVar,
+    (std::string, name)
+    (std::string, value)
+    (std::optional<k8deployer::k8api::EnvVarSource>, valueFrom)
 );
 
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::ObjectMeta,
