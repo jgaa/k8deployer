@@ -132,10 +132,19 @@ bool IngressComponent::probe(std::function<void (Component::K8ObjectState)> fn)
                     assert(fn);
                     fn(state);
                 }
-            }, [] (const auto& data) {
+            }, [wself=weak_from_this()] (const auto& data) {
                 // TODO: It must be allowed for load-balancers to not come online,
                 //       but if we know that we use a load-balancer, then we must wait.
-                return true;
+                if (data.status) {
+                    if (!data.status->loadBalancer.ingress.empty()) {
+                        if (auto self = wself.lock()) {
+                          dynamic_cast<IngressComponent&>(*self.get()).loadBalancerIp_ = data.status->loadBalancer.ingress.front().ip;
+                          return true;
+                        }
+                    }
+                }
+
+                return Engine::config().useLoadBalancerIp == false;
             }
         );
     }
@@ -158,6 +167,50 @@ void IngressComponent::addDeploymentTasks(Component::tasks_t &tasks)
     });
 
     tasks.push_back(task);
+
+    if (Engine::instance().getDns()) {
+        auto dnsTask = make_shared<Task>(*this, name + "-provision-dns",
+                                         [&](Task& task, const k8api::Event */*event*/) {
+            // Execution?
+            if (task.state() == Task::TaskState::READY) {
+                task.setState(Task::TaskState::EXECUTING);
+
+               if (auto dns = Engine::instance().getDns()) {
+                  for(const auto& rule : ingress.spec->rules) {
+                      if (!rule.host.empty()) {
+                          auto ip = loadBalancerIp_;
+                          if (ip.empty()) {
+                              if (auto var = cluster_->getVar("clusterIp")) {
+                                  ip = *var;
+                              }
+                          }
+                          if (ip.empty()) {
+                            LOG_WARN << logName() << "Don't know IP for hostname " << rule.host
+                                     << ". Cannot provision entry in DNS server";
+                          } else try {
+                              LOG_DEBUG << logName() << "Provisioning dns entry for "
+                                        << rule.host << " to IP " << ip;
+                              dns->provisionHostname(rule.host, {ip}, {});
+                          } catch(const exception& ex) {
+                              LOG_WARN << logName() << "Failed to provision DNS name for " <<  rule.host;
+                          }
+                      }
+                  }
+                } else {
+                    LOG_WARN << logName() << "The DNS config vanished... Cannot provision hostnames.";
+                }
+
+                task.setState(Task::TaskState::DONE);
+            }
+
+            task.evaluate();
+        });
+
+        dnsTask->addDependency(task);
+        tasks.push_back(dnsTask);
+    }
+
+
     Component::addDeploymentTasks(tasks);
 }
 
@@ -175,6 +228,38 @@ void IngressComponent::addRemovementTasks(Component::tasks_t &tasks)
     }, Task::TaskState::READY);
 
     tasks.push_back(task);
+
+    if (Engine::instance().getDns()) {
+        auto dnsTask = make_shared<Task>(*this, name + "-provision-dns",
+                                         [&](Task& task, const k8api::Event */*event*/) {
+
+            // Execution?
+            if (task.state() == Task::TaskState::READY) {
+                task.setState(Task::TaskState::EXECUTING);
+
+                if (auto dns = Engine::instance().getDns()) {
+                    for(const auto& rule : ingress.spec->rules) {
+                        if (!rule.host.empty()) {
+                            try {
+                                LOG_DEBUG << logName() << "Removing dns entry for " << rule.host;
+                                dns->deleteHostname(rule.host);
+                            } catch(const exception& ex) {
+                                LOG_WARN << logName() << " Failed to delete DNS name for " <<  rule.host;
+                            }
+                        }
+                    }
+                }
+
+                task.setState(Task::TaskState::DONE);
+            }
+
+            task.evaluate();
+        });
+
+        tasks.push_back(dnsTask);
+    }
+
+
     Component::addRemovementTasks(tasks);
 }
 

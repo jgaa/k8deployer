@@ -25,6 +25,8 @@ struct Config {
   bool skipDependencyInitContainers = false;
   std::vector<std::string> variants;
   bool useClusterNameAsNamespace = false;
+  bool useLoadBalancerIp = false;
+  std::string dnsServerConfig;
 };
 
 } // ns

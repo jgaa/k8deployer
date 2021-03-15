@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project (k8deployer VERSION 0.0.6 LANGUAGES CXX)
+project (k8deployer VERSION 0.0.7 LANGUAGES CXX)
 
 add_definitions(-DK8DEPLOYER_VERSION=\"${CMAKE_PROJECT_VERSION}\")
 
@@ -19,6 +19,8 @@ include(cmake/external-projects.cmake)
 include_directories(${CMAKE_SOURCE_DIR}/include)
 
 add_executable(${PROJECT_NAME}
+    #PortForward.cpp
+    #include/k8deployer/PortForward.h
     AppComponent.cpp
     BaseComponent.cpp
     Cluster.cpp
@@ -28,6 +30,8 @@ add_executable(${PROJECT_NAME}
     ConfigMapComponent.cpp
     DaemonSetComponent.cpp
     DeploymentComponent.cpp
+    DnsProvisioner.cpp
+    DnsProvisionerVubercool.cpp
     Engine.cpp
     HostPathStorage.cpp
     IngressComponent.cpp
@@ -36,7 +40,6 @@ add_executable(${PROJECT_NAME}
     NamespaceComponent.cpp
     NfsStorage.cpp
     PersistentVolumeComponent.cpp
-    #PortForward.cpp
     RoleBindingComponent.cpp
     RoleComponent.cpp
     SecretComponent.cpp
@@ -55,6 +58,8 @@ add_executable(${PROJECT_NAME}
     include/k8deployer/DaemonSetComponent.h
     include/k8deployer/DataDef.h
     include/k8deployer/DeploymentComponent.h
+    include/k8deployer/DnsProvisioner.h
+    include/k8deployer/DnsProvisionerVubercool.h
     include/k8deployer/Engine.h
     include/k8deployer/HostPathStorage.h
     include/k8deployer/IngressComponent.h
@@ -63,7 +68,6 @@ add_executable(${PROJECT_NAME}
     include/k8deployer/NamespaceComponent.h
     include/k8deployer/NfsStorage.h
     include/k8deployer/PersistentVolumeComponent.h
-    #include/k8deployer/PortForward.h
     include/k8deployer/RoleBindingComponent.h
     include/k8deployer/RoleComponent.h
     include/k8deployer/SecretComponent.h

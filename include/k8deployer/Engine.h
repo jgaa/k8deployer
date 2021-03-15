@@ -5,6 +5,7 @@
 #include "restc-cpp/restc-cpp.h"
 #include "k8deployer/Config.h"
 #include "k8deployer/Cluster.h"
+#include "k8deployer/DnsProvisioner.h"
 
 namespace k8deployer {
 
@@ -45,6 +46,10 @@ public:
         return instance().mode_;
     }
 
+    DnsProvisioner *getDns() {
+      return dns_.get();
+    }
+
 private:
     void startPortForwardig();
 
@@ -53,6 +58,7 @@ private:
     const Config cfg_;
     static Engine *instance_;
     Mode mode_ = Mode::DEPLOY;
+    std::unique_ptr<DnsProvisioner> dns_;
 };
 
 } // ns
