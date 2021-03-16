@@ -349,6 +349,7 @@ public:
 protected:
     virtual std::string getCreationUrl() const {
         assert(false); // Implement!
+        return {};
     };
 
     virtual std::string getAccessUrl() const {

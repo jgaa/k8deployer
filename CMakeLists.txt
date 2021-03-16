@@ -1,11 +1,20 @@
 cmake_minimum_required(VERSION 3.8)
-project (k8deployer VERSION 0.0.7 LANGUAGES CXX)
+project (k8deployer VERSION 0.0.8 LANGUAGES CXX)
+
+option(BOOST_ERROR_CODE_HEADER_ONLY "Work-around for another boost issue" ON)
+if (BOOST_ERROR_CODE_HEADER_ONLY)
+    add_definitions(-DBOOST_ERROR_CODE_HEADER_ONLY=1)
+endif()
 
 add_definitions(-DK8DEPLOYER_VERSION=\"${CMAKE_PROJECT_VERSION}\")
 
+if(NOT DEFINED USE_BOOST_VERSION)
+    set(USE_BOOST_VERSION 1.65)
+endif()
+
 find_package(ZLIB REQUIRED)
 find_package(OpenSSL REQUIRED)
-find_package(Boost REQUIRED COMPONENTS
+find_package(Boost ${USE_BOOST_VERSION} REQUIRED COMPONENTS
     system
     program_options
     date_time

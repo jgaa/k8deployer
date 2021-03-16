@@ -26,6 +26,8 @@ ExternalProject_Add(externalRestcCpp
         -DBOOST_ROOT=${BOOST_ROOT}
         -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
         #-DRESTC_CPP_THREADED_CTX=ON
+        -DRESTC_BOOST_VERSION=${USE_BOOST_VERSION}
+        -DBOOST_ERROR_CODE_HEADER_ONLY=1
     )
 
 ExternalProject_Add(externalLogfault
