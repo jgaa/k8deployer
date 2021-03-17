@@ -92,6 +92,8 @@ void Component::init()
         }
     }
 
+    cluster_->add(this);
+
     initChildren();
     validate();
 }
@@ -496,10 +498,17 @@ bool Component::isBlockedOnDependency() const
     if (mode_ == Mode::CREATE) {
         for(const auto& wcomp : dependsOn_) {
             if (auto comp = wcomp.lock()) {
-                if (comp->state_ != State::DONE) {
+                if (comp->state_ < State::DONE) {
                     LOG_TRACE << logName() << " is still blocked on " << comp->logName();
                     return true;
                 }
+            }
+        }
+
+        for(const auto& ccomp : clusterDependencies_) {
+            if (ccomp->state < State::DONE) {
+                LOG_TRACE << logName() << " is still blocked on " << ccomp->name;
+                return true;
             }
         }
     }
@@ -537,8 +546,49 @@ void Component::scanDependencies()
         }
     }
 
-    //if (mode_ == Mode::CREATE) {
-        for (const auto& depName : depends) {
+    for (const auto& depName : depends) {
+        static const regex clusterName{R"(cluster(\d+)\:([a-zA-Z0-9\-\._]+))"};
+        smatch tokens;
+        if (regex_match(depName, tokens, clusterName)) {
+            assert(tokens.size() == 3);
+
+            const auto ix = tokens[1].str();
+            size_t clusterIx = stoul(ix);
+            const auto componentName = tokens[2].str();
+
+            if (auto cluster = Engine::instance().getCluster(clusterIx)) {
+
+                // Give the cluster a chance to initialize it's components
+                cluster->getBasicComponentsReady().wait();
+
+                auto ref = make_unique<DependencyReference>();
+                ref->name = depName;
+
+                if (cluster->addStateListener(componentName,
+                                              [this, dep=ref.get()](const Component& component) {
+
+                     auto st = component.getState();
+
+                     // Called from the other components io thread.
+                     // We need to continue in our own thread.
+                     schedule([this, dep, st] {
+                        dep->state = st;
+                        scheduleRunTasks();
+                  });
+                })) {
+                    // Add reference to it so we wait for it
+                    LOG_DEBUG << logName() << "Added dependency to " << ref->name;
+                    clusterDependencies_.emplace_back(move(ref));
+                }
+
+            } else {
+                // TODO: Should we accept this and just complain??
+                LOG_ERROR << "No known cluster with ID " << clusterIx << " in " << depName;
+                throw runtime_error("Invalid referencve to "s + depName);
+            }
+
+        } else {
+            // Local dependencies
             forAllComponents([&](Component& c) {
                 if (depName == c.name) {
                     if (reverse)
@@ -547,17 +597,7 @@ void Component::scanDependencies()
                         addDependency(c);
                 }
             });
-      //  }
-
-//        for(const auto& child: children_) {
-//            if (child->parentRelation() == ParentRelation::BEFORE) {
-//                addDependency(*child);
-//            } else if (child->parentRelation() == ParentRelation::AFTER) {
-//                child->addDependency(*this);
-//            }
-
-//            child->scanDependencies();
-//        }
+        }
     }
 
     for(const auto& child: children_) {
@@ -767,6 +807,18 @@ void Component::setState(Component::State state)
         if (auto parent = parent_.lock()) {
             parent->evaluate();
             scheduleRunTasks();
+        }
+    }
+
+    // Call state listeners
+    decltype(stateListeners_) copy;
+    {
+        lock_guard<mutex> lock_{mutex_};
+        copy = stateListeners_;
+    }
+    for(auto const& fn : copy) {
+        if (fn) {
+            fn(*this);
         }
     }
 }
@@ -1045,6 +1097,12 @@ Component::ptr_t Component::addChild(const string &name, Kind kind, const labels
     component->init();
     children_.push_back(component);
     return component;
+}
+
+void Component::addStateListener(const std::function<void (const Component &)>& fn)
+{
+    lock_guard<mutex> lock_{mutex_};
+    stateListeners_.emplace_back(fn);
 }
 
 conf_t Component::mergeArgs() const

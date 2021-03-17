@@ -28,10 +28,7 @@ public:
 
     void run();
 
-    static Engine& instance() noexcept {
-        assert(instance_);
-        return *instance_;
-    }
+    static Engine& instance() noexcept;
 
     static const Config& config() noexcept {
         return instance().cfg_;
@@ -49,6 +46,8 @@ public:
     DnsProvisioner *getDns() {
       return dns_.get();
     }
+
+    Cluster *getCluster(size_t ix);
 
 private:
     void startPortForwardig();

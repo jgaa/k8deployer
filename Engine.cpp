@@ -51,7 +51,7 @@ void Engine::run()
 {
     // Create cluster instances
     for(auto& k: cfg_.kubeconfigs) {
-        clusters_.emplace_back(make_unique<Cluster>(cfg_, k));
+        clusters_.emplace_back(make_unique<Cluster>(cfg_, k, clusters_.size()));
     }
 
     //startPortForwardig();
@@ -92,7 +92,22 @@ void Engine::run()
 
     for(auto& cluster : clusters_) {
         cluster->client().CloseWhenReady();
+      }
+}
+
+Engine &Engine::instance() noexcept
+{
+    assert(instance_);
+    return *instance_;
+}
+
+Cluster *Engine::getCluster(size_t ix)
+{
+    if (clusters_.size() <= ix) {
+        return {};
     }
+
+    return clusters_.at(ix).get();
 }
 
 void Engine::startPortForwardig()

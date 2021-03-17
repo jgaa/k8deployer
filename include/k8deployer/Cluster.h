@@ -1,6 +1,8 @@
 #pragma once
 
 #include <atomic>
+#include <map>
+#include <mutex>
 
 #include "restc-cpp/restc-cpp.h"
 
@@ -26,7 +28,7 @@ public:
     };
 
     using vars_t = std::map<std::string, std::string>;
-    Cluster(const Config& cfg, const std::string& arg);
+    Cluster(const Config& cfg, const std::string& arg, const size_t id);
 
     ~Cluster();
 
@@ -69,6 +71,36 @@ public:
         return storage_.get();
     }
 
+    std::shared_future<void> getVarsReadyStage() {
+        return vars_ready_;
+    }
+
+    std::shared_future<void> getDefinitionsReady() {
+        return definitions_ready_;
+    }
+
+    std::shared_future<void> getBasicComponentsReady() {
+        return basic_components_ready_;
+    }
+
+    std::shared_future<void> getPreparedReady() {
+        return prepared_ready_;
+    }
+
+    auto& getIoService() {
+      assert(client_);
+      return client_->GetIoService();
+    }
+
+    // Returns false if there is no such component
+    bool addStateListener(const std::string& componentName,
+                          const std::function<void (const Component& component)>& fn);
+
+    void add(Component *component);
+
+    Component *getComponent(const std::string& name);
+
+
 private:
     using action_fn_t = std::function<std::future<void>()>;
     void loadKubeconfig();
@@ -93,6 +125,18 @@ private:
     std::unique_ptr<Storage> storage_;
     std::unique_ptr<ComponentDataDef> dataDef_;
     std::string verb_ = "Executing";
+
+    std::promise<void> vars_ready_pr_;
+    std::promise<void> definitions_ready_pr_;
+    std::promise<void> basic_components_pr_;
+    std::promise<void> prepared_ready_pr_;
+
+    std::shared_future<void> vars_ready_{vars_ready_pr_.get_future()};
+    std::shared_future<void> definitions_ready_{definitions_ready_pr_.get_future()};
+    std::shared_future<void> basic_components_ready_{basic_components_pr_.get_future()};
+    std::shared_future<void> prepared_ready_{prepared_ready_pr_.get_future()};
+    std::map<std::string, Component *> components_;
+    std::mutex mutex_;
 };
 
 

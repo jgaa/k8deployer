@@ -38,8 +38,7 @@ k8api::PersistentVolume HostPathStorage::createNewVolume(const string &storageSi
     pv.spec.persistentVolumeReclaimPolicy = "Delete";
     pv.metadata.annotations["pv.beta.kubernetes.io/gid"] = "1000";
 
-    boost::filesystem::path nfsPath = pv.spec.nfs->path,
-            path = hostPath_;
+    boost::filesystem::path path = hostPath_;
     path /= component.getNamespace();
     path /= component.name;
 

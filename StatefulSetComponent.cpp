@@ -111,7 +111,7 @@ void StatefulSetComponent::buildDependencies()
         getSpec()->podManagementPolicy = *policy;
     }
 
-    for (auto storageDef : storage) {
+    for (auto& storageDef : storage) {
 
         if (storageDef.volume.name.empty()) {
             // Provisioned volumes are not assigned to a namespace, so in order

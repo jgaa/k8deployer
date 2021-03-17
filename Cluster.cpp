@@ -5,6 +5,7 @@
 
 #include <sstream>
 #include <filesystem>
+#include <future>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
@@ -102,13 +103,16 @@ string ipFromUrl(const string& url) {
 
 }
 
-Cluster::Cluster(const Config &cfg, const string &arg)
+Cluster::Cluster(const Config &cfg, const string &arg, const size_t id)
     : cfg_{cfg}
 {
+    variables_["clusterId"] = to_string(id);
     parseArgs(arg);
     if (!cfg_.storageEngine.empty()) {
         storage_ = Storage::create(cfg_.storageEngine);
     }
+
+    vars_ready_pr_.set_value();
 }
 
 Cluster::~Cluster()
@@ -154,19 +158,37 @@ string Cluster::getUrl() const
 
 std::future<void> Cluster::prepare()
 {
+    // Prepare the clusters in paralell.
+    // They may be inter-connected, and depend on the other clusters
+    // being partally initialized.
+
     setState(State::INIT);
     LOG_INFO << name () << " Preparing ...";
     loadKubeconfig();
-    readDefinitions();
-    setCmds();
-    createComponents();
-    if (!rootComponent_) {
-        LOG_WARN << name() << " No components. Nothing to do.";
-        return dummyReturnFuture();
-    }
-    //startEventsLoop();
-    assert(prepareCmd_);
-    return prepareCmd_();
+
+    auto pr = make_shared<promise<void>>();
+
+    assert(client_);
+    client_->GetIoService().post([this, pr] {
+       try {
+          readDefinitions();
+          setCmds();
+          createComponents();
+          if (rootComponent_) {
+              assert(prepareCmd_);
+              prepareCmd_();
+              prepared_ready_pr_.set_value();
+          } else {
+              LOG_WARN << name() << " No components. Nothing to do.";
+          }
+
+          pr->set_value();
+       } catch(const exception& ex) {
+          pr->set_exception(current_exception());
+       }
+    });
+
+    return pr->get_future();
 }
 
 std::future<void> Cluster::execute()
@@ -180,6 +202,35 @@ std::future<void> Cluster::execute()
 
     setState(State::DONE);
     return dummyReturnFuture();
+}
+
+bool Cluster::addStateListener(const std::string& componentName,
+                               const std::function<void (const Component& component)>& fn)
+{
+    // Called from any thread.
+    if (auto c = getComponent(componentName)) {
+        c->addStateListener(fn);
+        return true;
+    }
+
+    return false;
+}
+
+void Cluster::add(Component *component)
+{
+    std::lock_guard<std::mutex> lock{mutex_};
+    components_[component->name] = component;
+}
+
+Component *Cluster::getComponent(const string &name)
+{
+    std::lock_guard<std::mutex> lock{mutex_};
+
+    if (auto it = components_.find(name) ; it != components_.end()) {
+        return it->second;
+    }
+
+    return {};
 }
 
 void Cluster::loadKubeconfig()
@@ -292,11 +343,14 @@ void Cluster::readDefinitions()
         LOG_ERROR << "Invalid definition file: " << cfg_.definitionFile;
         throw runtime_error("Invalid definition "s + cfg_.definitionFile);
     }
+
+    definitions_ready_pr_.set_value();
 }
 
 void Cluster::createComponents()
 {
     rootComponent_ = Component::populateTree(*dataDef_, *this);
+    basic_components_pr_.set_value();
 }
 
 void Cluster::setCmds()

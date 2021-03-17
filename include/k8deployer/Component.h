@@ -103,6 +103,11 @@ public:
         REMOVE
     };
 
+    struct DependencyReference {
+        std::string name; // Full cluster reference
+        State state = State::PRE;
+    };
+
     /*! A task
      *
      * The root component owns all tasks, and is responsible to iterate over
@@ -346,6 +351,8 @@ public:
         return parent_.expired();
     }
 
+    void addStateListener(const std::function<void (const Component& component)>& fn);
+
 protected:
     virtual std::string getCreationUrl() const {
         assert(false); // Implement!
@@ -392,6 +399,10 @@ protected:
     }
 
     void setState(State state);
+
+    State getState() const noexcept {
+       return state_;
+    }
 
     bool isDone() const noexcept {
         return state_ >= State::DONE;
@@ -513,9 +524,12 @@ protected:
     std::unique_ptr<tasks_t> tasks_;
     std::unique_ptr<std::promise<void>> executionPromise_;
     std::vector<std::weak_ptr<Component>> dependsOn_;
+    std::vector<std::unique_ptr<DependencyReference>> clusterDependencies_;
+    std::vector<std::function<void (const Component& component)>> stateListeners_;
     Mode mode_ = Mode::CREATE;
     std::optional<std::chrono::steady_clock::time_point> startTime;
     std::optional<double> elapsed = {};
+    std::mutex mutex_;
 };
 
 } // ns
