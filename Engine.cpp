@@ -110,11 +110,41 @@ Cluster *Engine::getCluster(size_t ix)
     return clusters_.at(ix).get();
 }
 
+std::tuple<bool, size_t, string> Engine::parseClusterVar(const string &name)
+{
+  static const regex clusterName{R"(cluster(\d+)\:([a-zA-Z0-9\-\._]+))"};
+  smatch tokens;
+  if (regex_match(name, tokens, clusterName)) {
+      assert(tokens.size() == 3);
+
+      const auto ix = tokens[1].str();
+      size_t clusterIx = stoul(ix);
+      const auto varName = tokens[2].str();
+
+      return {true, clusterIx, varName};
+    }
+
+  return {false, 0, name};
+}
+
+string Engine::getClusterVar(size_t clusterIx, const string &varName)
+{
+    if (auto c = getCluster(clusterIx)) {
+        c->getVarsReadyStage().wait();
+        if (auto v = c->getVar(varName)) {
+            return *v;
+        }
+    }
+
+    LOG_WARN << "Could not find cluster or variable: cluster" << clusterIx << ':' << varName;
+    throw runtime_error{"No such cluster or var: "};
+}
+
 void Engine::startPortForwardig()
 {
-    for(auto& cluster : clusters_) {
-        //cluster->startProxy();
-    }
+//    for(auto& cluster : clusters_) {
+//        //cluster->startProxy();
+//    }
 
 //    bool success = true;
 //    for(auto& cluster : clusters_) {

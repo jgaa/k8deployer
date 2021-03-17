@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project (k8deployer VERSION 0.0.9 LANGUAGES CXX)
+project (k8deployer VERSION 0.0.10 LANGUAGES CXX)
 
 option(BOOST_ERROR_CODE_HEADER_ONLY "Work-around for another boost issue" ON)
 if (BOOST_ERROR_CODE_HEADER_ONLY)
@@ -43,6 +43,7 @@ add_executable(${PROJECT_NAME}
     DnsProvisionerVubercool.cpp
     Engine.cpp
     HostPathStorage.cpp
+    HttpRequestComponent.cpp
     IngressComponent.cpp
     JobComponent.cpp
     Kubeconfig.cpp
@@ -56,6 +57,7 @@ add_executable(${PROJECT_NAME}
     ServiceComponent.cpp
     StatefulSetComponent.cpp
     Storage.cpp
+    exprtk_fn.cpp
     include/k8deployer/AppComponent.h
     include/k8deployer/BaseComponent.h
     include/k8deployer/Cluster.h
@@ -71,6 +73,7 @@ add_executable(${PROJECT_NAME}
     include/k8deployer/DnsProvisionerVubercool.h
     include/k8deployer/Engine.h
     include/k8deployer/HostPathStorage.h
+    include/k8deployer/HttpRequestComponent.h
     include/k8deployer/IngressComponent.h
     include/k8deployer/JobComponent.h
     include/k8deployer/Kubeconfig.h
@@ -85,13 +88,14 @@ add_executable(${PROJECT_NAME}
     include/k8deployer/StatefulSetComponent.h
     include/k8deployer/Storage.h
     include/k8deployer/buildDependencies.h
+    include/k8deployer/exprtk_fn.h
     include/k8deployer/k8/k8api.h
     include/k8deployer/logging.h
     include/k8deployer/probe.h
     main.cpp
     )
 
-add_dependencies(${PROJECT_NAME} externalRestcCpp externalLogfault)
+add_dependencies(${PROJECT_NAME} externalRestcCpp externalLogfault externalExprtk)
 set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 17)
 
 IF(CMAKE_BUILD_TYPE MATCHES Debug)
@@ -99,6 +103,8 @@ IF(CMAKE_BUILD_TYPE MATCHES Debug)
 else()
     set(RESTC_CPP_LIB restc-cpp)
 endif()
+
+target_include_directories(${PROJECT_NAME} PRIVATE ${ExprtkIncludeDir})
 
 target_link_libraries(${PROJECT_NAME}
     ${RESTC_CPP_LIB}

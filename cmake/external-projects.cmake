@@ -36,3 +36,15 @@ ExternalProject_Add(externalLogfault
     GIT_TAG "master"
     CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_PROJECTS_INSTALL_PREFIX}
     )
+
+ExternalProject_Add(externalExprtk
+    PREFIX "${EXTERNAL_PROJECTS_PREFIX}"
+    GIT_REPOSITORY "https://github.com/ArashPartow/exprtk.git"
+    GIT_TAG "master"
+    CONFIGURE_COMMAND ""
+    BUILD_COMMAND ""
+    INSTALL_COMMAND ""
+    )
+
+ExternalProject_Get_Property(externalExprtk source_dir)
+set(ExprtkIncludeDir ${source_dir})

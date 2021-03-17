@@ -39,7 +39,8 @@ enum class Kind {
     CLUSTERROLE,
     ROLEBINDING,
     CLUSTERROLEBINDING,
-    SERVICEACCOUNT
+    SERVICEACCOUNT,
+    HTTP_REQUEST
 };
 
 std::string slurp (const std::string& path);
@@ -50,16 +51,23 @@ std::string toString(const Kind& kind);
 
 const restc_cpp::JsonFieldMapping *jsonFieldMappings();
 std::string expandVariables(const std::string& json, const variables_t& vars);
+std::string execFunction(const std::string& name, const std::string& arg);
+
+using input_processor_t = std::function<std::string(const std::string&)>;
 
 /*! Reads the contents from a .json or .yaml file and returns the content as json. */
-std::string fileToJson(const std::string& pathToFile, bool assumeYaml = false);
+std::string fileToJson(const std::string& pathToFile, bool assumeYaml = false,
+                       const input_processor_t& inputPreprocessor = {});
 
 /*! Reads the contents from a .json or .yaml file and serialize it to obj */
 template <typename T>
-void fileToObject(T& obj, const std::string& pathToFile, const variables_t& vars) {
-    const auto json = fileToJson(pathToFile);
-    const auto expandedJson = expandVariables(json, vars);
-    std::istringstream ifs{expandedJson};
+void fileToObject(T& obj, const std::string& pathToFile, const variables_t& vars, bool doExpandVariables = false) {
+  const auto json = fileToJson(pathToFile, false,
+                               doExpandVariables
+                               ? [&vars] (const std::string& input) {return expandVariables(input, vars);}
+                               : input_processor_t{});
+
+    std::istringstream ifs{json};
     restc_cpp::serialize_properties_t properties;
     properties.ignore_unknown_properties = false;
     properties.name_mapping = jsonFieldMappings();

@@ -338,7 +338,7 @@ void Cluster::readDefinitions()
         LOG_DEBUG << "Cluster " << name_ << " has variable: " << k << '=' << v;
     }
 
-    fileToObject(*dataDef_, cfg_.definitionFile, variables_);
+    fileToObject(*dataDef_, cfg_.definitionFile, variables_, true);
     if (dataDef_->kind.empty()) {
         LOG_ERROR << "Invalid definition file: " << cfg_.definitionFile;
         throw runtime_error("Invalid definition "s + cfg_.definitionFile);

@@ -16,6 +16,7 @@
 #include "k8deployer/DaemonSetComponent.h"
 #include "k8deployer/DeploymentComponent.h"
 #include "k8deployer/Engine.h"
+#include "k8deployer/HttpRequestComponent.h"
 #include "k8deployer/IngressComponent.h"
 #include "k8deployer/JobComponent.h"
 #include "k8deployer/NamespaceComponent.h"
@@ -28,6 +29,7 @@
 #include "k8deployer/StatefulSetComponent.h"
 #include "k8deployer/k8/k8api.h"
 #include "k8deployer/logging.h"
+#include "k8deployer/exprtk_fn.h"
 
 using namespace std;
 using namespace string_literals;
@@ -53,6 +55,7 @@ const map<string, Kind> kinds = {{"App", Kind::APP},
                                  {"RoleBinding", Kind::ROLEBINDING},
                                  {"ClusterRoleBinding", Kind::CLUSTERROLEBINDING},
                                  {"ServiceAccount", Kind::SERVICEACCOUNT},
+                                 {"HttpRequest", Kind::HTTP_REQUEST}
                                 };
 } // anonymous ns
 
@@ -547,15 +550,9 @@ void Component::scanDependencies()
     }
 
     for (const auto& depName : depends) {
-        static const regex clusterName{R"(cluster(\d+)\:([a-zA-Z0-9\-\._]+))"};
-        smatch tokens;
-        if (regex_match(depName, tokens, clusterName)) {
-            assert(tokens.size() == 3);
 
-            const auto ix = tokens[1].str();
-            size_t clusterIx = stoul(ix);
-            const auto componentName = tokens[2].str();
-
+        auto [isClusterVal, clusterIx, componentName] = Engine::parseClusterVar(depName);
+        if (isClusterVal) {
             if (auto cluster = Engine::instance().getCluster(clusterIx)) {
 
                 // Give the cluster a chance to initialize it's components
@@ -569,9 +566,15 @@ void Component::scanDependencies()
 
                      auto st = component.getState();
 
+                     LOG_TRACE << logName() << "State Listener called on " << dep->name << ", state=" << static_cast<int>(st);
+
                      // Called from the other components io thread.
                      // We need to continue in our own thread.
                      schedule([this, dep, st] {
+
+                        LOG_TRACE << logName() << "State Listener called on " << dep->name
+                              << ", state was " << static_cast<int>(dep->state)
+                              << ", changing to " << static_cast<int>(st);
                         dep->state = st;
                         scheduleRunTasks();
                   });
@@ -833,6 +836,20 @@ void Component::walkAndExecuteFn(const std::function<void (Component &)>& fn)
     fn(*this);
     for(auto& ch : children_) {
         ch->walkAndExecuteFn(fn);
+      }
+}
+
+
+
+string execFunction(const string &name, const string &arg)
+{
+    if (name == "eval") {
+        // Return a boolean result from the expression
+        auto result = exprtkDouble(arg);
+        return static_cast<int>(result) ? "true" : "false";
+    } else {
+        LOG_ERROR << "Unknown function name: " << name;
+        throw runtime_error{"Unknown function"};
     }
 }
 
@@ -890,6 +907,8 @@ Component::ptr_t Component::createComponent(const ComponentDataDef &def,
         return make_shared<ClusterRoleBindingComponent>(parent, cluster, def);
     case Kind::SERVICEACCOUNT:
         return make_shared<ServiceAccountComponent>(parent, cluster, def);
+    case Kind::HTTP_REQUEST:
+        return make_shared<HttpRequestComponent>(parent, cluster, def);
     }
 
     throw runtime_error("Unknown kind");
@@ -1325,8 +1344,10 @@ const JsonFieldMapping *jsonFieldMappings()
     return &mappings;
 }
 
-string fileToJson(const string &pathToFile, bool assumeYaml)
+string fileToJson(const string &pathToFile, bool assumeYaml,
+                  const input_processor_t& inputPreprocessor)
 {
+    static atomic_int cnt{0};
     if (!filesystem::is_regular_file(pathToFile)) {
         LOG_ERROR << "Not a file: " << pathToFile;
         throw runtime_error("Not a file: "s + pathToFile);
@@ -1336,9 +1357,28 @@ string fileToJson(const string &pathToFile, bool assumeYaml)
     const filesystem::path path{pathToFile};
     const auto ext = path.extension();
     if (assumeYaml || ext == ".yaml") {
+
+        auto inputPath = pathToFile;
+        bool cleanUp = false;
+
+        if (inputPreprocessor) {
+           auto tmpPath = std::filesystem::temp_directory_path();
+           tmpPath /= "k8deployer-"s + to_string(getpid()) + "-" + to_string(++cnt) + ".yaml";
+           inputPath = tmpPath.string();
+
+           std::ofstream tmp{inputPath};
+           if (!tmp.is_open()) {
+              LOG_ERROR << "Failed to open " << inputPath << " for write.";
+              throw runtime_error{"Failed to pen tmp file for wtite"};
+           }
+           LOG_TRACE << "Writing tmp yaml file to " << inputPath;
+           tmp << inputPreprocessor(slurp(pathToFile));
+           cleanUp = true;
+        }
+
         // https://www.commandlinefu.com/commands/view/12218/convert-yaml-to-json
         const auto expr = R"(import sys, yaml, json; json.dump(yaml.load(open(")"s
-                + pathToFile
+                + inputPath
                 + R"(","r").read()), sys.stdout, indent=4))"s;
         auto args = boost::process::args({"-c"s, expr});
         boost::process::ipstream pipe_stream;
@@ -1352,6 +1392,11 @@ string fileToJson(const string &pathToFile, bool assumeYaml)
 
         error_code ec;
         process.wait(ec);
+
+        if (cleanUp) {
+            filesystem::remove(inputPath);
+        }
+
         if (ec) {
             LOG_ERROR << "Failed to convert yaml from " << pathToFile << ": " << ec.message();
             throw runtime_error("Failed to convert yaml: "s + pathToFile);
@@ -1359,6 +1404,9 @@ string fileToJson(const string &pathToFile, bool assumeYaml)
 
     } else if (ext == ".json") {
         json = slurp(pathToFile);
+        if (inputPreprocessor) {
+            json = inputPreprocessor(json);
+        }
     } else {
         LOG_ERROR << "File extension must be yaml or json: " << pathToFile;
         throw runtime_error("Unknown extension "s + pathToFile);
@@ -1521,6 +1569,12 @@ void Component::prepareTasks(tasks_t& tasks, bool reverseDependencies)
 
 string getVar(const std::string& name, const variables_t& vars,
               const optional<string>& defaultValue) {
+
+    if (auto [isClusterVar, clusterIx, vName] = Engine::parseClusterVar(name); isClusterVar) {
+        return Engine::instance().getClusterVar(clusterIx, vName);
+    }
+
+
     if (auto it = vars.find(name); it != vars.end()) {
         return it->second;
     }
@@ -1547,6 +1601,8 @@ string expandVariables(const string &json, const variables_t &vars)
         DOLLAR,
         SCAN_NAME,
         SCAN_DEFAUT_VALUE,
+        SCAN_FUNCTION_NAME,
+        SCAN_FUNCTION_ARG
     };
 
     locale loc{"C"};
@@ -1554,8 +1610,12 @@ string expandVariables(const string &json, const variables_t &vars)
     expanded.reserve(json.size());
     auto state = State::COPY;
     string varName;
+    string functionName;
+    string functionArg;
+    int pharantheses = 0;
     optional<string> defaultValue;
     for(auto ch : json) {
+again:
         switch(state) {
         case State::COPY:
             if (ch == '\\') {
@@ -1582,12 +1642,19 @@ string expandVariables(const string &json, const variables_t &vars)
                 defaultValue.reset();
                 break;
             }
+            if (isalnum(ch, loc)) {
+                state = State::SCAN_FUNCTION_NAME;
+                functionName.clear();
+                functionArg.clear();
+                functionName += ch;
+                break;
+            }
             expanded += '$';
             expanded += ch;
             state = State::COPY;
             break;
         case State::SCAN_NAME:
-            if (isalnum(ch, loc) || ch == '.' || ch == '_') {
+            if (isalnum(ch, loc) || ch == '.' || ch == '_' || ch == ':') {
                 varName += ch;
                 break;
             }
@@ -1621,11 +1688,48 @@ commit:
                 *defaultValue  += '\\';
             }
             *defaultValue += ch;
+            break;
+
+        case State::SCAN_FUNCTION_NAME:
+            if (isalnum(ch, loc)) {
+                functionName += ch;
+                break;
+            }
+            if (ch == '(') {
+                pharantheses = 1;
+                state = State::SCAN_FUNCTION_ARG;
+                break;
+            }
+            // It's not a function!
+            // Treat the input as plain text and give it back
+            expanded += '$';
+            expanded += functionName;
+            state = State::COPY;
+            goto again; // This will parse `ch` using COPY state
+
+        case State::SCAN_FUNCTION_ARG:
+            if (ch == '(') {
+                ++pharantheses;
+            } else if (ch == ')') {
+               if (--pharantheses == 0) {
+                   auto expanded_args = expandVariables(functionArg, vars);
+                   auto txt = execFunction(functionName, expanded_args);
+                   expanded += txt;
+                   state = State::COPY;
+                   break;
+               }
+            }
+            functionArg += ch;
+            break;
         }
     }
 
     if (state != State::COPY) {
-        LOG_ERROR << "Error expanding macro " << varName << ": Not properly terminated with '}'";
+        if (state == State::SCAN_FUNCTION_NAME || state == State::SCAN_FUNCTION_ARG) {
+            LOG_ERROR << "Error expanding function macro " << functionName << ": Not properly terminated with '(...)'";
+        } else {
+            LOG_ERROR << "Error expanding macro " << varName << ": Not properly terminated with '}'";
+        }
         throw runtime_error("Error expanding macro");
     }
 

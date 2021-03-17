@@ -49,6 +49,10 @@ public:
 
     Cluster *getCluster(size_t ix);
 
+    static std::tuple<bool, size_t, std::string> parseClusterVar(const std::string& name);
+
+    std::string getClusterVar(size_t clusterIx, const std::string& varName);
+
 private:
     void startPortForwardig();
 
