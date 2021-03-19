@@ -1736,5 +1736,92 @@ commit:
     return expanded;
 }
 
+namespace {
+    template <typename T, typename K, typename V = typename T::mapped_type>
+V get_if(const T& m, const K& k, const V& d = {}) {
+        if (auto i = m.find(k) ; i != m.end()) {
+            return i->second;
+        }
+
+        return d;
+    }
+}
+
+string PortInfo::getServiceName(const string& baseName) const noexcept
+{
+    if (!serviceName.empty()) {
+        return serviceName;
+    }
+
+    string postfix = "-svc";
+     if (serviceType.empty() || serviceType == "ClusterIP") {
+         ; // This is the default, do nothing
+     } else if (serviceType == "ExternalName") {
+       postfix += "ext";
+     } else if (serviceType == "NodePort") {
+       postfix += "np";
+     } else if (serviceType == "LoadBalancer") {
+       postfix += "lb";
+     }
+
+    return baseName + postfix;
+}
+
+port_info_list_t parsePorts(const std::string& ports) {
+    port_info_list_t r;
+    auto all = Component::getArgAsStringList(ports);
+    for(const auto& one : all) {
+        string p = boost::replace_all_copy("port="s + one, ":", " ");
+        auto args = Component::getArgAsKv(p);
+
+        PortInfo pi;
+        pi.port = stoul(get_if(args, "port"));
+
+        if (auto it = args.find("nodePort"); it != args.end()) {
+            const auto& value = it->second;
+            if (value == "false" || value == "null") {
+                // Disabled.
+            } else {
+                // 0 is a valid value, it means that kubernetes assigns a nodePort.
+                // If "nodePort" key exists, and is not "null" or "false", we use the NodePort
+                if (value.empty()) {
+                    pi.nodePort = 0;
+                } else {
+                    pi.nodePort = stoul(value);
+                }
+            }
+        }
+        pi.name = get_if(args, "name");
+        pi.protocol = get_if(args, "protocol", pi.protocol);
+        pi.serviceName = get_if(args, "serviceName");
+        pi.serviceType = get_if(args, "serviceType");
+
+        if (auto it = args.find("ingress"); it != args.end()) {
+            pi.ingress = true;
+        }
+
+        r.emplace_back(move(pi));
+    }
+
+    return r;
+}
+
+std::optional<PortInfo> findPort(const port_info_list_t& pil, const std::string& name) {
+    for(const auto& p : pil) {
+        if (p.getName() == name) {
+            return p;
+        }
+    }
+    return {};
+}
+
+std::optional<PortInfo> findPort(const port_info_list_t& pil, const uint16_t port) {
+  for(const auto& p : pil) {
+      if (p.port == port) {
+          return p;
+      }
+  }
+  return {};
+}
 
 } // ns

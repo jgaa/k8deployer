@@ -24,9 +24,11 @@ struct Config {
   std::string dotfile = "k8deployer.dot";
   bool skipDependencyInitContainers = false;
   std::vector<std::string> variants;
+  std::vector<std::string> removeEnvVars;
   bool useClusterNameAsNamespace = false;
   bool useLoadBalancerIp = false;
   std::string dnsServerConfig;
+  bool useFirstPartOfKubeConfigAsClusterName = true; // Us thye part before the first dot
 };
 
 } // ns

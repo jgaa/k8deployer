@@ -21,6 +21,7 @@ public:
 protected:
     void addDeploymentTasks(tasks_t& tasks) override;
     void addRemovementTasks(tasks_t &tasks) override;
+    void filterEnvVars(k8api::env_vars_t& vars);
 
     virtual size_t getReplicas() const {
         return 1;

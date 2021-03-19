@@ -86,32 +86,128 @@ void DeploymentComponent::buildDependencies()
     if (!hasKindAsChild(Kind::SERVICE) && ((serviceEnabled && *serviceEnabled) || !serviceEnabled)) {
         LOG_DEBUG << logName() << "Adding Service.";
 
-        conf_t svcargs;
-        // Since we create the service, give it a copy of relevant arguments..
-        for(const auto& [k, v] : args) {
-            static const array<string, 2> relevant = {"service.nodePort", "service.type"};
-            if (find(relevant.begin(), relevant.end(), k) != relevant.end()) {
-                svcargs[k] = v;
-            }
-        }
+        auto ports = parsePorts(getArg("port", ""));
 
-        auto service = addChild(name + "-svc", Kind::SERVICE, labels, svcargs, "before");
-
-        if (auto ip = getArg("ingress.paths"); ip && !ip->empty()) {
-            // Add ingress
-            conf_t iargs;
-            if (!tlsSecretName.empty()) {
-                // Explicit set "ingress.secret" will override below
-                iargs["ingress.secret"] = tlsSecretName;
+        // Split the ports into the potential different service types we need.
+        std::multimap<std::string, decltype(ports)> service_ports;
+        std::string override = getArg("service.type", "");
+        for(const auto& p : ports) {
+            if (!p.serviceType.empty()) {
+                override = p.serviceType;
             }
-            for(const auto& [k, v] : args) {
-                static const array<string, 2> relevant = {"ingress.secret", "ingress.paths"};
-                if (find(relevant.begin(), relevant.end(), k) != relevant.end()) {
-                    iargs[k] = v;
+            string key = "ClusterIP";
+            if (override.empty()) {
+                if (p.nodePort) {
+                    key = "NodePort";
+                }
+            } else {
+                key = override;
+            }
+
+            // Create unique services for type and specified service name
+            auto svc_name = p.getServiceName(name);
+
+            // If we already have the same key and the same serviceName,
+            // just add the port.
+            bool added = false;
+            auto range = service_ports.equal_range(key);
+            for(auto it = range.first; it != range.second; ++it) {
+                if (it->second.front().getServiceName(name) == svc_name) {
+                    it->second.emplace_back(p);
+                    added = true;
+                    break;
                 }
             }
 
-            service->addChild(name + "-ingr", Kind::INGRESS, labels, iargs);
+            if (!added) {
+                decltype (ports) pp;
+                pp.push_back(p);
+                service_ports.insert({key, pp});
+            }
+        }
+
+        // Now, create the service(s) we need
+        int count = -1;
+        bool did_ingress = false;
+        bool do_ingress = service_ports.size() == 1;
+        for(const auto& [type, port] : service_ports) {
+            ++count; // First is 0
+            conf_t svcargs;
+            // Since we create the service, give it a copy of relevant arguments..
+            for(const auto& [k, v] : args) {
+                static const array<string, 3> relevant = {"service.nodePort", "service.type", "ingress.paths"};
+                if (find(relevant.begin(), relevant.end(), k) != relevant.end()) {
+                    svcargs[k] = v;
+                }
+            }
+
+            // Create args for the ports for this service.
+            string pargs;
+            for(const auto& pa : port) {
+                string c = to_string(pa.port);
+                if (!pa.name.empty()) {
+                    c += ":name="s + pa.name;
+                }
+                if (pa.protocol != "TCP") {
+                    c += ":protocol="s + pa.protocol;
+                }
+                if (pa.nodePort) {
+                    c += ":nodePort="s + to_string(*pa.nodePort);
+                }
+                if (!pa.serviceName.empty()) {
+                    c += ":serviceName=" + pa.serviceName;
+                }
+                if (pa.ingress) {
+                    c += ":ingress";
+                }
+
+                if (pa.ingress) {
+                    do_ingress = true;
+                    svcargs["ingress.port"] = pa.getName();
+                }
+
+                if (!pargs.empty()) {
+                    pargs += " ";
+                }
+                pargs += c;
+            }
+
+            svcargs["port"] = pargs;
+            svcargs["service.type"] = type;
+
+            const auto svc_name = port.front().getServiceName(name);
+            auto service = addChild(svc_name,
+                                    Kind::SERVICE, labels, svcargs, "before");
+
+            if (auto ip = getArg("ingress.paths"); ip && !ip->empty()) {
+                if (!do_ingress) {
+                    LOG_DEBUG << logName() << "Skipping ingress for service type " << type;
+                    break;
+                }
+
+                if (did_ingress) {
+                    LOG_DEBUG << logName() << "Skipping ingress for service type " << type
+                              << " because it's already added";
+                    break;
+                }
+
+                // Add ingress
+                conf_t iargs;
+                if (!tlsSecretName.empty()) {
+                    // Explicit set "ingress.secret" will override below
+                    iargs["ingress.secret"] = tlsSecretName;
+                }
+                for(const auto& [k, v] : svcargs) {
+                    static const array<string, 4> relevant = {"ingress.secret", "ingress.paths",
+                                                              "port", "ingress.port"};
+                    if (find(relevant.begin(), relevant.end(), k) != relevant.end()) {
+                        iargs[k] = v;
+                    }
+                }
+
+                service->addChild(svc_name + "-ingr", Kind::INGRESS, labels, iargs);
+                did_ingress = true; // We can only add ingress to one service.
+            }
         }
     }
 

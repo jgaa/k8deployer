@@ -129,9 +129,8 @@ struct ContainerPort {
     unsigned int hostPort =0;
     std::string protocol;
 };
-using
-container_ports_t = std::vector<ContainerPort>;
 
+using container_ports_t = std::vector<ContainerPort>;
 
 struct VolumeMount {
     std::string mountPath;

@@ -85,22 +85,32 @@ void IngressComponent::prepareDeploy()
                 ir.http.emplace();
             }
 
-            // TODO: Add some means to override the port to a path, so we can
-            //       support services with multiple ports, and not just pick the
-            //       first port.
             if (!ip.backend && !parent->service.spec.ports.empty()) {
                 ip.backend.emplace();
                 ip.backend->setServiceName(ingress.apiVersion, parent->name);
-                ip.backend->setServicePortName(ingress.apiVersion, parent->service.spec.ports.front().name);
-                ip.backend->servicePort = parent->service.spec.ports.front().name;
+
+                if (auto portName = getArg("ingress.port")) {
+                    LOG_TRACE << logName() << "Using port from 'ingress.port' setting: " << *portName;
+                    ip.backend->setServicePortName(ingress.apiVersion, *portName);
+                    ip.backend->servicePort = *portName;
+                } else {
+                    LOG_TRACE << logName() << "Using first port from parent: "
+                              << parent->service.spec.ports.front().name;
+                    ip.backend->setServicePortName(ingress.apiVersion, parent->service.spec.ports.front().name);
+                    ip.backend->servicePort = parent->service.spec.ports.front().name;
+                }
             }
 
-            LOG_TRACE << logName()
-                      << "Adding ingress path " << ip.path << " [" << ip.pathType
-                      << "] to service " << ip.backend->getServiceName(ingress.apiVersion)
-                      << ":" << ip.backend->getServicePortName(ingress.apiVersion);
+            if (ip.backend) {
+                LOG_TRACE << logName()
+                          << "Adding ingress path " << ip.path << " [" << ip.pathType
+                          << "] to service " << ip.backend->getServiceName(ingress.apiVersion)
+                          << ":" << ip.backend->getServicePortName(ingress.apiVersion);
 
-            ir.http->paths.emplace_back(move(ip));
+                ir.http->paths.emplace_back(move(ip));
+            } else {
+                LOG_WARN << logName() << "No backend for ingress!";
+            }
         }
 
         if (!ingress.spec) {

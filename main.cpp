@@ -78,9 +78,17 @@ int main(int argc, char* argv[]) {
                  po::value<bool>(&config.useLoadBalancerIp)->default_value(config.useLoadBalancerIp),
                  "Use the load-balancers reported IP for ingress DNS provisioning."
                  "If `kubectl -n ... get ingress` shows the IP, this should work.")
+            ("use-first-part-of-kubeconf-as-cluser-name,F",
+                 po::value<bool>(&config.useFirstPartOfKubeConfigAsClusterName)->default_value(config.useFirstPartOfKubeConfigAsClusterName),
+                 "If the cube-config file specified by `-k` arg contains dots, "
+                 "use the part from the start of the file-name to the first dot as cluster name")
             ("variables,v",
                  po::value<decltype(config.rawVariables)>(&config.rawVariables),
                  "One or more variables var=value WS var=value...")
+            ("remove-env-var,R",
+                 po::value<decltype(config.removeEnvVars)>(&config.removeEnvVars),
+                 "Remove environment-variable declaration with this name"
+                 "Used to filter out envvars for certain deployments.")
             ("variant,V",
                  po::value<decltype(config.variants)>(&config.variants),
                  "Variant override: componentNameRegEx=variant. This argument can be repeated. "

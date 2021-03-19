@@ -407,7 +407,14 @@ void Cluster::parseArgs(const std::string& args)
 
     if (variables_["name"].empty()) {
         filesystem::path kubepath{kubeconfig};
-        const auto n = kubepath.filename().string();
+        auto n = kubepath.filename().string();
+
+        if (Engine::config().useFirstPartOfKubeConfigAsClusterName) {
+            if (auto pos = n.find('.') ; pos && pos != string::npos) {
+                n = n.substr(0, pos);
+            }
+        }
+
         if (n.empty()) {
             variables_["name"] = "default";
         } else {

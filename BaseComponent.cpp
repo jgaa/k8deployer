@@ -48,6 +48,8 @@ void BaseComponent::basicPrepareDeploy()
             container.image = getArg("image", name);
             container.args = getArgAsStringList("pod.args", ""s);
             container.env = getArgAsEnvList("pod.env", ""s);
+            filterEnvVars(container.env);
+
             container.command = getArgAsStringList("pod.command", ""s);
             container.imagePullPolicy = getArg("imagePullPolicy", {});
 
@@ -55,14 +57,12 @@ void BaseComponent::basicPrepareDeploy()
                 container.securityContext = *podSecurityContext;
             }
 
-            if (auto ports = getArgAsStringList("port", ""s); !ports.empty()) {
+            if (auto ports = parsePorts(getArg("port", ""s)); !ports.empty()) {
                 for(const auto& port: ports) {
                     k8api::ContainerPort p;
-                    p.containerPort = static_cast<uint16_t>(stoul(port));
-                    p.name = "port-"s + port;
-                    if (auto v = getArg("protocol")) {
-                        p.protocol = *v;
-                    }
+                    p.containerPort = port.port;
+                    p.name = port.getName();
+                    p.protocol = port.protocol;
                     container.ports.emplace_back(p);
                 }
             }
@@ -166,6 +166,23 @@ void BaseComponent::addRemovementTasks(Component::tasks_t &tasks)
 
     tasks.push_back(task);
     Component::addRemovementTasks(tasks);
+}
+
+void BaseComponent::filterEnvVars(k8api::env_vars_t &vars)
+{
+    for(const auto& excluded : Engine::config().removeEnvVars) {
+search_again:
+          if (auto it = find_if(vars.begin(),vars.end(),
+                             [&excluded](const auto& e){
+              return e.name == excluded;
+        }) ; it != vars.end()) {
+            LOG_TRACE << logName() << "Removing env-var " << excluded;
+            vars.erase(it);
+            // We are still at C++17 (no erase_if()),
+            // and there may be more of this, so re-iterate.
+            goto search_again;
+        }
+    }
 }
 
 void BaseComponent::buildInitContainers()
