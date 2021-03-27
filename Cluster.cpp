@@ -169,6 +169,16 @@ std::future<void> Cluster::prepare()
     auto pr = make_shared<promise<void>>();
 
     assert(client_);
+
+    if (!cfg_.dnsServerConfig.empty()) {
+        dns_ = DnsProvisioner::create(Engine::config().dnsServerConfig,
+                                      client_->GetIoService());
+        if (!dns_) {
+            LOG_ERROR << "Failed to load dns provisioner from config: " << cfg_.dnsServerConfig;
+            throw(runtime_error{"DNS provisioner"});
+        }
+    }
+
     client_->GetIoService().post([this, pr] {
        try {
           readDefinitions();

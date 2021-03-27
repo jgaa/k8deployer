@@ -178,14 +178,14 @@ void IngressComponent::addDeploymentTasks(Component::tasks_t &tasks)
 
     tasks.push_back(task);
 
-    if (Engine::instance().getDns()) {
+    if (cluster_->getDns()) {
         auto dnsTask = make_shared<Task>(*this, name + "-provision-dns",
                                          [&](Task& task, const k8api::Event */*event*/) {
             // Execution?
             if (task.state() == Task::TaskState::READY) {
                 task.setState(Task::TaskState::EXECUTING);
 
-               if (auto dns = Engine::instance().getDns()) {
+               if (auto dns = cluster_->getDns()) {
                   for(const auto& rule : ingress.spec->rules) {
                       if (!rule.host.empty()) {
                           auto ip = loadBalancerIp_;
@@ -200,17 +200,24 @@ void IngressComponent::addDeploymentTasks(Component::tasks_t &tasks)
                           } else try {
                               LOG_DEBUG << logName() << "Provisioning dns entry for "
                                         << rule.host << " to IP " << ip;
-                              dns->provisionHostname(rule.host, {ip}, {});
+                              dns->provisionHostname(rule.host, {ip}, {},
+                                                     [w = task.weak_from_this()](bool success) {
+                                  if (auto task = w.lock()) {
+                                      task->setState(success
+                                                     ? Task::TaskState::DONE
+                                                     : Task::TaskState::FAILED);
+                                  }
+                              });
                           } catch(const exception& ex) {
                               LOG_WARN << logName() << "Failed to provision DNS name for " <<  rule.host;
+                              task.setState(Task::TaskState::FAILED);
                           }
                       }
                   }
                 } else {
                     LOG_WARN << logName() << "The DNS config vanished... Cannot provision hostnames.";
+                    task.setState(Task::TaskState::FAILED);
                 }
-
-                task.setState(Task::TaskState::DONE);
             }
 
             task.evaluate();
@@ -239,7 +246,7 @@ void IngressComponent::addRemovementTasks(Component::tasks_t &tasks)
 
     tasks.push_back(task);
 
-    if (Engine::instance().getDns()) {
+    if (cluster_->getDns()) {
         auto dnsTask = make_shared<Task>(*this, name + "-provision-dns",
                                          [&](Task& task, const k8api::Event */*event*/) {
 
@@ -247,12 +254,14 @@ void IngressComponent::addRemovementTasks(Component::tasks_t &tasks)
             if (task.state() == Task::TaskState::READY) {
                 task.setState(Task::TaskState::EXECUTING);
 
-                if (auto dns = Engine::instance().getDns()) {
+                if (auto dns = cluster_->getDns()) {
                     for(const auto& rule : ingress.spec->rules) {
                         if (!rule.host.empty()) {
                             try {
                                 LOG_DEBUG << logName() << "Removing dns entry for " << rule.host;
-                                dns->deleteHostname(rule.host);
+                                dns->deleteHostname(rule.host, [w = task.weak_from_this()](bool success) {
+                                    ; // just ignore for now
+                                });
                             } catch(const exception& ex) {
                                 LOG_WARN << logName() << " Failed to delete DNS name for " <<  rule.host;
                             }

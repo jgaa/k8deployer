@@ -37,14 +37,6 @@ Engine::Engine(const Config &config)
 
     assert(instance_ == nullptr);
     instance_ = this;
-
-    if (!cfg_.dnsServerConfig.empty()) {
-      dns_ = DnsProvisioner::create(cfg_.dnsServerConfig);
-      if (!dns_) {
-          LOG_ERROR << "Failed to load dns provisioner from config: " << cfg_.dnsServerConfig;
-          throw(runtime_error{"DNS provisioner"});
-      }
-    }
 }
 
 void Engine::run()

@@ -5,7 +5,6 @@
 #include "restc-cpp/restc-cpp.h"
 #include "k8deployer/Config.h"
 #include "k8deployer/Cluster.h"
-#include "k8deployer/DnsProvisioner.h"
 
 namespace k8deployer {
 
@@ -34,17 +33,8 @@ public:
         return instance().cfg_;
     }
 
-//    static restc_cpp::RestClient& client() noexcept {
-//        assert(instance().client_);
-//        return *instance().client_;
-//    }
-
     static Mode mode() noexcept {
         return instance().mode_;
-    }
-
-    DnsProvisioner *getDns() {
-      return dns_.get();
     }
 
     Cluster *getCluster(size_t ix);
@@ -61,7 +51,6 @@ private:
     const Config cfg_;
     static Engine *instance_;
     Mode mode_ = Mode::DEPLOY;
-    std::unique_ptr<DnsProvisioner> dns_;
 };
 
 } // ns

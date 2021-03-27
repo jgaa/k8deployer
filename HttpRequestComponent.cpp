@@ -40,6 +40,7 @@ void HttpRequestComponent::prepareDeploy()
    }
 
    json_ = getArg("json", "");
+   message_ = getArg("log.message", "");
    if (auto auth = getArg("auth")) {
        auto kv = getArgAsKv(*auth);
        if (auto user = kv.find("user") ; user != kv.end()) {
@@ -52,6 +53,9 @@ void HttpRequestComponent::prepareDeploy()
            }
        }
    }
+
+   retries_ = getIntArg("retry.count", retries_);
+   retryDelaySeconds_ = getIntArg("retry.delay.seconds", retryDelaySeconds_);
 }
 
 void HttpRequestComponent::addDeploymentTasks(Component::tasks_t &tasks)
@@ -63,8 +67,11 @@ void HttpRequestComponent::addDeploymentTasks(Component::tasks_t &tasks)
           task.setState(Task::TaskState::EXECUTING);
 
           try {
-              sendRequest();
-              task.setState(Task::TaskState::DONE);
+              auto wt = task.weak_from_this();
+              if (!message_.empty()) {
+                  LOG_INFO << logName() << message_;
+              }
+              sendRequest(wt);
           } catch (const exception& ex) {
               LOG_ERROR << logName() << "Failed to call url " << url_
                         << ": " << ex.what();
@@ -79,35 +86,65 @@ void HttpRequestComponent::addDeploymentTasks(Component::tasks_t &tasks)
   Component::addDeploymentTasks(tasks);
 }
 
-void HttpRequestComponent::sendRequest()
+void HttpRequestComponent::sendRequest(weak_ptr<Task>& wtask)
 {
     // Create a new rest client without any TLS context,
-    auto cli = RestClient::Create();
+    client_ = RestClient::Create(cluster_->client().GetIoService());
 
-    cli->ProcessWithPromise([this](restc_cpp::Context& ctx) {
-        RequestBuilder builder{ctx};
-        builder.Req(url_, rct_);
+    client_->Process([this, wtask](restc_cpp::Context& ctx) {
+        while(cluster_->isExecuting()) {
+          auto task = wtask.lock();
+          if (!task) {
+              LOG_ERROR << logName() << "Task vanished";
+              return;
+          }
 
-        if (!user_.empty()) {
-            builder.BasicAuthentication(user_, passwd_);
-        }
+          if (task->state() != Task::TaskState::EXECUTING) {
+              return;
+          }
 
-        if (!json_.empty()) {
-            builder.Data(json_);
-        }
+          RequestBuilder builder{ctx};
+          builder.Req(url_, rct_);
 
-        LOG_DEBUG << "Sending request to: " << url_;
+          if (!user_.empty()) {
+              builder.BasicAuthentication(user_, passwd_);
+          }
 
-        try {
-            auto reply = builder.Execute();
-            const auto data = reply->GetBodyAsString(); // Just read the data
-            LOG_TRACE << logName() << "Received: " << data;
-        } catch (const exception& ex) {
-            LOG_WARN << logName() << "Request failed: " << ex.what();
-            throw;
-        }
+          if (!json_.empty()) {
+              builder.Data(json_);
+          }
 
-    }).get();
+          LOG_DEBUG << logName() << "Sending request to: " << url_;
+          LOG_DEBUG << logName() << "Payload: " << json_;
+
+          // Release the reference to the task before we enter async operations
+          task.reset();
+
+          try {
+              auto reply = builder.Execute();
+              const auto data = reply->GetBodyAsString(); // Just read the data
+              LOG_TRACE << logName() << "Received: " << data;
+
+              if (task = wtask.lock() ; task) {
+                 task->setState(Task::TaskState::DONE);
+              }
+          } catch (const exception& ex) {
+              LOG_WARN << logName() << "Request failed: " << ex.what();
+              if (task = wtask.lock(); task) {
+                 if (currentCnt_ >= retries_) {
+                    LOG_ERROR << logName() << "Request failed. No retries left: " << ex.what();
+                    task->setState(Task::TaskState::FAILED);
+                 } else {
+                    ++currentCnt_;
+                    LOG_INFO << logName() << "Retrying request in " << retryDelaySeconds_ << " seconds";
+                    task->setState(Task::TaskState::WAITING);
+                    ctx.Sleep(std::chrono::seconds(retryDelaySeconds_));
+                    task->setState(Task::TaskState::EXECUTING);
+                 }
+              }
+           }
+        } // retry loop
+    });
 }
 
 Request::Type HttpRequestComponent::toType(const string &name)

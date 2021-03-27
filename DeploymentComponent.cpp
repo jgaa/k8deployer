@@ -159,9 +159,6 @@ void DeploymentComponent::buildDependencies()
                 }
                 if (pa.ingress) {
                     c += ":ingress";
-                }
-
-                if (pa.ingress) {
                     do_ingress = true;
                     svcargs["ingress.port"] = pa.getName();
                 }

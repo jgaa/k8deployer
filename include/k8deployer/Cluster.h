@@ -11,6 +11,7 @@
 #include "k8deployer/Storage.h"
 #include "k8deployer/DataDef.h"
 #include "k8deployer/Kubeconfig.h"
+#include "k8deployer/DnsProvisioner.h"
 
 namespace k8deployer {
 
@@ -100,6 +101,9 @@ public:
 
     Component *getComponent(const std::string& name);
 
+    DnsProvisioner *getDns() {
+        return dns_.get();
+    }
 
 private:
     using action_fn_t = std::function<std::future<void>()>;
@@ -137,6 +141,7 @@ private:
     std::shared_future<void> prepared_ready_{prepared_ready_pr_.get_future()};
     std::map<std::string, Component *> components_;
     std::mutex mutex_;
+    std::unique_ptr<DnsProvisioner> dns_;
 };
 
 
