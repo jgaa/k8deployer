@@ -96,6 +96,12 @@ int main(int argc, char* argv[]) {
                  "and then specify which one to use at the command line. Useful for deploying telepresence or debugging."
                  "By default, a component without a variant name will be used."
                  "pods.")
+            ("log-dir",
+                 po::value<string>(&config.logDir)->default_value(config.logDir),
+                 "If specified, log container logs to that directory as the containers are started")
+            ("log-viewer",
+                 po::value<string>(&config.logViewer)->default_value(config.logViewer),
+                 "If specified, call this command with the log-file patch each time a log-file is opened.")
             ("kubeconfig,k",
                  po::value<decltype(config.kubeconfigs)>(&config.kubeconfigs),
                  "One or more kubeconfigs to clusters to deploy the definition. "

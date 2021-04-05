@@ -52,8 +52,6 @@ struct OwnerReference {
     std::string uid;
 };
 
-using owner_references_t = std::vector<OwnerReference>;
-
 struct ObjectMeta {
     std::string name;
     std::string namespace_;
@@ -63,7 +61,7 @@ struct ObjectMeta {
     string_list_t finalizers;
     std::string generateName;
     int generation = 0;
-    owner_references_t ownerReferences;
+    std::vector<OwnerReference> ownerReferences;
     std::string selfLink;
     std::string uid;
 };
@@ -1011,6 +1009,83 @@ struct ServiceAccount {
     std::vector<ObjectReference> secrets;
 };
 
+struct PodCondition {
+    std::string lastProbeTime;
+    std::string lastTransitionTime;
+    std::string message;
+    std::string status;
+    std::string type;
+};
+
+struct ContainerStateRunning {
+    std::string startedAt;
+};
+
+struct ContainerStateTerminated{
+    std::string containerID;
+    std::optional<int> exitCode;
+    std::string finishedAt;
+    std::string reason;
+    std::optional<int> signal;
+    std::string startedAt;
+};
+
+struct ContainerStateWaiting {
+    std::string message;
+    std::string reason;
+};
+
+struct ContainerState {
+    ContainerStateRunning running;
+    ContainerStateTerminated terminated;
+    ContainerStateWaiting waiting;
+};
+
+struct PodIP {
+    std::string ip;
+};
+
+struct ContainerStatus {
+    std::string containerID;
+    std::string image;
+    std::string imageID;
+    std::string name;
+    bool ready = false;
+    size_t restartCount = 0;
+    bool started = false;
+    ContainerState state;
+    std::string hostIP;
+    std::vector<ContainerStatus> initContainerStatuses;
+    std::string message;
+    std::string nominatedNodeName;
+    std::string phase;
+    std::string podIP;
+    std::vector<PodIP> podIPs;
+    std::string qosClass;
+    std::string reason;
+    std::string startTime;
+};
+
+struct PodStatus {
+    std::vector<PodCondition> conditions;
+    std::vector<ContainerStatus> containerStatuses;
+};
+
+struct Pod {
+    std::string apiVersion = "v1";
+    std::string kind = "Pod";
+    ObjectMeta metadata;
+    PodSpec spec;
+    PodStatus status;
+};
+
+struct PodList {
+    std::string apiVersion = "v1";
+    std::string kind = "PodList";
+    std::vector<Pod> pods;
+    ListMeta metadata;
+};
+
 } // ns
 
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::Selector,
@@ -1037,6 +1112,14 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::EnvVar,
     (std::optional<k8deployer::k8api::EnvVarSource>, valueFrom)
 );
 
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::OwnerReference,
+    (std::string, apiVersion)
+    (bool, blockOwnerDeletion)
+    (bool, controller)
+    (std::string, kind)
+    (std::string, uid)
+);
+
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::ObjectMeta,
     (std::string, name)
     (std::string, namespace_)
@@ -1046,7 +1129,7 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::ObjectMeta,
     (k8deployer::k8api::string_list_t, finalizers)
     (std::string, generateName)
     (int, generation)
-    (k8deployer::k8api::owner_references_t, ownerReferences)
+    (std::vector<k8deployer::k8api::OwnerReference>, ownerReferences)
     (std::string, selfLink)
     (std::string, uid)
 );
@@ -1917,4 +2000,81 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::ServiceAccount,
     (std::optional<bool>, automountServiceAccountToken)
     (std::vector<k8deployer::k8api::LocalObjectReference>, imagePullSecrets)
     (std::vector<k8deployer::k8api::ObjectReference>, secrets)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::PodCondition,
+    (std::string, lastProbeTime)
+    (std::string, lastTransitionTime)
+    (std::string, message)
+    (std::string, status)
+    (std::string, type)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::ContainerStateRunning,
+    (std::string, startedAt)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::ContainerStateTerminated,
+    (std::string, containerID)
+    (std::optional<int>, exitCode)
+    (std::string, finishedAt)
+    (std::string, reason)
+    (std::optional<int>, signal)
+    (std::string, startedAt)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::ContainerStateWaiting,
+    (std::string, message)
+    (std::string, reason)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::ContainerState,
+    (k8deployer::k8api::ContainerStateRunning, running)
+    (k8deployer::k8api::ContainerStateTerminated, terminated)
+    (k8deployer::k8api::ContainerStateWaiting, waiting)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::PodIP,
+    (std::string, ip)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::ContainerStatus,
+    (std::string, containerID)
+    (std::string, image)
+    (std::string, imageID)
+    (std::string, name)
+    (bool, ready)
+    (size_t, restartCount)
+    (bool, started)
+    (k8deployer::k8api::ContainerState, state)
+    (std::string, hostIP)
+    (std::vector<k8deployer::k8api::ContainerStatus>, initContainerStatuses)
+    (std::string, message)
+    (std::string, nominatedNodeName)
+    (std::string, phase)
+    (std::string, podIP)
+    (std::vector<k8deployer::k8api::PodIP>, podIPs)
+    (std::string, qosClass)
+    (std::string, reason)
+    (std::string, startTime)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::PodStatus,
+    (std::vector<k8deployer::k8api::PodCondition>, conditions)
+    (std::vector<k8deployer::k8api::ContainerStatus>, containerStatuses)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::Pod,
+    (std::string, apiVersion)
+    (std::string, kind)
+    (k8deployer::k8api::ObjectMeta, metadata)
+    (k8deployer::k8api::PodSpec, spec)
+    (k8deployer::k8api::PodStatus, status)
+);
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::PodList,
+    (std::string, apiVersion)
+    (std::string, kind)
+    (std::vector<k8deployer::k8api::Pod>, pods)
+    (k8deployer::k8api::ListMeta, metadata)
 );

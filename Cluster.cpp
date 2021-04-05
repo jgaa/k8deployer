@@ -6,6 +6,8 @@
 #include <sstream>
 #include <filesystem>
 #include <future>
+#include <string_view>
+#include <cstdlib>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
@@ -24,7 +26,18 @@ struct EventStream {
     std::string type;
     k8api::Event object;
 };
+
+struct PodStream {
+    std::string type;
+    k8api::Pod object;
+};
+
 } // ns
+
+BOOST_FUSION_ADAPT_STRUCT(k8deployer::PodStream,
+    (std::string, type)
+    (k8deployer::k8api::Pod, object)
+    );
 
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::StorageDef,
     (k8deployer::k8api::VolumeMount, volume)
@@ -75,6 +88,8 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::EventStream,
                           (std::string, type)
                           (k8deployer::k8api::Event, object)
                           );
+
+
 
 using namespace std;
 using namespace string_literals;
@@ -203,6 +218,9 @@ std::future<void> Cluster::prepare()
 
 std::future<void> Cluster::execute()
 {
+    if (Engine::mode() == Engine::Mode::DEPLOY && !Engine::config().logDir.empty()) {
+        listenForContainers();
+    }
     if (executeCmd_) {
         setState(State::EXECUTING);
         LOG_INFO << name () << " " << verb_ << " ...";
@@ -212,6 +230,19 @@ std::future<void> Cluster::execute()
 
     setState(State::DONE);
     return dummyReturnFuture();
+}
+
+std::future<void> Cluster::pendingWork()
+{
+    client_->GetIoService().post([this] {
+        if (openLogs_.empty()) {
+            pendingWork_.set_value();
+        } else {
+            setState(State::LOGGING);
+        }
+    });
+
+    return pendingWork_.get_future();
 }
 
 bool Cluster::addStateListener(const std::string& componentName,
@@ -241,6 +272,70 @@ Component *Cluster::getComponent(const string &name)
     }
 
     return {};
+}
+
+void Cluster::listenForContainers()
+{
+    assert(client_);
+    client_->Process([this](restc_cpp::Context& ctx) {
+        const auto url = url_ + "/api/v1/namespaces/"
+            + *getVar("namespace")
+            + "/pods";
+
+        auto prop = make_shared<Request::Properties>();
+        prop->recvTimeout = (60 * 60 * 24) * 1000;
+
+        auto reply = RequestBuilder(ctx)
+                .Get(url)
+                .Properties(prop)
+                .Argument("watch", "true")
+                .Argument("labelSelector", "k8dep-deployment="s
+                          + rootComponent_->name)
+                .Header("X-Client", "k8deployer")
+                .Execute();
+
+        serialize_properties_t sp;
+        sp.name_mapping = jsonFieldMappings();
+
+        try {
+            IteratorFromJsonSerializer<PodStream> pods{*reply, &sp, true};
+            for(const auto& pod : pods) {
+                LOG_TRACE << name_ << " Container: " << pod.type << " " << pod.object.metadata.name;
+
+                // See if we should start logging for the container
+                for(const auto& c: pod.object.status.containerStatuses) {
+                    auto& prevState = knownContainers_[c.containerID];
+                    if (prevState.name.empty()) {
+                        // New container. Delete any existing log file?
+                        prepareLogging(pod.object, c);
+                    }
+
+                    if (c.started != prevState.started) {
+                        if (c.started) {
+                            startLogging(pod.object, c);
+                        } else {
+                            stopLogging(pod.object, c);
+                        }
+                    }
+
+                    prevState = c;
+                }
+
+                if (state() > State::EXECUTING) {
+                    LOG_DEBUG << name_ << " State is > EXECUTING. Exciting container watch loop.";
+                    break;
+                }
+            }
+        } catch (const exception& ex) {
+            LOG_ERROR << "Caught exception from event-loop: " << ex.what();
+
+            // If we get an exception before we are shutting down, it's an error
+            // TODO: Try to recover if we are in PROCESSING state
+            if (state() < State::ERROR) {
+                setState(State::ERROR);
+            }
+        }
+    });
 }
 
 void Cluster::loadKubeconfig()
@@ -435,6 +530,105 @@ void Cluster::parseArgs(const std::string& args)
     name_ = variables_["name"];
 
     LOG_TRACE << "Cluster " << name() << " has variables: " << getVars();
+}
+
+void Cluster::prepareLogging(const k8api::Pod &pod, const k8api::ContainerStatus &container)
+{
+    auto path = logPath(pod, container);
+    if (path.empty()) {
+        return;
+    }
+
+    if (!filesystem::is_directory(path.parent_path())) {
+        LOG_INFO << name() << " Creating log directory: " << path.parent_path().string();
+        filesystem::create_directories(path.parent_path());
+    } else if (filesystem::is_regular_file(path)) {
+        LOG_DEBUG << name() << " Truncating log-file: " << path.string();
+        filesystem::resize_file(path, 0);
+    }
+}
+
+void Cluster::startLogging(const k8api::Pod &pod, const k8api::ContainerStatus &container)
+{
+    assert(client_);
+    client_->Process([this, pod, container](restc_cpp::Context& ctx) {
+        // TODO: How do we signal to stop logging?
+
+        const auto path = logPath(pod, container);
+        ofstream out{path, ::ios_base::app};
+        if (!out.is_open()) {
+            LOG_WARN << "Failed to open log-file: " << path.string();
+        }
+
+        LOG_INFO << name() << " Opening log: " << path.string();
+
+        if (!Engine::config().logViewer.empty()) {
+            const auto cmd = Engine::config().logViewer + " " + path.string() + " &";
+            LOG_TRACE << name() << " Executing: " << cmd;
+            system(cmd.c_str());
+        }
+
+        const auto url = url_ + "/api/v1/namespaces/"
+            + *getVar("namespace")
+            + "/pods/" + pod.metadata.name + "/log";
+
+        auto prop = make_shared<Request::Properties>();
+        prop->recvTimeout = (60 * 60 * 24) * 1000;
+
+        openLogs_[container.containerID] = path.string();
+
+        auto reply = RequestBuilder(ctx)
+                .Get(url)
+                .Properties(prop)
+                .Argument("follow", "true")
+                .Header("X-Client", "k8deployer")
+                .Execute();
+
+        while (true) {
+            const auto& b = reply->GetSomeData();
+
+            if (b.size() == 0) {
+                LOG_TRACE << name() << " End of log-file: " << path.string();
+                break;
+            }
+
+            const string_view s{static_cast<const char *>(b.data()), b.size()};
+            out << s;
+        }
+
+        openLogs_.erase(container.containerID);
+        if (openLogs_.empty()) {
+            pendingWork_.set_value();
+            if (state() == State::LOGGING) {
+                setState(State::DONE);
+            }
+        }
+
+      });
+}
+
+void Cluster::stopLogging(const k8api::Pod &pod, const k8api::ContainerStatus &container)
+{
+    LOG_WARN << name() << " Ignoring stop log on: " << logPath(pod, container);
+}
+
+filesystem::path Cluster::logPath(const k8api::Pod &pod, const k8api::ContainerStatus &container)
+{
+    if (Engine::config().logDir.empty()) {
+        return {};
+    }
+
+    filesystem::path p = Engine::config().logDir;
+    p /= pod.metadata.namespace_;
+    p /= pod.metadata.name;
+
+    if (pod.spec.containers.size() > 1) {
+        p += "_" + container.name;
+    }
+
+    p += ".log";
+
+    return p;
 }
 
 std::pair<string, string> Cluster::split(const string &str, char ch) const

@@ -24,6 +24,7 @@ public:
         INIT,
         EXECUTING,
         SHUTDOWN,
+        LOGGING,
         DONE,
         ERROR
     };
@@ -42,11 +43,6 @@ public:
         return *client_;
     }
 
-    //void startProxy();
-//    bool waitForProxyToStart() {
-//        return portFwd_->waitForStarted();
-//    }
-
     std::string getVars() const;
     void setState(State state) {
         state_ = state;
@@ -63,6 +59,7 @@ public:
 
     std::future<void> prepare();
     std::future<void> execute();
+    std::future<void> pendingWork();
 
     bool isExecuting() const noexcept {
         return state_ == State::EXECUTING;
@@ -105,6 +102,8 @@ public:
         return dns_.get();
     }
 
+    void listenForContainers();
+
 private:
     using action_fn_t = std::function<std::future<void>()>;
     void loadKubeconfig();
@@ -113,6 +112,10 @@ private:
     void createComponents();
     void setCmds();
     void parseArgs(const std::string& args);
+    void prepareLogging(const k8api::Pod& pod, const k8api::ContainerStatus& container);
+    void startLogging(const k8api::Pod& pod, const k8api::ContainerStatus& container);
+    void stopLogging(const k8api::Pod& pod, const k8api::ContainerStatus& container);
+    std::filesystem::path logPath(const k8api::Pod& pod, const k8api::ContainerStatus& container);
     std::pair<std::string, std::string> split(const std::string& str, char ch) const;
 
     State state_{State::INIT};
@@ -142,6 +145,9 @@ private:
     std::map<std::string, Component *> components_;
     std::mutex mutex_;
     std::unique_ptr<DnsProvisioner> dns_;
+    std::map<std::string /* container id */, k8api::ContainerStatus /* previous known state*/> knownContainers_;
+    std::map<std::string /* container id */, std::string /* path */> openLogs_;
+    std::promise<void> pendingWork_;
 };
 
 

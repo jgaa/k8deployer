@@ -73,6 +73,15 @@ void Engine::run()
         f.get();
     }
 
+    for(auto& cluster : clusters_) {
+        futures.push_back(cluster->pendingWork());
+    }
+
+    for(auto& f : futures) {
+        // TODO: Catch exceptions and deal with errors, potentially, try to roll back
+        f.get();
+    }
+
     LOG_INFO << "Done. Shutting down background threads and async IO.";
     for(auto& cluster : clusters_) {
         try {

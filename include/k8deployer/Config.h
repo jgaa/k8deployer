@@ -29,6 +29,8 @@ struct Config {
   bool useLoadBalancerIp = false;
   std::string dnsServerConfig;
   bool useFirstPartOfKubeConfigAsClusterName = true; // Us thye part before the first dot
+  std::string logDir;
+  std::string logViewer;
 };
 
 } // ns

@@ -546,6 +546,10 @@ protected:
     void addDependency(Component& component);
     static void prepareTasks(tasks_t& tasks, bool reverseDependencies);
 
+    /*! Return the App component that owns this component
+     */
+    ptr_t getAppComponent();
+
     State state_{State::PRE}; // From our logic
     std::string k8state_; // From the event-loop
     std::weak_ptr<Component> parent_;

@@ -41,9 +41,7 @@ void DeploymentComponent::buildDependencies()
     assert(getPodTemplate());
     k8api::PodSpec *podspec = &getPodTemplate()->spec;
 
-    if (labels.empty()) {
-        labels["app"] = name; // Use the name as selector
-    }
+    labels.emplace("app", name); // Use the name as selector
 
     // Check for docker hub secrets
     if (auto dh = getArg("imagePullSecrets.fromDockerLogin")) {

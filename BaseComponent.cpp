@@ -23,11 +23,15 @@ void BaseComponent::basicPrepareDeploy()
 
         auto selector = getSelector();
 
-        meta->labels.try_emplace(selector.first, selector.second);
+        // Make sure we have a selector
+        meta->labels.emplace(selector);
+
+        // Copy all labels that is not already degined in the meta
+        for (const auto& label : labels) {
+            meta->labels.emplace(label);
+        }
 
         if (auto podTemplate = getPodTemplate()) {
-            podTemplate->metadata.labels.try_emplace(selector.first, selector.second);
-
             if (podTemplate->metadata.name.empty()) {
                 podTemplate->metadata.name = name;
             }
@@ -41,7 +45,10 @@ void BaseComponent::basicPrepareDeploy()
                 podTemplate->spec.serviceAccountName = *arg;
             }
 
-            podTemplate->metadata.labels.try_emplace(selector.first, selector.second);
+            // Copy all labels from meta that is not already degined in the pod
+            for (const auto& label : meta->labels) {
+                podTemplate->metadata.labels.emplace(label);
+            }
 
             k8api::Container container;
             container.name = name;
@@ -102,7 +109,7 @@ void BaseComponent::basicPrepareDeploy()
         }
 
         if (auto ls = getLabelSelector()) {
-            ls->matchLabels.try_emplace(selector.first, selector.second);
+            ls->matchLabels.emplace(selector);
         }
     }
 }
@@ -280,61 +287,5 @@ void BaseComponent::buildInitContainers()
         }
     }
 }
-
-//void BaseComponent::sendDelete(const string &url, std::weak_ptr<Component::Task> task,
-//                               bool ignoreErrors)
-//{
-//    Engine::client().Process([this, url, task, ignoreErrors](auto& ctx) {
-
-//        LOG_TRACE << logName() << "Sending DELETE " << url;
-
-//        try {
-//            auto reply = restc_cpp::RequestBuilder{ctx}.Delete(url)
-//               .Execute();
-
-//            LOG_DEBUG << logName()
-//                  << "Delete gave response: "
-//                  << reply->GetResponseCode() << ' '
-//                  << reply->GetHttpResponse().reason_phrase;
-
-//            // We don't get any event's related to deleting the deployment, so just update the states.
-//            if (auto taskInstance = task.lock()) {
-//                taskInstance->setState(Task::TaskState::DONE);
-//            }
-//            return;
-//        } catch(const restc_cpp::RequestFailedWithErrorException& err) {
-//            if (err.http_response.status_code == 404) {
-//                // Perfectly OK
-//                if (auto taskInstance = task.lock()) {
-//                    LOG_TRACE << logName()
-//                             << "Ignoring failed DELETE request: " << err.http_response.status_code
-//                             << ' ' << err.http_response.reason_phrase
-//                             << ": \"" << err.what()
-//                             << "\" for url: " << url;
-
-//                    taskInstance->setState(Task::TaskState::DONE);
-//                }
-//                return;
-//            }
-
-//            LOG_WARN << logName()
-//                     << "Request failed: " << err.http_response.status_code
-//                     << ' ' << err.http_response.reason_phrase
-//                     << ": " << err.what();
-
-//        } catch(const std::exception& ex) {
-//            LOG_WARN << logName()
-//                     << "Request failed: " << ex.what();
-//        }
-
-//        if (auto taskInstance = task.lock()) {
-//            taskInstance->setState(ignoreErrors ? Task::TaskState::DONE : Task::TaskState::FAILED);
-//        }
-
-//        if (!ignoreErrors) {
-//            setState(State::FAILED);
-//        }
-//    });
-//}
 
 }

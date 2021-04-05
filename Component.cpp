@@ -97,6 +97,13 @@ void Component::init()
 
     cluster_->add(this);
 
+    labels.emplace("k8dep-deployment", getRoot().name);
+    labels.emplace("k8dep-cluster", cluster_->name());
+
+    if (auto component = getAppComponent()) {
+        labels.emplace("k8dep-component", component->name);
+    }
+
     initChildren();
     validate();
 }
@@ -837,6 +844,17 @@ void Component::walkAndExecuteFn(const std::function<void (Component &)>& fn)
     for(auto& ch : children_) {
         ch->walkAndExecuteFn(fn);
       }
+}
+
+Component::ptr_t Component::getAppComponent()
+{
+    for(auto c = shared_from_this(); c; c = c->parent_.lock()) {
+        if (c->getKind() == Kind::APP) {
+            return c;
+        }
+    }
+
+    return {};
 }
 
 
