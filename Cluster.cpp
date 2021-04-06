@@ -619,6 +619,7 @@ filesystem::path Cluster::logPath(const k8api::Pod &pod, const k8api::ContainerS
     }
 
     filesystem::path p = Engine::config().logDir;
+    p /= name();
     p /= pod.metadata.namespace_;
     p /= pod.metadata.name;
 

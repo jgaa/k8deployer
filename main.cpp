@@ -99,9 +99,16 @@ int main(int argc, char* argv[]) {
             ("log-dir",
                  po::value<string>(&config.logDir)->default_value(config.logDir),
                  "If specified, log container logs to that directory as the containers are started")
+            ("wipe-log-dir",
+                 po::value<bool>(&config.wipeLogDir)->default_value(config.wipeLogDir),
+                 "Delete all files and subdirectories in the log-dir before logging starts.")
             ("log-viewer",
                  po::value<string>(&config.logViewer)->default_value(config.logViewer),
                  "If specified, call this command with the log-file patch each time a log-file is opened.")
+            ("web-browser,b",
+                 po::value<string>(&config.webBrowser)->default_value(config.webBrowser),
+                 "If specified, calls this command with the value of 'openInBrowser' "
+                 "when components with this argument are ready")
             ("kubeconfig,k",
                  po::value<decltype(config.kubeconfigs)>(&config.kubeconfigs),
                  "One or more kubeconfigs to clusters to deploy the definition. "

@@ -31,6 +31,8 @@ struct Config {
   bool useFirstPartOfKubeConfigAsClusterName = true; // Us thye part before the first dot
   std::string logDir;
   std::string logViewer;
+  bool wipeLogDir = false;
+  std::string webBrowser;
 };
 
 } // ns

@@ -46,7 +46,12 @@ void Engine::run()
         clusters_.emplace_back(make_unique<Cluster>(cfg_, k, clusters_.size()));
     }
 
-    //startPortForwardig();
+    if (cfg_.wipeLogDir && !cfg_.logDir.empty() && filesystem::is_directory(cfg_.logDir)) {
+        LOG_INFO << "Wiping log-dir: " << cfg_.logDir;
+        for (const auto& entry : std::filesystem::directory_iterator(cfg_.logDir)) {
+            std::filesystem::remove_all(entry.path());
+        }
+    }
 
     std::deque<future<void>> futures;
 
@@ -93,7 +98,7 @@ void Engine::run()
 
     for(auto& cluster : clusters_) {
         cluster->client().CloseWhenReady();
-      }
+    }
 }
 
 Engine &Engine::instance() noexcept

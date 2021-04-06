@@ -804,6 +804,16 @@ void Component::setState(Component::State state)
             executionPromise_->set_value();
             executionPromise_.reset();
         }
+
+        if (Engine::instance().mode() == Engine::Mode::DEPLOY) {
+            if (auto url = getArg("openInBrowser")) {
+                if (!Engine::config().webBrowser.empty()) {
+                    auto cmd = Engine::config().webBrowser + " " + *url + " &";
+                    LOG_DEBUG << logName() << "Executing: " << cmd;
+                    system(cmd.c_str());
+                }
+            }
+        }
     }
 
     if (state == State::FAILED) {
