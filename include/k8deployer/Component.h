@@ -47,8 +47,6 @@ std::string slurp (const std::string& path);
 
 Kind toKind(const std::string& kind);
 
-std::string toString(const Kind& kind);
-
 const restc_cpp::JsonFieldMapping *jsonFieldMappings();
 std::string expandVariables(const std::string& json, const variables_t& vars);
 std::string execFunction(const std::string& name, const std::string& arg);
@@ -126,10 +124,16 @@ public:
     enum class State {
         PRE,
         CREATING,
+        BLOCKED,
+        PRE_TIMER,
         RUNNING,
+        POST_TIMER,
         DONE, // No longer running in k8 because it's finished (task)
         FAILED
     };
+
+    static std::string toString(const State& state);
+    static std::string toString(const Kind& kind);
 
     enum class Mode {
         CREATE,
@@ -244,8 +248,6 @@ public:
             return component_;
         }
 
-        static const std::string& toString(const TaskState& state);
-
         void addDependency(const wptr_t& task);
 
         void addAllDependencies(std::set<Task *>& tasks);
@@ -271,6 +273,7 @@ public:
 
     using tasks_t = std::deque<Task::ptr_t>;
 
+    static std::string toString(const Task::TaskState& state);
 
     Component(const Component::ptr_t& parent, Cluster& cluster, const ComponentData& data);
 
@@ -282,6 +285,8 @@ public:
         BEFORE,
         AFTER
     };
+
+    static std::string toString(const ParentRelation& rel);
 
     Kind getKind() const noexcept {
         return kind_;
@@ -364,8 +369,12 @@ public:
     }
 
     void schedule(std::function<void ()> fn);
+    void schedule(std::function<void ()> fn, int afterSeconds);
 
     bool isBlockedOnDependency() const;
+    // May change state to failed
+    bool isBlockedFomStartingOnChild();
+    bool isBlockedOnChild();
     void scanDependencies();
 
     Component& getRoot();
@@ -430,6 +439,12 @@ protected:
     bool allTasksAreDone() const noexcept {
         return state_ >= State::DONE;
     }
+
+    /*! Basically setState(DONE), but takes timers into consideration */
+    void setIsDone();
+
+    /*! Basically setState(RUNNING), but takes timers into consideration */
+    void setCanRun();
 
     void setState(State state);
 
@@ -567,6 +582,9 @@ protected:
     std::optional<std::chrono::steady_clock::time_point> startTime;
     std::optional<double> elapsed = {};
     std::mutex mutex_;
+    std::optional<bool> delayBeforeTimerExceuted_;
+    std::optional<bool> delayAfterTimerExceuted_;
+    std::optional<bool> delaySequenceTimerExceuted_;
 };
 
 } // ns

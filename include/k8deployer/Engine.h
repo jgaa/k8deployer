@@ -46,11 +46,10 @@ public:
 private:
     void startPortForwardig();
 
-    //std::unique_ptr<restc_cpp::RestClient> client_;
-    std::vector<std::unique_ptr<Cluster>> clusters_;
     const Config cfg_;
     static Engine *instance_;
     Mode mode_ = Mode::DEPLOY;
+    std::vector<std::unique_ptr<Cluster>> clusters_;
 };
 
 } // ns

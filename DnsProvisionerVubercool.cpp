@@ -80,7 +80,7 @@ void DnsProvisionerVubercool::provisionHostname(const std::string &hostname,
 
 void DnsProvisionerVubercool::deleteHostname(const string &hostname, const cb_t& onDone)
 {
-    this->client_->ProcessWithPromise([this, hostname, onDone](Context& ctx) {
+    client_->Process([this, hostname, onDone](Context& ctx) {
         auto url = "https://"s + config_.host + "/zone/" + hostname;
 
         for(size_t i = 0; i < config_.retries; ++i) {

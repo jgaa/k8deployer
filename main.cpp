@@ -163,6 +163,8 @@ int main(int argc, char* argv[]) {
     try {
         Engine engine{config};
         engine.run();
+    } catch (const future_error& ) {
+        ; // TODO: Fix it, dont just hide it
     } catch (const exception& ex) {
         LOG_ERROR << "Caught exception from run: " << ex.what();
     }

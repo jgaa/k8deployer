@@ -596,6 +596,8 @@ void Cluster::startLogging(const k8api::Pod &pod, const k8api::ContainerStatus &
             out << s;
         }
 
+        LOG_INFO << name() << " Closing log: " << path.string();
+
         openLogs_.erase(container.containerID);
         if (openLogs_.empty()) {
             pendingWork_.set_value();
@@ -609,7 +611,7 @@ void Cluster::startLogging(const k8api::Pod &pod, const k8api::ContainerStatus &
 
 void Cluster::stopLogging(const k8api::Pod &pod, const k8api::ContainerStatus &container)
 {
-    LOG_WARN << name() << " Ignoring stop log on: " << logPath(pod, container);
+    LOG_DEBUG << name() << " Ignoring stop log on: " << logPath(pod, container);
 }
 
 filesystem::path Cluster::logPath(const k8api::Pod &pod, const k8api::ContainerStatus &container)

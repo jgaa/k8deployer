@@ -82,6 +82,10 @@ void Engine::run()
         futures.push_back(cluster->pendingWork());
     }
 
+    if (!futures.empty()) {
+        LOG_INFO << "Continuing with pending work for now...";
+    }
+
     for(auto& f : futures) {
         // TODO: Catch exceptions and deal with errors, potentially, try to roll back
         f.get();

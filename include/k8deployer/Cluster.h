@@ -122,10 +122,12 @@ private:
     std::string url_;
     std::string name_;
     vars_t variables_;
-    std::shared_ptr<restc_cpp::RestClient> client_;
+    std::unique_ptr<DnsProvisioner> dns_;
+    std::promise<void> pendingWork_;
+    std::map<std::string, Component *> components_;
+    std::shared_ptr<Component> rootComponent_;
     std::string kubeconfig_; // Empty for default (no arguments)
     const Config& cfg_;
-    std::shared_ptr<Component> rootComponent_;
 
     action_fn_t executeCmd_;
     action_fn_t prepareCmd_;
@@ -142,12 +144,10 @@ private:
     std::shared_future<void> definitions_ready_{definitions_ready_pr_.get_future()};
     std::shared_future<void> basic_components_ready_{basic_components_pr_.get_future()};
     std::shared_future<void> prepared_ready_{prepared_ready_pr_.get_future()};
-    std::map<std::string, Component *> components_;
     std::mutex mutex_;
-    std::unique_ptr<DnsProvisioner> dns_;
     std::map<std::string /* container id */, k8api::ContainerStatus /* previous known state*/> knownContainers_;
     std::map<std::string /* container id */, std::string /* path */> openLogs_;
-    std::promise<void> pendingWork_;
+    std::shared_ptr<restc_cpp::RestClient> client_;
 };
 
 

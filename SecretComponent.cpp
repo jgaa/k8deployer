@@ -159,7 +159,7 @@ void SecretComponent::doDeploy(std::weak_ptr<Component::Task> task)
             }
 
             if (state_ == State::RUNNING) {
-                setState(State::DONE);
+                setIsDone();
             }
 
             return;

@@ -1,6 +1,7 @@
 
 #include <map>
 #include <algorithm>
+#include <queue>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/process.hpp>
@@ -57,6 +58,64 @@ const map<string, Kind> kinds = {{"App", Kind::APP},
                                  {"ServiceAccount", Kind::SERVICEACCOUNT},
                                  {"HttpRequest", Kind::HTTP_REQUEST}
                                 };
+
+static map<string, queue<function<void()>>> channels_;
+static mutex chMutex_;
+
+/* The channel is a sequencer, ensuring that only one
+ * function is exeuted at one time, that all functions
+ * are executed in the order they arrive, and
+ * that no new function is executed until removeFromChannel
+ * is called, to remove the last executed function.
+ */
+static void addToChannel(const std::string& cn, function<void()> fn) {
+
+    {
+       lock_guard<mutex> lock{chMutex_};
+
+       if (channels_[cn].empty()) {
+           // Nothing pending, just take the first slot and execute the methods
+           channels_[cn].push({});
+       } else {
+           channels_[cn].push(move(fn));
+           return;
+       }
+    }
+
+    if (fn) {
+        try {
+           fn();
+        } catch (const exception& ex) {
+            LOG_ERROR << "addToChannel " << cn << " Caught exception from fn: " << ex.what();
+            return;
+        }
+    }
+}
+
+// Assumes that objects always are removed in the right order
+static void removeFromChannel(const std::string& cn) {
+    function<void()> fn;
+
+    {
+       lock_guard<mutex> lock{chMutex_};
+       channels_[cn].pop();
+
+       if (!channels_[cn].empty()) {
+          fn = move(channels_[cn].front());
+       }
+    }
+
+
+    if (fn) {
+        try {
+           fn();
+        } catch (const exception& ex) {
+            LOG_ERROR << "removeFromChannel " << cn << " Caught exception from fn: " << ex.what();
+            return;
+        }
+    }
+}
+
 } // anonymous ns
 
 // https://stackoverflow.com/questions/18816126/c-read-the-whole-file-in-buffer
@@ -73,7 +132,7 @@ Kind toKind(const string &kind)
     return kinds.at(kind);
 }
 
-string toString(const Kind &kind)
+string Component::toString(const Kind &kind)
 {
     for(const auto& [k, v] : kinds) {
         if (kind == v) {
@@ -133,10 +192,31 @@ std::string Base64Encode(const std::string &in) {
     return out;
 }
 
+string Component::toString(const Component::State &state)
+{
+    static const std::array<string, 8> names = {"PRE",
+                                                "CREATING",
+                                                "BLOCKED",
+                                                "PRE_TIMER",
+                                                "RUNNING",
+                                                "POST_TIMER",
+                                                "DONE",
+                                                "FAILED"};
+
+    return names.at(static_cast<size_t>(state));
+}
+
 Component::Component(const Component::ptr_t &parent, Cluster &cluster, const ComponentData &data)
     : ComponentData(data), parent_{parent}, cluster_{&cluster},
       mode_{Engine::mode() == Engine::Mode::DELETE ? Mode::REMOVE : Mode::CREATE}
 {
+}
+
+string Component::toString(const Component::ParentRelation &rel)
+{
+    static const std::array<string, 3> names = {"INDEPENDENT", "BEFORE", "AFTER"};
+
+    return names.at(static_cast<size_t>(rel));
 }
 
 string Component::logName() const noexcept
@@ -433,9 +513,6 @@ std::future<void> Component::dumpDependencies()
 
 std::future<void> Component::remove()
 {
-//    tasks_ = make_unique<tasks_t>();
-//    addRemovementTasks(*tasks_);
-//    prepareTasks(*tasks_, true);
     return execute();
 }
 
@@ -496,11 +573,36 @@ void Component::schedule(std::function<void ()> fn)
                 fn();
                } catch(const std::exception& ex) {
                    LOG_ERROR << self->logName()
-                             <<  "Caught exception from schedule: " << ex.what();
+                             <<  "Caught exception from Component::schedule: " << ex.what();
                }
            }
        }
-    });
+      });
+}
+
+void Component::schedule(std::function<void ()> fn, int afterSeconds)
+{
+  assert(fn);
+  auto timer = make_shared<boost::asio::deadline_timer>(cluster().client().GetIoService());
+  timer->expires_from_now(boost::posix_time::seconds(afterSeconds));
+  auto w = weak_from_this();
+  auto started = time({});
+  timer->async_wait([timer, w=weak_from_this(), fn=std::move(fn), started](auto ec) {
+      const auto elapsed = time({}) - started;
+      if (auto self = w.lock()) {
+          if (ec) {
+              LOG_WARN << "Component::schedule::timer " << "Error: " << ec.message();
+              return;
+          }
+
+          try {
+              fn();
+          } catch(const std::exception& ex) {
+              LOG_ERROR << self->logName()
+                        <<  "Caught exception from Component::schedule::timer: " << ex.what();
+          }
+      }
+  });
 }
 
 bool Component::isBlockedOnDependency() const
@@ -509,7 +611,7 @@ bool Component::isBlockedOnDependency() const
         for(const auto& wcomp : dependsOn_) {
             if (auto comp = wcomp.lock()) {
                 if (comp->state_ < State::DONE) {
-                    LOG_TRACE << logName() << " is still blocked on " << comp->logName();
+                    LOG_TRACE << logName() << "isBlockedOnDependency: is still blocked on " << comp->logName();
                     return true;
                 }
             }
@@ -517,9 +619,51 @@ bool Component::isBlockedOnDependency() const
 
         for(const auto& ccomp : clusterDependencies_) {
             if (ccomp->state < State::DONE) {
-                LOG_TRACE << logName() << " is still blocked on " << ccomp->name;
+                LOG_TRACE << logName() << "isBlockedOnDependency: is still blocked on " << ccomp->name;
                 return true;
             }
+        }
+    }
+
+    return false;
+}
+
+bool Component::isBlockedFomStartingOnChild()
+{
+    for(const auto& child: children_) {
+        if (child->parentRelation() != ParentRelation::BEFORE) {
+            continue;
+        }
+
+        if (child->state_ < State::DONE) {
+            LOG_TRACE << logName()
+                      << "isBlockedFomStartingOnChild: I am still blocked on child that must complete before I start: "
+                      << child->logName();
+
+            return true;
+        }
+    }
+
+    return false;
+
+}
+
+bool Component::isBlockedOnChild()
+{
+    for(const auto& child: children_) {
+        if (child->state_ != State::DONE) {
+            if (child->state_ > State::DONE) {
+                LOG_DEBUG << logName() << "isBlockedOnChild: Failed because of " << child->logName();
+                setState(State::FAILED);
+                return false;
+            }
+
+            LOG_TRACE << logName()
+                      << "isBlockedOnChild: I am still blocked on "
+                      << child->logName()
+                      << " with perent relation " << toString(child->parentRelation());
+
+            return true;
         }
     }
 
@@ -634,6 +778,14 @@ void Component::evaluate()
 {
     State newState = State::CREATING;
 
+    if (isBlockedOnDependency() || isBlockedFomStartingOnChild()) {
+        LOG_TRACE << logName() << "Component::evaluate: Is blocked on dependency or child.";
+        if (state_ <= State::BLOCKED) {
+            setState(State::BLOCKED);
+        }
+        return;
+    }
+
     if (auto& t = getRoot().tasks_) {
         bool allDone = true;
         size_t numTasks = 0;
@@ -646,7 +798,7 @@ void Component::evaluate()
 
             ++numTasks;
 
-            if (task->state() >= Task::TaskState::BLOCKED && state_ == State::CREATING) {
+            if (task->state() >= Task::TaskState::BLOCKED && state_ <= State::BLOCKED) {
                 newState = State::RUNNING;
             }
 
@@ -654,7 +806,7 @@ void Component::evaluate()
                 allDone = false;
                 LOG_TRACE << logName() << "Blocked on task "
                           << task->component().logName() << task->name()
-                          << " in state " << static_cast<size_t>(task->state());
+                          << " in state " << toString(task->state());
             }
 
             if (task->state() > Task::TaskState::DONE) {
@@ -667,35 +819,26 @@ void Component::evaluate()
         }
 
         if (allDone) {
-            bool blockedOnChild = false;
-            for(const auto& child: children_) {
-                if (child->state_ != State::DONE) {
-                    if (child->state_ > State::DONE) {
-                        LOG_DEBUG << logName() << "Failed because of " << child->logName();
-                        setState(State::FAILED);
-                        return;
-                    }
-
-                    LOG_TRACE << logName()
-                              << "My tasks are all done, but I am still blocked on "
-                              << child->logName();
-
-                    blockedOnChild = true;
-                }
-            }
-
             if (isBlockedOnDependency()) {
+                LOG_TRACE << logName() << "Component::evaluate: All tasks are done, but I'm still blocked on delared dependency.";
                 return;
             }
 
-            if (!blockedOnChild) {
-                setState(State::DONE);
+            if (!isBlockedOnChild()) {
+                if (state_ < State::DONE && (state_ != State::PRE_TIMER && state_ != State::POST_TIMER)) {
+                    setIsDone();
+                }
                 return;
+                LOG_TRACE << logName() << "Component::evaluate: All tasks are done, but I'm still blocked on child dependency.";
             }
         }
 
         if (numTasks && newState > state_) {
-            setState(newState);
+            if (newState == State::RUNNING) {
+                setCanRun();
+            } else {
+                setState(newState);
+            }
         }
     }
 }
@@ -790,11 +933,104 @@ void Component::runTasks() {
 
 }
 
+void Component::setIsDone()
+{
+    LOG_TRACE << logName() << "Component::setIsDone: Called. Current state is " << toString(state_);
+
+    if (state_ >= State::DONE || !cluster().isExecuting()) {
+        LOG_TRACE << logName() << "Component::setIsDone: Skipping as state is already " << toString(state_);
+        return;
+    }
+
+    if (Engine::instance().mode() == Engine::Mode::DEPLOY) {
+        // Deal with "delay.after" timer
+        if (delayAfterTimerExceuted_ && !*delayAfterTimerExceuted_) {
+            // Wait for the timer to finish
+            LOG_TRACE << logName() << "Component::setIsDone: Waiting for 'delay.after' timer to finish";
+            return;
+        }
+
+        if (auto seconds = getIntArg("delay.after", 0); seconds && !delayAfterTimerExceuted_) {
+            delayAfterTimerExceuted_ = false;
+            setState(State::POST_TIMER);
+            LOG_DEBUG << logName() << "Setting " << seconds << " seconds 'delay.after' timer.";
+            schedule([this] {
+                delayAfterTimerExceuted_ = true;
+                LOG_DEBUG << logName() << "Timer 'delay.after' is done.";
+                setIsDone();
+            }, seconds);
+            return;
+        }
+    }
+
+    setState(State::DONE);
+}
+
+void Component::setCanRun()
+{
+    if (state_ >= State::DONE || !cluster().isExecuting()) {
+        return;
+    }
+
+    if (Engine::instance().mode() == Engine::Mode::DEPLOY) {
+        // Deal with "delay.before" timer
+        if (delayBeforeTimerExceuted_ && !*delayBeforeTimerExceuted_) {
+            // Wait for the timer to finish
+            LOG_TRACE << logName() << "Component::setIsDone: Waiting for 'delay.before' timer to finish";
+            return;
+        }
+
+        if (auto seconds = getIntArg("delay.before", 0); seconds && !delayBeforeTimerExceuted_) {
+            setState(State::PRE_TIMER);
+            LOG_DEBUG << logName() << "Setting " << seconds << " seconds 'delay.before' timer.";
+            delayBeforeTimerExceuted_ = false;
+            schedule([this] {
+                delayBeforeTimerExceuted_ = true;
+                LOG_DEBUG << logName() << "Timer 'delay.before' is done.";
+                setCanRun();
+            }, seconds);
+
+            return;
+        }
+
+        // Deal with "delay.sequence" timer
+        if (delaySequenceTimerExceuted_ && !delaySequenceTimerExceuted_) {
+            // Wait for the sequencer and it's timer to finish
+            LOG_TRACE << logName() << "Component::setIsDone: Waiting for 'delay.sequence' timer to finish";
+            return;
+        }
+
+        if (auto seconds = getIntArg("delay.sequence", 0); seconds && !delaySequenceTimerExceuted_) {
+            delaySequenceTimerExceuted_ = false;
+            setState(State::POST_TIMER);
+            LOG_DEBUG << logName() << "Setting " << seconds << " seconds 'delay.sequence' timer.";
+            addToChannel(name, [w=weak_from_this(), seconds] {
+                if (auto self = w.lock()) {
+                    self->schedule([w] {
+                        if (auto self = w.lock()) {
+                          LOG_DEBUG << self->logName() << "Timer 'delay.sequence' is done.";
+                          self->delayAfterTimerExceuted_ = true;
+                          self->setCanRun();
+                          removeFromChannel(self->name);
+                        }
+                    }, seconds);
+                }
+            });
+
+            return;
+        }
+    }
+
+    setState(State::RUNNING);
+}
+
 void Component::setState(Component::State state)
 {
     if (state == state_) {
         return;
     }
+
+    LOG_TRACE << logName() << "Changing state from " << toString(state_) << " to " << toString(state);
 
     if (state == State::DONE) {
         calculateElapsed();
@@ -819,11 +1055,15 @@ void Component::setState(Component::State state)
     if (state == State::FAILED) {
         calculateElapsed();
         LOG_WARN << logName() << "Failed after " << std::fixed << std::setprecision(5) << (elapsed ? *elapsed : 0.0) << " seconds";
+        if (auto parent = parent_.lock()) {
+            parent->evaluate();
+            scheduleRunTasks();
+        }
     }
 
     state_ = state;
 
-    if (state_ >= State::RUNNING) {
+    if (state_ >= State::RUNNING && (state_ != State::PRE_TIMER && state_ != State::POST_TIMER)) {
         if (auto parent = parent_.lock()) {
             parent->evaluate();
             scheduleRunTasks();
@@ -883,7 +1123,7 @@ string execFunction(const string &name, const string &arg)
 
 void Component::addDeploymentTasks(Component::tasks_t& tasks)
 {
-    setState(State::RUNNING);
+    //setState(State::RUNNING);
     for(auto& child : children_) {
         child->addDeploymentTasks(tasks);
     }
@@ -891,7 +1131,7 @@ void Component::addDeploymentTasks(Component::tasks_t& tasks)
 
 void Component::addRemovementTasks(Component::tasks_t &tasks)
 {
-    setState(State::RUNNING);
+    //setState(State::RUNNING);
     for(auto& child : children_) {
         child->addRemovementTasks(tasks);
     }
@@ -1223,10 +1463,11 @@ bool Component::Task::evaluate()
     }
 
     if (state_ == TaskState::BLOCKED) {
-        // If any components our component depends on are not done, we are still blocked
+        // If any components our component depends on are not done, or the component is blocked, we are still blocked
         if (mode() == Mode::CREATE) {
             component().evaluate();
-            if (component().isBlockedOnDependency()) {
+            if ((component().getState() == Component::State::BLOCKED)
+                || component().isBlockedOnDependency()) {
                 return changed;
             }
         }
@@ -1325,7 +1566,7 @@ void Component::Task::schedulePoll()
     });
 }
 
-const string &Component::Task::toString(const Component::Task::TaskState &state) {
+string Component::toString(const Component::Task::TaskState &state) {
     static const array<string, 9> names = { "PRE",
                                             "BLOCKED",
                                             "READY",
