@@ -9,8 +9,8 @@ RUN apt-get -q update &&\
     apt-get -y -q --no-install-recommends upgrade &&\
     apt-get -y -q install openssh-server git \
     automake autoconf build-essential apt-utils \
-    software-properties-common \
-    zlib1g-dev cmake make libboost-all-dev libssl-dev \
+    software-properties-common curl \
+    zlib1g-dev cmake make libssl-dev \
     openjdk-8-jdk &&\
     add-apt-repository -y ppa:ubuntu-toolchain-r/test &&\
     apt-get -q update &&\
@@ -18,7 +18,9 @@ RUN apt-get -q update &&\
     apt-get -y -q autoremove &&\
     apt-get -y -q clean &&\
     update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++-9 50 &&\
-    update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-9 50
+    update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-9 50 &&\
+    mkdir -p /tmp/boost && curl -sL https://dl.bintray.com/boostorg/release/1.75.0/source/boost_1_75_0.tar.bz2 | tar -xjC /tmp/boost --strip-components 1 &&\
+    cd /tmp/boost && ./bootstrap.sh && ./b2 toolset=gcc-9 install && cd && rm -rf /tmp/boost
 
 # Set user jenkins to the image
 RUN useradd -m -d /home/jenkins -s /bin/sh jenkins &&\
