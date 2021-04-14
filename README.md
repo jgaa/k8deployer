@@ -1,107 +1,44 @@
 # k8deployer
 For now, an experimental kubernetes deployer in C++
 
-## Requiremeents
+The idea behind this project is to make a kubernetes app deployer for lazy developers. Lazy developers don't want to learn everything about kubernetes, we just want to deploy and test our application. Lazy developers don't want to repeat the same lame declarations in a zillion different sections in some yaml file. So it's kind of *Helm*, but more mature and able to do most of the behind the scenes stuff without detailed guidance.
+
+K8deplyer can deploy complex applications like Arangodb, without the need of operators. It can deploy or swap out single components in a complex app, for example to change a StatefulSet to a Deployment with Telepresence, making it simple to debug components locally on the developers laptop, while the component appears to the rest of the components as running in the kubernetes cluster.
+
+## Requirements
 - Simple deployment of k8 applications
 - Minimum configuration. Let the deployer fill inn all the forms, using best practice patterns.
-- Deploy to one or more k8 clusters in parallell
+- Deploy to one or more k8 clusters in parallel
 - Support the most common k8 providers, so that a deployment can be deployed on any of them without changing the app configuration
+- Allow filtering and alternative components (to avoid commenting in and out blocks of declarations in the app yaml file)
+- Live stream logs from started containers to the local machine
 - Allow single deployments to clusters in different environments (AWS, DO, Linode, Azure, BareMetal)
 - Optional: Deal with public dns configuration, certificates, external load balancers
 - Optional: Deal with proxying from the LoadBalancer / NodePort to the individual services
 - Optional: Deal with RBAC
 
-## Todo for initial beta
+## Building
 
-- [ ] Deployment
-    - [x] Create
-        - [x] Environment variables from args (key=value,...)
-        - [ ] Environment variables from ConfigMap
-        - [ ] Environment variables from Secrets
-        - [ ] Apply Resource limits
-    - [x] Delete
-    - [ ] Update
-    - [ ] Verify
+K8deployer is written in C++ and built with cmake.
 
-- [ ] Service
-    - [x] Create
-    - [x] Delete
-    - [ ] Update
-    - [ ] Verify
+It depends on these packages (Debian and Ubuntu):
+```
+  git build-essential zlib1g-dev cmake make libboost-all-dev libssl-dev g++
+```
 
-- [ ] Configmap
-    - [ ] Create from configuration
-    - [x] create from file
-    - [x] Delete
-    - [ ] Update
-    - [ ] Verify
+To build:
+```sh
+git clone https://github.com/jgaa/k8deployer.git
+cd k8deployer
+mkdir build
+cd build
+cmake ..
+make -j `nproc`
 
-- [ ] Secrets
-    - [x] Docker repositoiry secrets
-        - [x] Use in podspec
-        - [x] Read from docker's config file
-    - [x] TLS secret (read crt/key from pem files)
-    - [ ] Optimize secrets, so we only have one object per actual secret
-    - [x] Change protocol to https:// (directly to cluster) in order to create secrets
-    - [ ] Generate passwords and store them in secrets during deployment
-        - [ ] Glue to environment variables 
+```
 
-- [ ] StatefulSet
-    - [x] Create
-        - [x] Deal with storage
-            - [x] Local
-            - [x] Network
-                - [x] nfs
-        - [ ] Apply Resource limits
-    - [x] Delete
-        - [x] Deal with storage
-        - [ ] Optionally, delete the data (if possible)
-    - [ ] Update
-    - [ ] Verify
-    
-- [x] Ingress
-    - [x] Hosts
-    - [x] Paths
-    - [x] TLS / Certs
+### Build status
+- **Debian Buster (10)**: OK
+- **Ubuntu Focal (20.4 LTS)**: OK
+- **Ubuntu Bionic (18.04 LTS)**: Require compiler upgrade to gcc 9. You must make g++-9 default before building.
 
-- [ ] DaemonSet
-    - [ ] Create
-        - [ ] Apply Resource limits
-    - [ ] Delete
-    - [ ] Update
-    - [ ] Verify
-
-- [ ] Namespaces
-    - [ ] Create
-    - [ ] Delete
-
-- [ ] Storage reservation pools / automatoc VolumeMounts
-    - [x] Support NFS, manual and automatically
-    - [x] Support single node local storage
-    - [x] Support automatic claim providers (tested with minikube)
-    - [ ] Support AWS
-    - [ ] Support GCP
-    - [ ] Support Azure
-    - [ ] Support GlusterFS
-    - [ ] Support DigitalOcean (?)
-    - [ ] Support Single Node bare metal
-
-- [x] Event-driven work-flow.
-    - [x] Relate events to components.
-    - [x] Update component state from events
-    - [x] Trigger next action(s) from state changes
-
-- [ ] RBAC
-    - [ ] Create roles
-    - [ ] Refer components to roles
-
-- [ ] Error handling
-    - [ ] Fail fast on errors, stop deployments and try to roll back
-    - [ ] Abort on connectivity issues for now
-    - [ ] For undeploy, add option to ignore errors and try to continue.
-
-## Bugs / limitations
-- [x] App need to exit when the execution is complete
-- [x] Add readyness probe for pods
-- [x] Add alive probe for pods
-- [x] deployment.spec.affinity.nodeAffinity must be std::optional (needs support in the json serializor)
