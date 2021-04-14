@@ -51,7 +51,7 @@ pipeline {
                         sh 'pwd; ls -la'
                         sh 'rm -rf build'
                         sh 'mkdir build'
-                        sh 'cd build && cmake -DCMAKE_BUILD_TYPE=Release .. && make -j $(nproc)'
+                        sh 'cd build && CC=/usr/bin/gcc-9 CXX=/usr/bin/g++-9 cmake -DCMAKE_BUILD_TYPE=Release .. && make -j $(nproc)'
 
 //                         echo 'Getting ready to run tests'
 //                         script {
