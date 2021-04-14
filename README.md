@@ -40,5 +40,5 @@ make -j `nproc`
 ### Build status
 - **Debian Buster (10)**: OK
 - **Ubuntu Focal (20.4 LTS)**: OK
-- **Ubuntu Bionic (18.04 LTS)**: Require compiler upgrade to gcc 9, and a newer boost library. You must make g++-9 default before building. Tested OK with g++-9 and libboost 1.75. 
+- **Ubuntu Bionic (18.04 LTS)**: Require compiler upgrade to gcc 9, and a newer boost library. You must make g++-9 default before building. Tested OK with g++-9 and libboost 1.75. [More details](doc/ubuntu-bionic.md)
 
