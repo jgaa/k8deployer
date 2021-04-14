@@ -12,6 +12,7 @@ if(NOT DEFINED USE_BOOST_VERSION)
     set(USE_BOOST_VERSION 1.65)
 endif()
 
+find_package(Threads)
 find_package(ZLIB REQUIRED)
 find_package(OpenSSL REQUIRED)
 find_package(Boost ${USE_BOOST_VERSION} REQUIRED COMPONENTS
@@ -22,7 +23,6 @@ find_package(Boost ${USE_BOOST_VERSION} REQUIRED COMPONENTS
     coroutine
     chrono
     filesystem
-
     )
 
 include(cmake/external-projects.cmake)
@@ -103,7 +103,7 @@ else()
     set(RESTC_CPP_LIB restc-cpp)
 endif()
 
-target_include_directories(${PROJECT_NAME} PRIVATE ${ExprtkIncludeDir})
+target_include_directories(${PROJECT_NAME} PRIVATE ${ExprtkIncludeDir} ${Boost_INCLUDE_DIRS})
 
 target_link_libraries(${PROJECT_NAME}
     ${RESTC_CPP_LIB}
@@ -111,6 +111,7 @@ target_link_libraries(${PROJECT_NAME}
     ${ZLIB_LIBRARIES}
     ${OPENSSL_LIBRARIES}
     stdc++fs
+    ${CMAKE_THREAD_LIBS_INIT}
     )
 
 add_definitions(
