@@ -6,7 +6,7 @@ This version is really old, and it is time to upgrade. But if you prefer to wait
 
 You need to upgrade g++ and build and install a newer version of the boost library.
 
-```
+```sh
 # Install required packages and boost
 
 apt-get -q update &&\
@@ -36,7 +36,7 @@ make -j `nproc`
 
 ## When you use C++ and can't install a new boost dev library
 
-```
+```sh
 apt-get -q update &&\
     apt-get -y -q --no-install-recommends upgrade &&\
     apt-get -y -q install git \
