@@ -14,7 +14,7 @@ RUN apt-get -q update &&\
     openjdk-8-jdk &&\
     add-apt-repository -y ppa:ubuntu-toolchain-r/test &&\
     apt-get -q update &&\
-    apt-get -y -q install gcc-9 g++-9 &&\
+    apt-get -y -q install gcc-10 g++-10 &&\
     apt-get -y -q autoremove &&\
     apt-get -y -q clean
 

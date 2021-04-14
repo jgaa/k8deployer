@@ -16,8 +16,8 @@ pipeline {
                     }
                     
                     environment {
-                        CC  = '/usr/bin/gcc-9'
-                        CXX = '/usr/bin/g++-9'
+                        CC  = '/usr/bin/gcc-10'
+                        CXX = '/usr/bin/g++-10'
                     }
 
                     steps {
@@ -27,16 +27,6 @@ pipeline {
                         sh 'rm -rf build'
                         sh 'mkdir build'
                         sh 'cd build && cmake -DCMAKE_BUILD_TYPE=Release .. && make -j $(nproc)'
-
-//                         echo 'Getting ready to run tests'
-//                         script {
-//                             try {
-//                                 sh 'cd build && ctest --no-compress-output -T Test'
-//                             } catch (exc) {
-//                                 echo 'Testing failed'
-//                                 currentBuild.result = 'UNSTABLE'
-//                             }
-//                         }
                     }
                 }
 
@@ -57,19 +47,30 @@ pipeline {
                         sh 'rm -rf build'
                         sh 'mkdir build'
                         sh 'cd build && cmake -DCMAKE_BUILD_TYPE=Release .. && make -j $(nproc)'
-
-//                         echo 'Getting ready to run tests'
-//                         script {
-//                             try {
-//                                 sh 'cd build && ctest --no-compress-output -T Test'
-//                             } catch (exc) {
-//                                 echo 'Testing failed'
-//                                 currentBuild.result = 'UNSTABLE'
-//                             }
-//                         }
                     }
                 }
 
+                
+                stage('Ubuntu Focal') {
+                    agent {
+                        dockerfile {
+                            filename 'Dockefile.ubuntu-focal'
+                            dir 'ci/jenkins'
+                            label 'docker'
+                        }
+                    }
+
+                    steps {
+                        echo "Building on ubuntu-focal-AMD64 in ${WORKSPACE}"
+                        checkout scm
+                        sh 'pwd; ls -la'
+                        sh 'rm -rf build'
+                        sh 'mkdir build'
+                        sh 'cd build && cmake -DCMAKE_BUILD_TYPE=Release .. && make -j $(nproc)'
+                    }
+                }
+                
+                
 //                 stage('Debian Testing') {
 //                     agent {
 //                         dockerfile {
