@@ -40,5 +40,5 @@ make -j `nproc`
 ### Build status
 - **Debian Buster (10)**: OK
 - **Ubuntu Focal (20.4 LTS)**: OK
-- **Ubuntu Bionic (18.04 LTS)**: Require compiler upgrade to gcc 9. You must make g++-9 default before building.
+- **Ubuntu Bionic (18.04 LTS)**: Broken
 
