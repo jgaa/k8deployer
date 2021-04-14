@@ -588,12 +588,13 @@ void Cluster::startLogging(const k8api::Pod &pod, const k8api::ContainerStatus &
         while (true) {
             const auto& b = reply->GetSomeData();
 
-            if (b.size() == 0) {
+            if (boost::asio::buffer_size(b) == 0) {
                 LOG_TRACE << name() << " End of log-file: " << path.string();
                 break;
             }
 
-            const string_view s{static_cast<const char *>(b.data()), b.size()};
+            const string_view s{boost::asio::buffer_cast<const char*>(b),
+                        boost::asio::buffer_size(b)};
             out << s;
         }
 
