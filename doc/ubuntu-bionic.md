@@ -51,6 +51,9 @@ apt-get -q update &&\
     mkdir -p /opt/boost_1_75 && curl -sL https://dl.bintray.com/boostorg/release/1.75.0/source/boost_1_75_0.tar.bz2 | tar -xjC /opt/boost_1_75 --strip-components 1 &&\
     cd /opt/boost_1_75 && ./bootstrap.sh && ./b2 toolset=gcc-9 stage
 
+# You need a newer cmake than the one shipped with Ubuntu 18.4 to build k8deployer with boost from an alternative location.
+# This build the latest cmake
+# You must remove Ubuntus cmake with `--purge` option if it is installed.
 cd && git clone --depth 1 https://github.com/Kitware/CMake.git && cd CMake && ./bootstrap && ./configure && make -j `nproc` && make install
 
 cd && git clone https://github.com/jgaa/k8deployer.git &&\
