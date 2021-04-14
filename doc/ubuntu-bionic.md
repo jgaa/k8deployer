@@ -9,7 +9,7 @@ You need to upgrade g++ and build and install a newer version of the boost libra
 ```
 # Install required packages and boost
 
-aapt-get -q update &&\
+apt-get -q update &&\
     apt-get -y -q --no-install-recommends upgrade &&\
     apt-get -y -q install git \
     build-essential apt-utils \
