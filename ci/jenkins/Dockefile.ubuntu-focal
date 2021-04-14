@@ -2,14 +2,14 @@ FROM ubuntu:focal
 
 MAINTAINER Jarle Aase <jgaa@jgaa.com>
 
-RUN apt -q update &&\
-    apt -y -q --no-install-recommends upgrade &&\
-    apt -y -q --no-install-recommends install \
+RUN DEBIAN_FRONTEND="noninteractive" apt -q update &&\
+    DEBIAN_FRONTEND="noninteractive" apt -y -q --no-install-recommends upgrade &&\
+    DEBIAN_FRONTEND="noninteractive" apt -y -q --no-install-recommends install \
       openssh-server git  build-essential \
       cmake make libboost-all-dev \
       libssl-dev zlib1g-dev default-jdk &&\
-    apt-get -y -q autoremove &&\
-    apt-get -y -q clean
+    DEBIAN_FRONTEND="noninteractive" apt-get -y -q autoremove &&\
+    DEBIAN_FRONTEND="noninteractive" apt-get -y -q clean
 
 # Set user jenkins to the image
 RUN useradd -m -d /home/jenkins -s /bin/sh jenkins &&\
