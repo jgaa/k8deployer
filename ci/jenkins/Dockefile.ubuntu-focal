@@ -1,0 +1,22 @@
+FROM ubuntu:bionic
+
+MAINTAINER Jarle Aase <jgaa@jgaa.com>
+
+RUN apt -q update &&\
+    apt -y -q --no-install-recommends upgrade &&\
+    apt -y -q --no-install-recommends install \
+      openssh-server git  build-essential \
+      cmake make libboost-all-dev \
+      libssl-dev zlib1g-dev default-jdk &&\
+    apt-get -y -q autoremove &&\
+    apt-get -y -q clean
+
+# Set user jenkins to the image
+RUN useradd -m -d /home/jenkins -s /bin/sh jenkins &&\
+    echo "jenkins:jenkins" | chpasswd
+
+# Standard SSH port
+EXPOSE 22
+
+# Default command
+CMD ["/usr/sbin/sshd", "-D"]
