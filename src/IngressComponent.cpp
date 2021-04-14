@@ -1,4 +1,4 @@
-#include "include/k8deployer/IngressComponent.h"
+#include "k8deployer/IngressComponent.h"
 
 #include "restc-cpp/RequestBuilder.h"
 

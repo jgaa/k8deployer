@@ -1,7 +1,5 @@
-#include "include/k8deployer/StatefulSetComponent.h"
-
+#include "k8deployer/StatefulSetComponent.h"
 #include "restc-cpp/RequestBuilder.h"
-
 #include "k8deployer/logging.h"
 #include "k8deployer/StatefulSetComponent.h"
 #include "k8deployer/Cluster.h"

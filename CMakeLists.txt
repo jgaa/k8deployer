@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project (k8deployer VERSION 0.0.15 LANGUAGES CXX)
+project (k8deployer VERSION 0.0.16 LANGUAGES CXX)
 
 option(BOOST_ERROR_CODE_HEADER_ONLY "Work-around for another boost issue" ON)
 if (BOOST_ERROR_CODE_HEADER_ONLY)
@@ -21,43 +21,14 @@ find_package(Boost ${USE_BOOST_VERSION} REQUIRED COMPONENTS
     context
     coroutine
     chrono
-    log
+    filesystem
+
     )
 
 include(cmake/external-projects.cmake)
 include_directories(${CMAKE_SOURCE_DIR}/include)
 
 add_executable(${PROJECT_NAME}
-    #PortForward.cpp
-    #include/k8deployer/PortForward.h
-    AppComponent.cpp
-    BaseComponent.cpp
-    Cluster.cpp
-    ClusterRoleBindingComponent.cpp
-    ClusterRoleComponent.cpp
-    Component.cpp
-    ConfigMapComponent.cpp
-    DaemonSetComponent.cpp
-    DeploymentComponent.cpp
-    DnsProvisioner.cpp
-    DnsProvisionerVubercool.cpp
-    Engine.cpp
-    HostPathStorage.cpp
-    HttpRequestComponent.cpp
-    IngressComponent.cpp
-    JobComponent.cpp
-    Kubeconfig.cpp
-    NamespaceComponent.cpp
-    NfsStorage.cpp
-    PersistentVolumeComponent.cpp
-    RoleBindingComponent.cpp
-    RoleComponent.cpp
-    SecretComponent.cpp
-    ServiceAccountComponent.cpp
-    ServiceComponent.cpp
-    StatefulSetComponent.cpp
-    Storage.cpp
-    exprtk_fn.cpp
     include/k8deployer/AppComponent.h
     include/k8deployer/BaseComponent.h
     include/k8deployer/Cluster.h
@@ -92,7 +63,35 @@ add_executable(${PROJECT_NAME}
     include/k8deployer/k8/k8api.h
     include/k8deployer/logging.h
     include/k8deployer/probe.h
-    main.cpp
+    src/AppComponent.cpp
+    src/BaseComponent.cpp
+    src/Cluster.cpp
+    src/ClusterRoleBindingComponent.cpp
+    src/ClusterRoleComponent.cpp
+    src/Component.cpp
+    src/ConfigMapComponent.cpp
+    src/DaemonSetComponent.cpp
+    src/DeploymentComponent.cpp
+    src/DnsProvisioner.cpp
+    src/DnsProvisionerVubercool.cpp
+    src/Engine.cpp
+    src/HostPathStorage.cpp
+    src/HttpRequestComponent.cpp
+    src/IngressComponent.cpp
+    src/JobComponent.cpp
+    src/Kubeconfig.cpp
+    src/NamespaceComponent.cpp
+    src/NfsStorage.cpp
+    src/PersistentVolumeComponent.cpp
+    src/RoleBindingComponent.cpp
+    src/RoleComponent.cpp
+    src/SecretComponent.cpp
+    src/ServiceAccountComponent.cpp
+    src/ServiceComponent.cpp
+    src/StatefulSetComponent.cpp
+    src/Storage.cpp
+    src/exprtk_fn.cpp
+    src/main.cpp
     )
 
 add_dependencies(${PROJECT_NAME} externalRestcCpp externalLogfault externalExprtk)

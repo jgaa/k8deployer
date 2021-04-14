@@ -1,7 +1,7 @@
 
 #include <regex>
 
-#include "include/k8deployer/HttpRequestComponent.h"
+#include "k8deployer/HttpRequestComponent.h"
 
 #include "restc-cpp/RequestBuilder.h"
 #include "k8deployer/logging.h"

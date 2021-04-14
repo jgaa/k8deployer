@@ -7,7 +7,7 @@
 #include "restc-cpp/SerializeJson.h"
 
 #include "k8deployer/logging.h"
-#include "include/k8deployer/Engine.h"
+#include "k8deployer/Engine.h"
 #include "k8deployer/Component.h"
 
 using namespace std;
