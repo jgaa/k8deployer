@@ -14,11 +14,6 @@ pipeline {
                             label 'docker'
                         }
                     }
-                    
-                    environment {
-                        CC  = '/usr/bin/gcc-10'
-                        CXX = '/usr/bin/g++-10'
-                    }
 
                     steps {
                         echo "Building on ubuntu-bionic-AMD64 in ${WORKSPACE}"
