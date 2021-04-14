@@ -179,6 +179,7 @@ std::future<void> Cluster::prepare()
 
     setState(State::INIT);
     LOG_INFO << name () << " Preparing ...";
+
     loadKubeconfig();
 
     auto pr = make_shared<promise<void>>();

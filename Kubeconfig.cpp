@@ -138,6 +138,10 @@ unique_ptr<Kubeconfig> Kubeconfig::load(const string &kubefile)
     properties.name_mapping = &mappings;
     restc_cpp::SerializeFromJson(*kc, ifs, properties);
 
+    if (kc->clusters.empty()) {
+        throw runtime_error{"No clusters in kubeconfig: "s + path.string()};
+    }
+
     // Deal with contexts
     bool gotCurrentContext = kc->current_context.empty();
     if (!gotCurrentContext) {
