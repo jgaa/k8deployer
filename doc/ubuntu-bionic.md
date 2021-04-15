@@ -28,7 +28,7 @@ apt-get -q update &&\
 cd && git clone https://github.com/jgaa/k8deployer.git &&\
 mkdir -p k8deployer/build &&\
 cd k8deployer/build &&\
-cmake -DBOOST_ROOT=/opt/boost_1_75 .. &&\
+cmake .. &&\
 make -j `nproc`
 ./k8deployer -h
 
