@@ -760,6 +760,14 @@ void Component::scanDependencies()
 
 }
 
+bool Component::hasBlockedState() const noexcept
+{
+    return state_ == State::BLOCKED
+            || state_ == State::PRE_TIMER
+            || state_ == State::POST_TIMER;
+
+}
+
 Component &Component::getRoot()
 {
     auto root = this;
@@ -1002,7 +1010,7 @@ void Component::setCanRun()
 
         if (auto seconds = getIntArg("delay.sequence", 0); seconds && !delaySequenceTimerExceuted_) {
             delaySequenceTimerExceuted_ = false;
-            setState(State::POST_TIMER);
+            setState(State::PRE_TIMER);
             LOG_DEBUG << logName() << "Setting " << seconds << " seconds 'delay.sequence' timer.";
             addToChannel(name, [w=weak_from_this(), seconds] {
                 if (auto self = w.lock()) {
@@ -1066,8 +1074,8 @@ void Component::setState(Component::State state)
     if (state_ >= State::RUNNING && (state_ != State::PRE_TIMER && state_ != State::POST_TIMER)) {
         if (auto parent = parent_.lock()) {
             parent->evaluate();
-            scheduleRunTasks();
         }
+        scheduleRunTasks();
     }
 
     // Call state listeners
@@ -1432,7 +1440,7 @@ const Component *Component::parentPtr() const
     return {};
 }
 
-void Component::Task::setState(Component::Task::TaskState state, bool scheduleRunTasks)
+bool Component::Task::setState(Component::Task::TaskState state, bool scheduleRunTasks)
 {
     LOG_TRACE << component().logName() << " Task " << name() << " change state from "
               << toString(state_) << " to " << toString(state);
@@ -1451,6 +1459,8 @@ void Component::Task::setState(Component::Task::TaskState state, bool scheduleRu
     if (changed && scheduleRunTasks) {
         component().scheduleRunTasks();
     }
+
+    return changed;
 }
 
 bool Component::Task::evaluate()
@@ -1462,12 +1472,16 @@ bool Component::Task::evaluate()
         state_ = TaskState::BLOCKED;
     }
 
+    if (state_ <= TaskState::READY
+            && (component().hasBlockedState() || component().isBlockedOnDependency())) {
+        return setState(TaskState::BLOCKED);
+    }
+
     if (state_ == TaskState::BLOCKED) {
         // If any components our component depends on are not done, or the component is blocked, we are still blocked
         if (mode() == Mode::CREATE) {
             component().evaluate();
-            if ((component().getState() == Component::State::BLOCKED)
-                || component().isBlockedOnDependency()) {
+            if (component().hasBlockedState() || component().isBlockedOnDependency()) {
                 return changed;
             }
         }

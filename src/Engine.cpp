@@ -82,7 +82,12 @@ void Engine::run()
         futures.push_back(cluster->pendingWork());
     }
 
-    if (!futures.empty()) {
+    bool pendingWork = false;
+    for(auto& f : futures) {
+       pendingWork |= f.wait_for(0ms) == future_status::ready;
+    }
+
+    if (pendingWork) {
         LOG_INFO << "Continuing with pending work for now...";
     }
 

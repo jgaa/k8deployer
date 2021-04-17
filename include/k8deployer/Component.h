@@ -211,7 +211,7 @@ public:
             return state_ >= TaskState::DONE;
         }
 
-        void setState(TaskState state, bool scheduleRunTasks = true);
+        bool setState(TaskState state, bool scheduleRunTasks = true);
 
         /*! Update the state depending on current state and dependicies.
          *
@@ -376,6 +376,9 @@ public:
     bool isBlockedFomStartingOnChild();
     bool isBlockedOnChild();
     void scanDependencies();
+
+    // The state is on wait for timer or blocked
+    bool hasBlockedState() const noexcept;
 
     Component& getRoot();
 
