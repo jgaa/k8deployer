@@ -556,7 +556,6 @@ void Component::scheduleRunTasks()
         return;
     }
 
-    evaluate();
     schedule([wself = getRoot().weak_from_this()] {
        if (auto self = wself.lock()) {
            self->runTasks();
