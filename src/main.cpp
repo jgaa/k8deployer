@@ -25,6 +25,7 @@ int main(int argc, char* argv[]) {
 
         namespace po = boost::program_options;
         po::options_description general("Options");
+        po::positional_options_description positionalDescription;
 
         general.add_options()
             ("help,h", "Print help and exit")
@@ -108,16 +109,20 @@ int main(int argc, char* argv[]) {
             ("web-browser,b",
                  po::value<string>(&config.webBrowser)->default_value(config.webBrowser),
                  "If specified, calls this command with the value of 'openInBrowser' "
-                 "when components with this argument are ready")
-            ("kubeconfig,k",
-                 po::value<decltype(config.kubeconfigs)>(&config.kubeconfigs),
-                 "One or more kubeconfigs to clusters to deploy the definition. "
-                 "Optional syntax: kubefile:var=value,var=value...");
+                 "when components with this argument are ready");
+
+        po::options_description hidden("Clusters");
+        hidden.add_options()("kubeconfig,k",
+                             po::value<decltype(config.kubeconfigs)>(&config.kubeconfigs),
+                             "One or more kubeconfigs to clusters to deploy the definition. "
+                             "Optional syntax: kubefile:var=value,var=value...");
 
         po::options_description cmdline_options;
-        cmdline_options.add(general);
+        po::positional_options_description kfo;
+        cmdline_options.add(general).add(hidden);
+        kfo.add("kubeconfig", -1);
         po::variables_map vm;
-        po::store(po::command_line_parser(argc, argv).options(cmdline_options).run(), vm);
+        po::store(po::command_line_parser(argc, argv).options(cmdline_options).positional(kfo).run(), vm);
         po::notify(vm);
         if (vm.count("help")) {
             std::cout << filesystem::path(argv[0]).stem().string() << " [options]";
