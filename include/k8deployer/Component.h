@@ -383,7 +383,7 @@ public:
     Component& getRoot();
 
     // Update state, based on the childrens states
-    void evaluate();
+    bool evaluate();
 
     virtual std::string getNamespace() const;
 

@@ -782,8 +782,9 @@ Component &Component::getRoot()
     return *root;
 }
 
-void Component::evaluate()
+bool Component::evaluate()
 {
+    const auto oldState = state_;
     State newState = State::CREATING;
 
     if (isBlockedOnDependency() || isBlockedFomStartingOnChild()) {
@@ -791,7 +792,7 @@ void Component::evaluate()
         if (state_ <= State::BLOCKED) {
             setState(State::BLOCKED);
         }
-        return;
+        return oldState != state_;
     }
 
     if (auto& t = getRoot().tasks_) {
@@ -829,14 +830,14 @@ void Component::evaluate()
         if (allDone) {
             if (isBlockedOnDependency()) {
                 LOG_TRACE << logName() << "Component::evaluate: All tasks are done, but I'm still blocked on delared dependency.";
-                return;
+                return oldState != state_;
             }
 
             if (!isBlockedOnChild()) {
                 if (state_ < State::DONE && (state_ != State::PRE_TIMER && state_ != State::POST_TIMER)) {
                     setIsDone();
                 }
-                return;
+                return oldState != state_;
                 LOG_TRACE << logName() << "Component::evaluate: All tasks are done, but I'm still blocked on child dependency.";
             }
         }
@@ -849,6 +850,8 @@ void Component::evaluate()
             }
         }
     }
+
+    return oldState != state_;
 }
 
 string Component::getNamespace() const
@@ -910,8 +913,15 @@ void Component::runTasks() {
 
     // Re-run the loop as long as any task changes it's state
     while(cluster_->isExecuting() && ! isDone()) {
-        LOG_TRACE << logName() << "runTasks: Iterating over tasks";
-        bool again = false;
+        LOG_TRACE << logName() << "runTasks: Iterating over Components";
+
+        bool componentChanged = false;
+        forAllComponents([&](Component& c){
+            componentChanged |= c.evaluate();
+        });
+
+        LOG_TRACE << logName() << "runTasks: Iterating over tasks. componentChanged=" << componentChanged;
+        bool again = componentChanged;
         bool allDone = true;
         assert(tasks_);
         for(auto task : *tasks_) {
