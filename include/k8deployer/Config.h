@@ -33,6 +33,7 @@ struct Config {
   std::string logViewer;
   bool wipeLogDir = false;
   std::string webBrowser;
+  std::string pvcStorageClassName;
 };
 
 } // ns

@@ -436,6 +436,16 @@ void Cluster::readDefinitions()
         variables_ = move(vars);
     }
 
+    // Handle clusterIp tf the user provided a list via "clusterIps" variable.
+    if (auto it = variables_.find("clusterIps"); it != variables_.end() && !it->second.empty()) {
+        vector<string> ips;
+        boost::split(ips, it->second, boost::is_any_of("/"));
+        if (!ips.empty()) {
+            // Assign the "clusterIp" to the first IP in the list
+            variables_.insert({"clusterIp", ips.front()});
+        }
+    }
+
     variables_.insert({"namespace",
                        Engine::config().useClusterNameAsNamespace ? name() : Engine::config().ns});
     variables_.insert({"clusterIp", ipFromUrl(url_)});

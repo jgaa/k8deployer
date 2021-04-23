@@ -59,6 +59,10 @@ int main(int argc, char* argv[]) {
             ("storage,s",
                  po::value<string>(&config.storageEngine)->default_value(config.storageEngine),
                  "Storage engine for managed volumes")
+            ("pvc-storage-class-name",
+                 po::value<string>(&config.pvcStorageClassName)->default_value(config.pvcStorageClassName),
+                 "storageClassName to use in Persistent Storage Volume Claims."
+                 "For example `local-storage` for sig 'Local Persistence Volume Static Provisioner' pre-provisioned volumes.")
             ("randomize-paths,r",
                  po::value<bool>(&config.randomizePaths)->default_value(config.randomizePaths),
                  "Add a uuid to provisioned paths (nfs) to always depoloy on a 'fresh' volume.")

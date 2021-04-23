@@ -1,3 +1,5 @@
+
+#include <boost/algorithm/string.hpp>
 #include "k8deployer/IngressComponent.h"
 
 #include "restc-cpp/RequestBuilder.h"
@@ -11,6 +13,19 @@
 using namespace std;
 using namespace string_literals;
 using namespace restc_cpp;
+
+ostream& operator << (ostream& o, const vector<string>& v) {
+    o << '[';
+    auto cnt = 0;
+    for(const auto& i: v) {
+        if (++cnt > 1) {
+            o << ", ";
+        }
+        o << i;
+    }
+
+    return o << ']';
+}
 
 namespace k8deployer {
 
@@ -188,19 +203,27 @@ void IngressComponent::addDeploymentTasks(Component::tasks_t &tasks)
                if (auto dns = cluster_->getDns()) {
                   for(const auto& rule : ingress.spec->rules) {
                       if (!rule.host.empty()) {
-                          auto ip = loadBalancerIp_;
-                          if (ip.empty()) {
-                              if (auto var = cluster_->getVar("clusterIp")) {
-                                  ip = *var;
+                          vector<string> ips;
+                          if (!loadBalancerIp_.empty()) {
+                              ips.emplace_back(loadBalancerIp_);
+                          }
+                          if (ips.empty()) {
+                              if (auto var = cluster_->getVar("clusterIps")) {
+                                  boost::split(ips, *var, boost::is_any_of("/"));
                               }
                           }
-                          if (ip.empty()) {
+                          if (ips.empty()) {
+                              if (auto var = cluster_->getVar("clusterIp")) {
+                                  ips.emplace_back(*var);
+                              }
+                          }
+                          if (ips.empty()) {
                             LOG_WARN << logName() << "Don't know IP for hostname " << rule.host
                                      << ". Cannot provision entry in DNS server";
                           } else try {
                               LOG_DEBUG << logName() << "Provisioning dns entry for "
-                                        << rule.host << " to IP " << ip;
-                              dns->provisionHostname(rule.host, {ip}, {},
+                                        << rule.host << " to " << ips;
+                              dns->provisionHostname(rule.host, ips, {},
                                                      [w = task.weak_from_this()](bool success) {
                                   if (auto task = w.lock()) {
                                       task->setState(success

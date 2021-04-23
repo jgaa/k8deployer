@@ -146,7 +146,8 @@ void StatefulSetComponent::buildDependencies()
         pv.metadata.namespace_ = getNamespace();
         pv.metadata.name = storageDef.volume.name;
         pv.spec.accessModes = {"ReadWriteOnce"};
-        pv.spec.resources = k8api::ResourceRequirements{};
+        pv.spec.storageClassName = Engine::config().pvcStorageClassName;
+        pv.spec.resources.emplace();
         pv.spec.resources->requests["storage"] = storageDef.capacity;
 
 
