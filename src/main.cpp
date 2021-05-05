@@ -94,6 +94,9 @@ int main(int argc, char* argv[]) {
                  po::value<decltype(config.removeEnvVars)>(&config.removeEnvVars),
                  "Remove environment-variable declaration with this name"
                  "Used to filter out envvars for certain deployments.")
+            ("ignore-resource-limits",
+                 po::value<bool>(&config.ignoreResourceLimits)->default_value(config.ignoreResourceLimits),
+                 "Do not set resource limits in the container, even if they are declared in the definitions.")
             ("variant,V",
                  po::value<decltype(config.variants)>(&config.variants),
                  "Variant override: componentNameRegEx=variant. This argument can be repeated. "

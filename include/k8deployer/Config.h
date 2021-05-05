@@ -34,6 +34,7 @@ struct Config {
   bool wipeLogDir = false;
   std::string webBrowser;
   std::string pvcStorageClassName;
+  bool ignoreResourceLimits = false;
 };
 
 } // ns

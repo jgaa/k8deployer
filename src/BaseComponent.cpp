@@ -78,6 +78,42 @@ void BaseComponent::basicPrepareDeploy()
             container.livenessProbe = livenessProbe;
             container.readinessProbe = readinessProbe;
 
+            auto resources = [&container]() -> k8api::ResourceRequirements& {
+                if (!container.resources) {
+                    container.resources.emplace();
+                }
+                return *container.resources;
+            };
+
+            if (!Engine::config().ignoreResourceLimits) {
+                // TODO: Add `resources.limits.hugepages-*`
+                // https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+
+                if (auto v = getArg("pod.limits.memory"); v && !v->empty()) {
+                    resources().limits["memory"] = *v;
+                } else if (auto v = getArg("pod.memory"); v && !v->empty()) {
+                    resources().limits["memory"] = *v;
+                }
+
+                if (auto v = getArg("pod.limits.cpu"); v && !v->empty()) {
+                    resources().limits["cpu"] = *v;
+                } else if (auto v = getArg("pod.cpu"); v && !v->empty()) {
+                    resources().limits["cpu"] = *v;
+                }
+
+                if (auto v = getArg("pod.requests.memory"); v && !v->empty()) {
+                    resources().requests["memory"] = *v;
+                } else if (auto v = getArg("pod.memory"); v && !v->empty()) {
+                    resources().requests["memory"] = *v;
+                }
+
+                if (auto v = getArg("pod.requests.cpu"); v && !v->empty()) {
+                    resources().requests["cpu"] = *v;
+                } else if (auto v = getArg("pod.cpu"); v && !v->empty()) {
+                    resources().requests["cpu"] = *v;
+                }
+            }
+
             if (auto dhcred = getArg("imagePullSecrets")) {
                 // Use existing secret
                 if (!dhcred->empty()) {
