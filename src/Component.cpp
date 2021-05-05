@@ -1132,6 +1132,11 @@ string execFunction(const string &name, const string &arg)
         // Return a boolean result from the expression
         auto result = exprtkDouble(arg);
         return static_cast<int>(result) ? "true" : "false";
+    } else if (name == "intexpr") {
+        auto result = exprtkDouble(arg);
+        return to_string(static_cast<int>(result));
+    } else if (name == "expr") {
+          return to_string(exprtkDouble(arg));
     } else {
         LOG_ERROR << "Unknown function name: " << name;
         throw runtime_error{"Unknown function"};
@@ -1905,6 +1910,7 @@ string expandVariables(const string &json, const variables_t &vars)
     string functionName;
     string functionArg;
     int pharantheses = 0;
+    int braces = 0;
     optional<string> defaultValue;
     for(auto ch : json) {
 again:
@@ -1953,16 +1959,21 @@ again:
             if (ch == ',') {
                 defaultValue.emplace();
                 state = State::SCAN_DEFAUT_VALUE;
+                braces = 1;
                 break;
             }
 commit:
             if (ch == '}') {
                 // Commint variable
-                if (defaultValue && !defaultValue->empty() && defaultValue->at(0) == '$') {
-                    if (const auto evar = getenv(defaultValue->substr(1).c_str())) {
-                        *defaultValue = *evar;
+                if (defaultValue &&
+                    defaultValue->size() > 1 &&
+                    defaultValue->at(0) == '$' &&
+                    defaultValue->at(1) != '(') {
+                      if (const auto evar = getenv(defaultValue->substr(1).c_str())) {
+                          *defaultValue = *evar;
                     }
                 }
+
                 expanded += getVar(varName, vars, defaultValue);
                 state = State::COPY;
                 break;
@@ -1972,8 +1983,17 @@ commit:
             throw runtime_error("Error expanding macro");
 
         case State::SCAN_DEFAUT_VALUE:
+            // We may encounter recursive variables and functions here
+            if (ch == '{') {
+                ++braces;
+            }
             if (ch == '}') {
-                goto commit;
+                if (--braces == 0) {
+                    if (defaultValue) {
+                        defaultValue = expandVariables(*defaultValue, vars);
+                    }
+                    goto commit;
+                }
             }
 
             if (ch == '"') {
