@@ -5,7 +5,7 @@
         - [x] Environment variables from args (key=value,...)
         - [ ] Environment variables from ConfigMap
         - [ ] Environment variables from Secrets
-        - [ ] Apply Resource limits
+        - [x] Apply Resource limits
     - [x] Delete
     - [ ] Update
     - [ ] Verify
@@ -39,7 +39,7 @@
             - [x] Local
             - [x] Network
                 - [x] nfs
-        - [ ] Apply Resource limits
+        - [x] Apply Resource limits
     - [x] Delete
         - [x] Deal with storage
         - [ ] Optionally, delete the data (if possible)
@@ -66,12 +66,12 @@
     - [x] Support NFS, manual and automatically
     - [x] Support single node local storage
     - [x] Support automatic claim providers (tested with minikube)
+    - [x] Support for sig Local Persistence Volume Static Provisioner
     - [ ] Support AWS
     - [ ] Support GCP
     - [ ] Support Azure
     - [ ] Support GlusterFS
     - [ ] Support DigitalOcean (?)
-    - [ ] Support Single Node bare metal
 
 - [x] Event-driven work-flow.
     - [x] Relate events to components.
