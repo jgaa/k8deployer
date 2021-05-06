@@ -62,45 +62,45 @@ Properties
 
 |name                   |Required |Purpose
 |-----------------------|:-------:|----------------|
-|name                   |yes      |Unique name in the deployment file (unless variants for that name is used).|
-|kind                   |yes      |typename of the component.|
 |args                   |yes      |A key/value list of arguments where the name has a special meaning depending on the component `kind`. See the table below for the args recognized by **Deployment**.|
 |defaultArgs            |no       |Like `args`, but also applied recursively to all child-components. 
-|podSecurityContext     |no       |K8s **PodSecurityContext** object.|
-|startupProbe           |no       |K8s **Probe** object.|
-|livenessProbe          |no       |K8s **Probe** object.|
-|readinessProbe         |no       |K8s **Probe** object.|
-|depends                |no       |List of names of component this component depend on. This component will not be deployed until all the components in the list is ready (as determined by k8s).|
-|variant                |no       |Variant-name for this component. See section about variants.|
+|depends                |no       |Array of names of component this component depend on. This component will not be deployed until all the components in the list is ready (as determined by k8s).|
 |enabled                |no       |Boolean flag to allow some components to be disabled by default. They can be enabled by the `--enable=component-name` command-line argument.|
+|kind                   |yes      |typename of the component.|
 |labels                 |no       |k8s labels for the component. K8deployer will define `app` (used for selecting the component by services) and a number of labels starting with `k8dep-`. You are free to add your own labels.|
+|livenessProbe          |no       |K8s **Probe** object.|
+|name                   |yes      |Unique name in the deployment file (unless variants for that name is used).|
+|podSecurityContext     |no       |K8s **PodSecurityContext** object.|
+|readinessProbe         |no       |K8s **Probe** object.|
+|startupProbe           |no       |K8s **Probe** object.|
+|variant                |no       |Variant-name for this component. See section about variants.|
 
 
 Arguments from `args`
 |name                   |Required |Purpose
 |-----------------------|:-------:|----------------|
-|replicas               |no       |Number of replicas (instances).|
-|imagePullSecrets.fromDockerLogin|no|Provide credentials to pull the container image. Require one argument; the path to a json file created by `docker login`. Typically `~/.docker/config.json`)|
-|tlsSecret              |no       |Provide a k8s TLS secret for the contaier. The secret get's mounted as volume `/certs` in the pod. Takes two arguments: `key=path-to=keyfile` and `crt=path-to-certchain-file`.|
-|port                   |no       |One or more ports that the pod exposes. See below.|
-|service.type           |no       |If a port is exposed, a **Service** is normally created automatically. This argument allows you to specify it's type. Default is **ClusterIp**.|
-|service.nodePort       |no       |Specify the NodePort for the pod's service (normally in the range 30000-32767). If you specify `service.nodePort` and not `service.type`, the service type is set to **NodePort**.|
-|ingress.paths          |no       |Specify ingress paths to the pod. See below.|
 |config.fromFile        |no       |Copies one or more config-file(s) to a volume `/config` in the path (via an automatically created `ConfigMap` component). Takes one argument: The path to the config-files, seperated by comma.|
 |image                  |yes      |Container image (and tag) to use for the main container in the pod.|
-|serviceAccountName     |no       |Name of a k8s **ServiceAccount** to associate with the pod.|
-|pod.args               |no       |Command-line arguments for the pod. If no command is specified elsewhere, also the command. The command-line arguments are separated by space|
-|pod.env                |no       |Environment variables for the pod. Consists of `var=value` pairs, separated by space.|
-|pod.command            |no       |Command to execute in the pod. Overrides any default copmmand in the image.|
 |imagePullPolicy        |no       |Specifies the k8s imagePullPolicy. One of `Always`, `Never`, `IfNotPresent`. Defaults to `Always`|
+|imagePullSecrets       |no       |Specifies an existing docker hub secret to use when pulling container images."
+|imagePullSecrets.fromDockerLogin|no|Provide credentials to pull the container image. Require one argument; the path to a json file created by `docker login`. (Typically `~/.docker/config.json`)|
+|ingress.paths          |no       |Specify ingress paths to the pod. See below.|
+|pod.args               |no       |Command-line arguments for the pod. If no command is specified elsewhere, also the command. The command-line arguments are separated by space|
+|pod.command            |no       |Command to execute in the pod. Overrides any default copmmand in the image.|
+|pod.cpu                |no       |Convenience; sets both the required CPU capacity and the CPU limit (unless they are set specifically).|
+|pod.env                |no       |Environment variables for the pod. Consists of `var=value` pairs, separated by space.|
+|pod.limits.cpu         |no       |Specifies the max CPU usage for the pod. Can be specified with decimals. One equals one (hyperthreading) CPU core. 0.5 means 50% of one CPU core.|
 |pod.limits.memory      |no       |Specifies the max amount of memory to use by the pod. If it consumes more, k8s will kill it. Example: `pod.limits.memory=4Gi`|
 |pod.memory             |no       |Convenience; sets both the memory required and memory limit (unless they are set specifically).|
-|pod.limits.cpu         |no       |Specifies the max CPU usage for the pod. Can be specified with decimals. One equals one (hyperthreading) CPU core. 0.5 means 50% of one CPU core.|
-|pod.requests.memory    |no       |Specifies the minimum required memory for the pod. The pod will not start until k8s finds a node with at least this amount of unreserved memory.|
 |pod.requests.cpu       |no       |Specifies the minimum required CPU capacity for the pod. The pod will not start until k8s finds a node with at least this amount of unreserved CPU.|
-|pod.cpu                |no       |Convenience; sets both the required CPU capacity and the CPU limit (unless they are set specifically).|
-|imagePullSecrets       |no       |Specifies an existing docker hub secret to use when pulling container images."
+|pod.requests.memory    |no       |Specifies the minimum required memory for the pod. The pod will not start until k8s finds a node with at least this amount of unreserved memory.|
+|port                   |no       |One or more ports that the pod exposes. See below.|
+|replicas               |no       |Number of replicas (instances).|
+|service.nodePort       |no       |Specify the NodePort for the pod's service (normally in the range 30000-32767). If you specify `service.nodePort` and not `service.type`, the service type is set to **NodePort**.|
+|service.type           |no       |If a port is exposed, a **Service** is normally created automatically. This argument allows you to specify it's type. Default is **ClusterIp**.|
+|serviceAccountName     |no       |Name of a k8s **ServiceAccount** to associate with the pod.|
 |tls.secret             |no       |Specifies an existing TLS secret to use. Just like `tlsSecret`, it's mounted in the volume as `/certs`|
+|tlsSecret              |no       |Provide a k8s TLS secret for the contaier. The secret get's mounted as volume `/certs` in the pod. Takes two arguments: `key=path-to=keyfile` and `crt=path-to-certchain-file`.|
 
 
 **Ports argument**
@@ -128,7 +128,7 @@ args:
   log.message: 'Saying Hello via json'
 ```
 
-Arguments
+Arguments from `args`
 |name                   |Required |Purpose
 |-----------------------|:-------:|----------------|
 |auth                   |no       |Authentication. See below.|
@@ -140,4 +140,149 @@ Arguments
 
 Authentication types:
 - **HTTP BasicAuth**: user=username <sp> passwd=password
+
+## Macros
+
+The input yaml file is parsed for macros before it is serialized to internal objects. A macro is a variable, that may have a default value. At the time of the macro expansion, there is no context, except that the resulting text must be valid *yaml* format that can be transformed to json, and adhere to the type requirements of the objects it will serialize into. For example:
+
+```yaml
+name: ${example.name,123}
+```
+
+This is valid *yaml* that can be transformed to json: `"name":"${example.name,123}"`. Obviously, `name` will be serialized to a string, so all is well in the original data.
+
+So, lets look at how this expression will be transformed by macro expansion. `${example.name,123}` means that we have a variable, *example.name* with a default value of *123*.
+If we run k8deployer with the command-line argument `-v example.name=Marvin`, the expression will transform to `name: Marvin`, which is valid *yaml*. 
+Then it will be transformed json: `"name":"Marvin"` which is valid json. Fially it will be serialized to a string that will hold the value. Since `"Marvin"` in json is a string, all is well.
+
+However, if we *don't* specify anything on the command line, the expression will transform to `name: 123`, which is valid *yaml*. That will transform to json: `"name":123` which is valid json. But when we try to serialize that to a string, that will not work as expected. So, if you use a number as a default value to a variable that will be serialized to a string, you must put quotes around it, like below:
+
+```yaml
+name: ${example.name,"123"}
+```
+
+So, macros are variables with an optional default value. The names should contain a-z, numbers (but not be a number), dashes and point.
+
+- ${name123} is valid
+- ${name.123} is valid
+- ${n} is valid
+- ${123} is not valid
+- ${$testme} is not valid (contains `$`)
+- ${my-verylong_example.name} is valid
+
+If the name is followed by a comma, what follows is a default value. Brackets are counted, so `${name,{{{test}}}}` is valid, where the default value expands to `{{{test}}}`
+The default value can itself be a variable with it's own default value. 
+
+```yaml
+name: ${recursive.example,${alternative.var,"Marvin"}}
+```
+
+There are a few built in variables (see the section below), but in most cases you will use your own variable names, and specify their
+value on the command line with the `-v` command line argument. For example:
+```sh
+k8deployer -v my.var=something -v my.other=something-else
+```
+
+As you understand, you can specify as many variables as you need, with pretty much whatever names you prefer.
+
+The variables you specify on the command-line with the `-v` arguments have a global scope. They are available with the same value in 
+all the clusters you deploy on in parallel.
+
+You can also specify cluster-scoped variables.
+
+```sh
+k8deployer -v my.var=something -v my.other=something-else 
+  ~/k8s/cluster1.conf:location=London,max.something=100 \
+  ~/k8s/cluster2.conf:location=Berlin,max.something=123 \
+  ~/k8s/cluster3.conf:location=NewYork,max.something=111,name=ny
+
+```
+
+In this example, we specified 2 global variables, and two cluster-scoped variables, `location` and `max.something`
+for three clusters. ~/k8s/cluster*.conf are kubeconfig files for the three clusters. 
+
+If we have a matrix of clusters and variables used during the deployments of these
+three clusters, it can look like:
+
+|Cluster   |Variable    |Value   |
+|----------|------------|--------|
+|cluster1  |my.var      |something|
+|          |my.other    |something-else|
+|          |location    |London|
+|          |max.something|100|
+|          |name        |cluster1|
+|          |clusterId   |0 |
+|cluster2  |my.var      |something|
+|          |my.other    |something-else|
+|          |location    |Berlin|
+|          |max.something|123|
+|          |name        |cluster2|
+|          |clusterId   |1 |
+|cluster3  |my.var      |something|
+|          |my.other    |something-else|
+|          |location    |NewYork|
+|          |max.something|111|
+|          |name        |ny|
+|          |clusterId   |2 |
+
+Note that the built in variable `name` assumes the name of the first part of the kubeconfig-file, unless you override it.
+The built in `clusterId` increments for each cluster.
+
+If you run k8deployer with output at debug level `-l debug`, it will print all the variables for all the clusters when 
+it starts up.
+
+### Functions
+
+The macro expansion can also evaluate a few mathematical functions.
+
+- **$eval(expr)**: Boolean expression that returns `true` or `false`.
+- **$intexpr(expr)**: Expression returning an integer
+- **$expr(expr)**: Expression returning a floating point value.
+
+The functions forward the expression (as text) to [ExprTk](http://www.partow.net/programming/exprtk/), and cast the result to bool (*eval*) or int (*intexptr*).
+This gives you the opportunity to do real math on the input data, with lots of flexibility as a result.
+
+Below are a few examples from some of my own use-cases:
+
+```yaml
+name: example
+kind: Deployment
+
+# Disable on the first cluster
+enabled: $eval(${clusterId} > 0)
+```
+
+If you deploy to multiple clusters in parallel, each cluster will get it's own cluster-scoped variable, `clusterId`, which is an integer. The first cluster you specify on the command-line will get value 0, then 1, 2 ,3 ...
+The expression above makes sure that the Deployment will be disabled on the first cluster, and enabled on all the others. 
+
+
+```yaml
+name: example
+kind: StatefulSet
+args:
+  pod.args:
+    --cluster.system-replication-factor ${cluster.system.replication.factor,$intexpr(min(2,${db.replicas,1}))}
+  replicas: "${db.replicas,1}"
+```
+
+The example above is used to set the system replication factor in a database with data-replication for resilience, and the number of replicas (instances).
+
+Normally I want 2 replicas for any data object stored in the database. But if I deploy only 1 instance, that wont work, as it needs at least 2 instances to 
+replicate any data to 2 instances. 
+
+The variable `db.replicas` specify the number of database instances I am going to deploy. The variable `cluster.system.replication.factor` can override the value to `--cluster.system-replication-factor`.
+However, normally I will only specify `-v db.replicas=3` (or some other number) on the command-line, and let the expression `$intexpr(min(2,${db.replicas,1}))` set the
+number of copies of the data, based on `db.replicas`. If `db.replicas` is 1, the expression will return 1. Else, if `db.replicas` > 1, it will return 2.
+
+You may notice that the default value `1` in `${db.replicas,1}` is repeated twice in the example above. 
+The reason is that this expression don't declares the variable; it *refers* to it, and it provides a default value in case the variable is unset. 
+There is currently no way to declare a variable in the yaml file. 
+
+
+### Built-in variables
+
+|Name           |Scope        | Purpose  | Default value|
+|---------------|-------------|----------|--------------|
+
+
 
