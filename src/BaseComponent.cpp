@@ -26,7 +26,7 @@ void BaseComponent::basicPrepareDeploy()
         // Make sure we have a selector
         meta->labels.emplace(selector);
 
-        // Copy all labels that is not already degined in the meta
+        // Copy all labels that is not already defined in the meta
         for (const auto& label : labels) {
             meta->labels.emplace(label);
         }
@@ -115,7 +115,7 @@ void BaseComponent::basicPrepareDeploy()
             }
 
             if (auto dhcred = getArg("imagePullSecrets")) {
-                // Use existing secret
+                // Use existing secret|
                 if (!dhcred->empty()) {
                     k8api::LocalObjectReference lor = {*dhcred};
                     podTemplate->spec.imagePullSecrets.push_back(lor);
