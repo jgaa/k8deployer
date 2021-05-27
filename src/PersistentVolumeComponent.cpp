@@ -23,7 +23,7 @@ PersistentVolumeComponent::PersistentVolumeComponent(const Component::ptr_t &par
 
 void PersistentVolumeComponent::prepareDeploy()
 {
-    if (auto st = cluster_->getStorage()) {
+    if (auto st = cluster_->getStorage(); st && st->type() == Storage::Type::GENERIC) {
         persistentVolume = st->createNewVolume(getArg("pv.capacity", "1Gi"), *this);
     }
 

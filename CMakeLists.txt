@@ -42,6 +42,7 @@ add_executable(${PROJECT_NAME}
     include/k8deployer/DeploymentComponent.h
     include/k8deployer/DnsProvisioner.h
     include/k8deployer/DnsProvisionerVubercool.h
+    include/k8deployer/EmptyDirStorage.h
     include/k8deployer/Engine.h
     include/k8deployer/HostPathStorage.h
     include/k8deployer/HttpRequestComponent.h
@@ -74,6 +75,7 @@ add_executable(${PROJECT_NAME}
     src/DeploymentComponent.cpp
     src/DnsProvisioner.cpp
     src/DnsProvisionerVubercool.cpp
+    src/EmptyDirStorage.cpp
     src/Engine.cpp
     src/HostPathStorage.cpp
     src/HttpRequestComponent.cpp

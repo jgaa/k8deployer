@@ -125,7 +125,20 @@ void StatefulSetComponent::buildDependencies()
                      << storageDef.capacity;
         }
 
-        if (storageDef.createVolume) {
+        if (auto storage = cluster_->getStorage(); storage && storage->type() == Storage::Type::EMPTYDIR) {
+            // Set up spec.containers.volumeMounts
+            if (statefulSet.spec->template_->spec.containers.empty()) {
+                throw runtime_error("No containers in StatefulSet when adding storage");
+            }
+            statefulSet.spec->template_->spec.containers.front().volumeMounts.emplace_back(storageDef.volume);
+
+            // Add to spec.volumes
+            k8api::Volume v;
+            v.emptyDir.emplace(); // Just make an empty object
+            v.name = storageDef.volume.name;
+            statefulSet.spec->template_->spec.volumes.emplace_back(v);
+
+        } else if (storageDef.createVolume) {
             auto storage = cluster_->getStorage();
             if (!storage) {
                 LOG_ERROR << logName() << "createVolume is true, but no storage engine is active.";

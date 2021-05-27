@@ -141,6 +141,8 @@ Arguments from `args`
 Authentication types:
 - **HTTP BasicAuth**: user=username <sp> passwd=password
 
+Note that this is not designed to be used as a readiness probe. Use the native k8s objects `livenessProbe`, `startupProbe` and `readinessProbe` for that. 
+
 ## Macros
 
 The input yaml file is parsed for macros before it is serialized to internal objects. A macro is a variable, that may have a default value. At the time of the macro expansion, there is no context, except that the resulting text must be valid *yaml* format that can be transformed to json, and adhere to the type requirements of the objects it will serialize into. For example:
@@ -201,7 +203,7 @@ k8deployer -v my.var=something -v my.other=something-else
 In this example, we specified 2 global variables, and two cluster-scoped variables, `location` and `max.something`
 for three clusters. ~/k8s/cluster*.conf are kubeconfig files for the three clusters. 
 
-If we have a matrix of clusters and variables used during the deployments of these
+If we imagine matrix of clusters and variables from the example above, used during the deployments of these
 three clusters, it can look like:
 
 |Cluster   |Variable    |Value   |
@@ -275,7 +277,7 @@ However, normally I will only specify `-v db.replicas=3` (or some other number) 
 number of copies of the data, based on `db.replicas`. If `db.replicas` is 1, the expression will return 1. Else, if `db.replicas` > 1, it will return 2.
 
 You may notice that the default value `1` in `${db.replicas,1}` is repeated twice in the example above. 
-The reason is that this expression don't declares the variable; it *refers* to it, and it provides a default value in case the variable is unset. 
+The reason is that this expression don't declare the variable; it *refers* to it, and it provides a default value in case the variable is unset. 
 There is currently no way to declare a variable in the yaml file. 
 
 
@@ -285,4 +287,37 @@ There is currently no way to declare a variable in the yaml file.
 |---------------|-------------|----------|--------------|
 
 
+## Storage
+Storage in k8s is, as Russians would say about most things, complicated. 
+
+Intro TBD
+
+### NFS
+
+Nfs intro TBD
+
+Arguments: `nfs:server:pathOnServer:localMountPoint`
+
+Example: `--storage nfs:192.168.1.2:/var/local/nfs/ssd/k8:/mnt/nfs/ssd/k8`
+
+Here, we specify that the server has IP `192.168.1.2`, that the root NFS path we want to mount in the pod's is `:/var/local/nfs/ssd/k8` (this corresponds to a path in the servers `/etc/exports` file) and that we have that path mounted and accessible on the machine where we run k8deployer in `/mnt/nfs/ssd/k8`. Where the path is mounted in the pod's are specified in the StateFulSet components.
+
+
+### HostPath
+
+Hostpaths are local paths provisioned by k8s on demand. When a pod is scheduled to a suitable node, k8s mounts a *HostPath*, as specified by a StatefulSet on that machine. When used, k8deployer will specify a suitable (unique if `--randomize-paths true` is specified) path, and k8s will create the directory and mount this path to the pod(s). In it's infinite wisdom, the k8s develppers have decided that the path is owned, and only accessible by, root. So if you follow the best practice guidelines from the same k8s developres, and run your app inside the pod as a non-root user, your app will get a access denied error when it tries to access the mounted volume inside the path.
+
+Arguments: `--storage hostpath:path`
+
+Example: `hostpath:/mnt/ssd`
+
+Here you simply specify that storage is *hostpath* and that all paths should start with `/mnt/ssd` on the k8s host.
+
+## LocalStorage
+
+Ref: https://kubernetes.io/docs/concepts/storage/volumes/#local
+
+PersistentStorage is pre-provisioned, local storage on the k8s hosts. The normal workflow is that some administrator creates these storage volumes manually, and when k8s looks for a suitable host, it takes the storage into consideration. If no host have suitable, unused local storage provisioned, the pod will not be scheduled. 
+
+k8deployer can pre-provision local storage before deploying the StatefulSet that needs it. K8deployer knows nothing about the actual resources available on the different nodes, so it pre-provision the local storage on *each* node. That way, k8s can put the pod on any node it see fit, as they all will have pre-provisioned storage available. To prevent other apps to grab the storage, k8deployer will use a *StorageClass* unique to the current app. When you tell k8deployer delete the deployment, it will delete all the disks provisioned for the deployment. If you just manually delete the k8s namespace, the provisioned disks will remain, as they are not bound to a namespace (another feature of the k8s' developers infinite wisdom). 
 

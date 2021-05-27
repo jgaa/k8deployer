@@ -420,7 +420,7 @@ struct Quantity {
 
 struct EmptyDirVolumeSource {
     std::string medium;
-    Quantity sizeLimit;
+    std::string sizeLimit;
 };
 
 struct SecretVolumeSource {
@@ -1445,7 +1445,7 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::Quantity,
 
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::EmptyDirVolumeSource,
     (std::string, medium)
-    (k8deployer::k8api::Quantity, sizeLimit)
+    (std::string, sizeLimit)
 );
 
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::k8api::SecretVolumeSource,
