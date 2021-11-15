@@ -133,7 +133,7 @@ void DeploymentComponent::buildDependencies()
             conf_t svcargs;
             // Since we create the service, give it a copy of relevant arguments..
             for(const auto& [k, v] : args) {
-                static const array<string, 3> relevant = {"service.nodePort", "service.type", "ingress.paths"};
+                static const array<string, 4> relevant = {"service.nodePort", "service.type", "ingress.paths", "ingress.annotations"};
                 if (find(relevant.begin(), relevant.end(), k) != relevant.end()) {
                     svcargs[k] = v;
                 }
@@ -193,8 +193,8 @@ void DeploymentComponent::buildDependencies()
                     iargs["ingress.secret"] = tlsSecretName;
                 }
                 for(const auto& [k, v] : svcargs) {
-                    static const array<string, 4> relevant = {"ingress.secret", "ingress.paths",
-                                                              "port", "ingress.port"};
+                    static const array<string, 5> relevant = {"ingress.secret", "ingress.paths",
+                                                              "port", "ingress.port", "ingress.annotations"};
                     if (find(relevant.begin(), relevant.end(), k) != relevant.end()) {
                         iargs[k] = v;
                     }

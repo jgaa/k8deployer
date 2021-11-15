@@ -43,6 +43,15 @@ void IngressComponent::prepareDeploy()
         ingress.apiVersion = "networking.k8s.io/v1beta1";
     }
 
+    if (auto defs = getArg("ingress.annotations")) {
+        // Format: ingress.annotations: name=value name=value ...
+        auto annotations = getArgAsKv(*defs);
+        for(const auto& [k,v]: annotations) {
+            LOG_TRACE << "Adding ingress annoration: " << k << '=' << v;
+            ingress.metadata.annotations[k] = v;
+        }
+    }
+
     if (auto defs = getArg("ingress.paths")) {
 
         // Format [hostname:]/path[...][/*][ new-path-definition]...

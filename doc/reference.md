@@ -85,6 +85,7 @@ Arguments from `args`
 |imagePullSecrets       |no       |Specifies an existing docker hub secret to use when pulling container images."
 |imagePullSecrets.fromDockerLogin|no|Provide credentials to pull the container image. Require one argument; the path to a json file created by `docker login`. (Typically `~/.docker/config.json`)|
 |ingress.paths          |no       |Specify ingress paths to the pod. See below.|
+|ingress.annotations    |no       |Annotations for the ingress controller. Consists of `var=value` pairs, separated by space.|
 |pod.args               |no       |Command-line arguments for the pod. If no command is specified elsewhere, also the command. The command-line arguments are separated by space|
 |pod.command            |no       |Command to execute in the pod. Overrides any default copmmand in the image.|
 |pod.cpu                |no       |Convenience; sets both the required CPU capacity and the CPU limit (unless they are set specifically).|
