@@ -3,7 +3,7 @@ An experimental deployer for kubernetes apps for developers who are too lazy (or
 
 Status: **Early alpha.** 
 
-The idea behind this project is to make a kubernetes app deployer for lazy developers. Lazy developers don't want to learn everything about kubernetes, we just want to deploy and test our application. Lazy developers don't want to repeat the same lame declarations in a zillion different sections in some yaml file. So it's kind of *Helm*, but simpler and capable of doing most of the behind the scenes stuff without detailed guidance.
+The idea behind this project is to make a kubernetes app deployer for lazy developers. Lazy developers don't want to learn everything about kubernetes, we just want to deploy and test our application. Lazy developers don't want to repeat the same lame declarations in a zillion different sections in some yaml file. So it's kind of *Helm*, but simpler and capable of doing most of the behind the scenes stuff without detailed guidance. And, *real* developers don't use *go*. So this projects goes full C++ 17!
 
 K8deployer can deploy complex applications like Arangodb, without the need of operators. It can deploy or swap out single components in a complex app, for example to change a StatefulSet to a Deployment with Telepresence, making it simple to debug components locally on the developers laptop, while the component appears to the rest of the components as running in the kubernetes cluster.
 
