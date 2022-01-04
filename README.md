@@ -1,8 +1,7 @@
 # k8deployer
 An experimental deployer for kubernetes apps for developers who are too lazy (or busy) to learn Helm. 
 
-## Status
-**Early alpha.** 
+Status: **Early alpha.** 
 
 The idea behind this project is to make a kubernetes app deployer for lazy developers. Lazy developers don't want to learn everything about kubernetes, we just want to deploy and test our application. Lazy developers don't want to repeat the same lame declarations in a zillion different sections in some yaml file. So it's kind of *Helm*, but simpler and capable of doing most of the behind the scenes stuff without detailed guidance.
 
