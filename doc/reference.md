@@ -87,10 +87,10 @@ Arguments from `args`
 |ingress.paths          |no       |Specify ingress paths to the pod. See below.|
 |ingress.annotations    |no       |Annotations for the ingress controller. Consists of `var=value` pairs, separated by space.|
 |pod.args               |no       |Command-line arguments for the pod. If no command is specified elsewhere, also the command. The command-line arguments are separated by space|
-|pod.command            |no       |Command to execute in the pod. Overrides any default copmmand in the image.|
+|pod.command            |no       |Command to execute in the pod. Overrides any default command in the image.|
 |pod.cpu                |no       |Convenience; sets both the required CPU capacity and the CPU limit (unless they are set specifically).|
 |pod.env                |no       |Environment variables for the pod. Consists of `var=value` pairs, separated by space.|
-|pod.limits.cpu         |no       |Specifies the max CPU usage for the pod. Can be specified with decimals. One equals one (hyperthreading) CPU core. 0.5 means 50% of one CPU core.|
+|pod.limits.cpu         |no       |Specifies the max CPU usage for the pod. Can be specified with decimals. One equals one (hyper-threading) CPU core. 0.5 means 50% of one CPU core.|
 |pod.limits.memory      |no       |Specifies the max amount of memory to use by the pod. If it consumes more, k8s will kill it. Example: `pod.limits.memory=4Gi`|
 |pod.memory             |no       |Convenience; sets both the memory required and memory limit (unless they are set specifically).|
 |pod.requests.cpu       |no       |Specifies the minimum required CPU capacity for the pod. The pod will not start until k8s finds a node with at least this amount of unreserved CPU.|
@@ -101,8 +101,8 @@ Arguments from `args`
 |service.type           |no       |If a port is exposed, a **Service** is normally created automatically. This argument allows you to specify it's type. Default is **ClusterIp**.|
 |serviceAccountName     |no       |Name of a k8s **ServiceAccount** to associate with the pod.|
 |tls.secret             |no       |Specifies an existing TLS secret to use. Just like `tlsSecret`, it's mounted in the volume as `/certs`|
-|tlsSecret              |no       |Provide a k8s TLS secret for the contaier. The secret get's mounted as volume `/certs` in the pod. Takes two arguments: `key=path-to=keyfile` and `crt=path-to-certchain-file`.|
-|pod.scc.add            |no       |Provie one or a space-separated list of capabilities to add to the pod's security context. For example `SYS_PTRACE`|
+|tlsSecret              |no       |Provide a k8s TLS secret for the container. The secret gets mounted as volume `/certs` in the pod. Takes two arguments: `key=path-to=keyfile` and `crt=path-to-certchain-file`.|
+|pod.scc.add            |no       |Provide one or a space-separated list of capabilities to add to the pod's security context. For example `SYS_PTRACE`|
 
 
 **Ports argument**
