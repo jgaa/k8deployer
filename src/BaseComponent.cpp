@@ -64,6 +64,20 @@ void BaseComponent::basicPrepareDeploy()
                 container.securityContext = *podSecurityContext;
             }
 
+            if (auto psca = getArgAsStringList("pod.scc.add", ""s); !psca.empty()) {
+                if (!container.securityContext) {
+                    container.securityContext.emplace();
+                }
+
+                if (!container.securityContext->capabilities) {
+                    container.securityContext->capabilities.emplace();
+                }
+
+                for(const auto& c: psca) {
+                    container.securityContext->capabilities->add.push_back(c);
+                }
+            }
+
             if (auto ports = parsePorts(getArg("port", ""s)); !ports.empty()) {
                 for(const auto& port: ports) {
                     k8api::ContainerPort p;

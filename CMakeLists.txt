@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project (k8deployer VERSION 0.0.24 LANGUAGES CXX)
+project (k8deployer VERSION 0.0.25 LANGUAGES CXX)
 
 option(BOOST_ERROR_CODE_HEADER_ONLY "Work-around for another boost issue" ON)
 if (BOOST_ERROR_CODE_HEADER_ONLY)
