@@ -6,6 +6,7 @@
 #include "k8deployer/Config.h"
 #include "k8deployer/Engine.h"
 #include "k8deployer/Component.h"
+#include "k8deployer/DnsMode.h"
 
 using namespace std;
 using namespace k8deployer;
@@ -172,12 +173,27 @@ int main(int argc, char* argv[]) {
         LOG_INFO << filesystem::path(argv[0]).stem().string() << ' ' << K8DEPLOYER_VERSION  ". Log level: " << log_level;
     }
 
+    if (config.command.substr(8) == "certbot-") {
+        try {
+            DnsMode dns{config};
+            dns.run();
+            return 0; // OK
+        } catch (const exception& ex) {
+            LOG_ERROR << "Caught exception from dns: " << ex.what();
+            return -1;
+        }
+    }
+
     try {
         Engine engine{config};
         engine.run();
     } catch (const future_error& ) {
         ; // TODO: Fix it, dont just hide it
+        return -1;
     } catch (const exception& ex) {
         LOG_ERROR << "Caught exception from run: " << ex.what();
+        return -1;
     }
+
+    return 0;
 }
