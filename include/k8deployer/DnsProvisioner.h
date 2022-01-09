@@ -17,10 +17,16 @@ public:
   DnsProvisioner() = default;
   virtual ~DnsProvisioner() = default;
 
+  // A / AA entry
   virtual void provisionHostname(const std::string& hostname,
                                  const std::vector<std::string>& ipv4,
                                  const std::vector<std::string>& ipv6,
-                                 const cb_t& onDone) = 0;
+                                 const cb_t& onDone, bool onlyOnce = true) = 0;
+
+  // TXT entry
+  virtual void provisionHostname(const std::string &hostname,
+                         const std::string txt,
+                         const cb_t& onDone, bool onlyOnce = true) = 0;
 
   virtual void deleteHostname(const std::string& hostname, const cb_t& onDone) = 0;
 

@@ -7,6 +7,12 @@
 
 namespace k8deployer {
 
+struct VubercoolReq {
+  std::vector<std::string> a;
+  std::vector<std::string> aaaa;
+  std::string txt;
+};
+
 class DnsProvisionerVubercool : public DnsProvisioner
 {
 public: 
@@ -21,14 +27,21 @@ public:
   DnsProvisionerVubercool(const Config& cfg, boost::asio::io_service& ioservice);
 
 
+  // A / AA entry
   void provisionHostname(const std::string &hostname,
                          const std::vector<std::string> &ipv4,
                          const std::vector<std::string> &ipv6,
-                         const cb_t& onDone) override;
+                         const cb_t& onDone, bool onlyOnce = true) override;
+
+  void provisionHostname(const std::string &hostname,
+                           const std::string txt,
+                           const cb_t& onDone, bool onlyOnce = true) override;
 
   void deleteHostname(const std::string &hostname, const cb_t& onDone) override;
 
 private:
+    void patchDnsServer(const std::string &hostname, const VubercoolReq& req,
+                        const cb_t& onDone, bool onlyOnce = true);
     bool addHostname(const std::string& hostname);
     void deleteHostname(const std::string& hostname);
 

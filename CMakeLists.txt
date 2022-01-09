@@ -40,6 +40,7 @@ add_executable(${PROJECT_NAME}
     include/k8deployer/DaemonSetComponent.h
     include/k8deployer/DataDef.h
     include/k8deployer/DeploymentComponent.h
+    include/k8deployer/DnsMode.h
     include/k8deployer/DnsProvisioner.h
     include/k8deployer/DnsProvisionerVubercool.h
     include/k8deployer/Engine.h
@@ -72,6 +73,7 @@ add_executable(${PROJECT_NAME}
     src/ConfigMapComponent.cpp
     src/DaemonSetComponent.cpp
     src/DeploymentComponent.cpp
+    src/DnsMode.cpp
     src/DnsProvisioner.cpp
     src/DnsProvisionerVubercool.cpp
     src/Engine.cpp

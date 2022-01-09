@@ -8,16 +8,12 @@
 
 namespace k8deployer {
 
-struct VubercoolReq {
-  std::vector<std::string> a;
-  std::vector<std::string> aaaa;
-};
-
 } // ns
 
 BOOST_FUSION_ADAPT_STRUCT(k8deployer::VubercoolReq,
     (std::vector<std::string>, a)
     (std::vector<std::string>, aaaa)
+    (std::string, txt)
 );
 
 namespace k8deployer {
@@ -36,46 +32,19 @@ DnsProvisionerVubercool::DnsProvisionerVubercool(const DnsProvisionerVubercool::
 void DnsProvisionerVubercool::provisionHostname(const std::string &hostname,
                                                 const std::vector<std::string> &ipv4,
                                                 const std::vector<std::string> &ipv6,
-                                                const cb_t& onDone) {
-    client_->Process([this, hostname, ipv4, ipv6, onDone](Context& ctx) {
-        auto url = "https://"s + config_.host + "/zone/" + hostname;
+                                                const cb_t& onDone, bool onlyOnce) {
+    VubercoolReq req;
+    req.a = ipv4;
+    req.aaaa = ipv6;
 
-        VubercoolReq body;
-        body.a = ipv4;
-        body.aaaa = ipv6;
+    return patchDnsServer(hostname, req, onDone, onlyOnce);
+}
 
-        for(size_t i = 0; i < config_.retries; ++i) {
-            if (i /* is retry */) {
-                ctx.Sleep(std::chrono::seconds(config_.retryDelaySecond));
-            }
-
-            if (!addHostname(hostname)) {
-                LOG_DEBUG << "Hostname " << hostname << " was/is already provisioned. Skipping...";
-                onDone(true);
-                return;
-            }
-
-            try {
-                LOG_DEBUG << "Provisioning hostname " << hostname;
-                auto reply = RequestBuilder(ctx)
-                  .Patch(url)
-                  .BasicAuthentication(config_.user, config_.passwd)
-                  .Header("X-Client", "k8deployer")
-                  .Data(body)
-                  .Execute();
-
-                onDone(true);
-                return;
-            } catch(exception& ex) {
-                LOG_WARN << "Failed to provision hostname " << hostname << ": " << ex.what();
-            }
-
-            deleteHostname(hostname); // was not provisioned after all
-        }
-
-        LOG_ERROR << "Failed to provision hostname (no more retries left): " << hostname;
-        onDone(false);
-    });
+void DnsProvisionerVubercool::provisionHostname(const string &hostname, const string txt, const DnsProvisioner::cb_t &onDone, bool onlyOnce)
+{
+    VubercoolReq req;
+    req.txt = txt;
+    return patchDnsServer(hostname, req, onDone, onlyOnce);
 }
 
 void DnsProvisionerVubercool::deleteHostname(const string &hostname, const cb_t& onDone)
@@ -109,6 +78,46 @@ void DnsProvisionerVubercool::deleteHostname(const string &hostname, const cb_t&
         }
 
         LOG_ERROR << "Failed to delete hostname (no more retries left): " << hostname;
+        onDone(false);
+    });
+}
+
+void DnsProvisionerVubercool::patchDnsServer(const string &hostname, const VubercoolReq& req,
+                                             const cb_t& onDone, bool onlyOnce)
+{
+    client_->Process([this, hostname, req, onDone, onlyOnce](Context& ctx) {
+        auto url = "https://"s + config_.host + "/zone/" + hostname;
+
+        for(size_t i = 0; i < config_.retries; ++i) {
+            if (i /* is retry */) {
+                ctx.Sleep(std::chrono::seconds(config_.retryDelaySecond));
+            }
+
+            if (onlyOnce && !addHostname(hostname)) {
+                LOG_DEBUG << "Hostname " << hostname << " was/is already provisioned. Skipping...";
+                onDone(true);
+                return;
+            }
+
+            try {
+                LOG_DEBUG << "Provisioning hostname " << hostname;
+                auto reply = RequestBuilder(ctx)
+                  .Patch(url)
+                  .BasicAuthentication(config_.user, config_.passwd)
+                  .Header("X-Client", "k8deployer")
+                  .Data(req)
+                  .Execute();
+
+                onDone(true);
+                return;
+            } catch(exception& ex) {
+                LOG_WARN << "Failed to provision hostname " << hostname << ": " << ex.what();
+            }
+
+            deleteHostname(hostname); // was not provisioned after all
+        }
+
+        LOG_ERROR << "Failed to provision hostname (no more retries left): " << hostname;
         onDone(false);
     });
 }
