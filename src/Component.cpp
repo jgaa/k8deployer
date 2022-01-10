@@ -1674,7 +1674,8 @@ string fileToJson(const string &pathToFile, bool assumeYaml,
         }
 
         // https://www.commandlinefu.com/commands/view/12218/convert-yaml-to-json
-        const auto expr = R"(import sys, yaml, json; json.dump(yaml.load(open(")"s
+        // fix : https://stackoverflow.com/questions/69564817/typeerror-load-missing-1-required-positional-argument-loader-in-google-col
+        const auto expr = R"(import sys, yaml, json; json.dump(yaml.safe_load(open(")"s
                 + inputPath
                 + R"(","r").read()), sys.stdout, indent=4))"s;
         auto args = boost::process::args({"-c"s, expr});
