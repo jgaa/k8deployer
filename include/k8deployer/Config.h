@@ -10,6 +10,9 @@ namespace k8deployer {
 
 struct Config {
   Config();
+
+  bool canStoreState() const;
+
   std::filesystem::path dir; // Defaults to ~/.k8deployer
   std::string ns = "default";
   std::string definitionFile = "k8deployer.json";

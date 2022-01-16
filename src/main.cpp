@@ -180,7 +180,7 @@ int main(int argc, char* argv[]) {
         LOG_INFO << filesystem::path(argv[0]).stem().string() << ' ' << K8DEPLOYER_VERSION  ". Log level: " << log_level;
     }
 
-    if (config.command.substr(8) == "certbot-") {
+    if (config.command.substr(0, 8) == "certbot-") {
         try {
             DnsMode dns{config};
             dns.run();

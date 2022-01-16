@@ -1,0 +1,16 @@
+# Examle om deploying nginx as a Deployment
+# Using NodePort
+#
+# We are also importing it's config file and a static 'index.html' 
+# to a ConfigMap that is mounted in the container
+
+name: nginx
+kind: Deployment
+args:
+    replicas: "3"
+    image: nginx
+    port: "8080"
+    service.type: NodePort
+    config.fromFile: examples/nginx/nginx.conf,examples/nginx/index.html
+    pod.command: nginx -c /config/nginx.conf
+    
