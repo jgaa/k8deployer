@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project (k8deployer VERSION 0.0.26 LANGUAGES CXX)
+project (k8deployer VERSION 0.0.30 LANGUAGES CXX)
 
 option(BOOST_ERROR_CODE_HEADER_ONLY "Work-around for another boost issue" ON)
 if (BOOST_ERROR_CODE_HEADER_ONLY)
@@ -70,6 +70,7 @@ add_executable(${PROJECT_NAME}
     src/ClusterRoleBindingComponent.cpp
     src/ClusterRoleComponent.cpp
     src/Component.cpp
+    src/Config.cpp
     src/ConfigMapComponent.cpp
     src/DaemonSetComponent.cpp
     src/DeploymentComponent.cpp

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <filesystem>
 #include <vector>
 #include <map>
 #include <regex>
@@ -8,6 +9,9 @@
 namespace k8deployer {
 
 struct Config {
+  Config();
+
+  std::filesystem::path dir; // Defaults to ~/.k8deployer
   std::string ns = "default";
   std::string definitionFile = "k8deployer.json";
   std::string command = "deploy";

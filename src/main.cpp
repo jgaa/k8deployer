@@ -31,6 +31,10 @@ int main(int argc, char* argv[]) {
         general.add_options()
             ("help,h", "Print help and exit")
             ("version", "print version string and exit")
+            ("home-dir,H",
+                 po::value<filesystem::path>(&config.dir)->default_value(config.dir),
+                 "Home-directory for k8deployer. "
+                 "This is where state, like letsencrypt certificates, are stored.")
             ("definition-file,d",
                 po::value<string>(&config.definitionFile)->default_value(config.definitionFile),
                 "Definition file to deploy")
