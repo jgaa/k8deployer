@@ -10,10 +10,10 @@ namespace k8deployer {
 
 struct Config {
   Config();
-
   std::filesystem::path dir; // Defaults to ~/.k8deployer
   std::string ns = "default";
   std::string definitionFile = "k8deployer.json";
+  std::string projectName; // Defaults to top-level app-name in definition file
   std::string command = "deploy";
   std::vector<std::string> kubeconfigs;
   std::string storageEngine; // ex: nfs:nfshost:opt/nfs/k8:/mnt/nfs (type : host : mount-path : local path [where we can create subdirs for volumes])

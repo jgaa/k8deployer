@@ -38,6 +38,9 @@ int main(int argc, char* argv[]) {
             ("definition-file,d",
                 po::value<string>(&config.definitionFile)->default_value(config.definitionFile),
                 "Definition file to deploy")
+            ("projec-name,p",
+                po::value<string>(&config.projectName),
+                "Unique project name. If specified, k8deployer will be able to preserve state, like letsencrypt certificates and deployed components.")
             ("namespace,n",
                 po::value<string>(&config.ns)->default_value(config.ns),
                 "Deploy in this namespace")

@@ -24,4 +24,9 @@ Config::Config()
     LOG_DEBUG << "Unable to deduce k8deployers home-directory";
 }
 
+bool Config::canStoreState() const
+{
+    return !dir.empty() && !projectName.empty();
+}
+
 } // ns
