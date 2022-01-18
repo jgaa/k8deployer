@@ -9,6 +9,7 @@
 #include "k8deployer/logging.h"
 #include "k8deployer/Engine.h"
 #include "k8deployer/Component.h"
+#include "k8deployer/Certbot.h"
 
 using namespace std;
 using namespace chrono_literals;
@@ -68,6 +69,9 @@ void Engine::run()
 //    // TODO: Use the futures above to hold the clusters back until the event backlog is received
 //    this_thread::sleep_for(5s);
     futures.clear();
+
+    Certbot::instance().createOrUpdateCerts();
+
 
     for(auto& cluster : clusters_) {
         futures.push_back(cluster->execute());

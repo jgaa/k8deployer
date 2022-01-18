@@ -2,6 +2,7 @@
 #include "k8deployer/BaseComponent.h"
 #include "k8deployer/DeploymentComponent.h"
 #include "k8deployer/Cluster.h"
+#include "k8deployer/Certbot.h"
 
 using namespace std;
 using namespace string_literals;
@@ -19,6 +20,11 @@ void BaseComponent::basicPrepareDeploy()
 
         if (meta->namespace_.empty()) {
             meta->namespace_ = getNamespace();
+        }
+
+        if (auto arg = getArg("certbot")) {
+            certbot_ = *arg;
+            Certbot::instance().add(*this);
         }
 
         auto selector = getSelector();

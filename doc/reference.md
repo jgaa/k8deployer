@@ -103,6 +103,7 @@ Arguments from `args`
 |tls.secret             |no       |Specifies an existing TLS secret to use. Just like `tlsSecret`, it's mounted in the volume as `/certs`|
 |tlsSecret              |no       |Provide a k8s TLS secret for the container. The secret gets mounted as volume `/certs` in the pod. Takes two arguments: `key=path-to=keyfile` and `crt=path-to-certchain-file`.|
 |pod.scc.add            |no       |Provide one or a space-separated list of capabilities to add to the pod's security context. For example `SYS_PTRACE`|
+|certbot                |no       |Generate letsencrypt certificates on demand. Requires DNS server credentials. Values: auto | disable|
 
 
 **Ports argument**

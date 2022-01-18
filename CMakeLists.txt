@@ -31,6 +31,7 @@ include_directories(${CMAKE_SOURCE_DIR}/include)
 add_executable(${PROJECT_NAME}
     include/k8deployer/AppComponent.h
     include/k8deployer/BaseComponent.h
+    include/k8deployer/Certbot.h
     include/k8deployer/Cluster.h
     include/k8deployer/ClusterRoleBindingComponent.h
     include/k8deployer/ClusterRoleComponent.h
@@ -66,6 +67,7 @@ add_executable(${PROJECT_NAME}
     include/k8deployer/probe.h
     src/AppComponent.cpp
     src/BaseComponent.cpp
+    src/Certbot.cpp
     src/Cluster.cpp
     src/ClusterRoleBindingComponent.cpp
     src/ClusterRoleComponent.cpp

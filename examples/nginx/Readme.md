@@ -154,7 +154,8 @@ an old UNIX configuration file for hostnames from before DNS servers were3 inven
 
 
 Adding an entry to /etc/hosts. Note that the IP may differ on your machine.
-```
+
+```sh
 echo "192.168.49.2  example.local" | sudo tee -a /etc/hosts
 ```
 
@@ -228,5 +229,34 @@ This is a test only.
 </body>
 </html>
 * Connection #0 to host example.local left intact
+```
+
+Now, we can list all the components in the namespace, and watch some newcomers:
+
+```
+kubectl -n example get all,cm,secret,ing 
+NAME                         READY   STATUS    RESTARTS   AGE
+pod/nginx-64c754dc5f-9stjt   1/1     Running   0          8m10s
+pod/nginx-64c754dc5f-gjj67   1/1     Running   0          8m10s
+pod/nginx-64c754dc5f-tbnh4   1/1     Running   0          8m10s
+
+NAME                TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)    AGE
+service/nginx-svc   ClusterIP   10.104.46.184   <none>        8080/TCP   8m2s
+
+NAME                    READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/nginx   3/3     3            3           8m10s
+
+NAME                               DESIRED   CURRENT   READY   AGE
+replicaset.apps/nginx-64c754dc5f   3         3         3       8m10s
+
+NAME                         DATA   AGE
+configmap/kube-root-ca.crt   1      8m12s
+configmap/nginx-conf         2      8m10s
+
+NAME                         TYPE                                  DATA   AGE
+secret/default-token-8ssth   kubernetes.io/service-account-token   3      8m12s
+
+NAME                                       CLASS   HOSTS           ADDRESS     PORTS   AGE
+ingress.networking.k8s.io/nginx-svc-ingr   nginx   example.local   localhost   80      8m
 ```
 

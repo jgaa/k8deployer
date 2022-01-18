@@ -33,6 +33,7 @@ protected:
     virtual void doRemove(std::weak_ptr<Task> task) = 0;
 
     size_t podsStarted_ = 0;
+    std::string certbot_;
 };
 
 } // ns
