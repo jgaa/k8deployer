@@ -155,6 +155,9 @@ void DeploymentComponent::buildDependencies()
                 if (!pa.serviceName.empty()) {
                     c += ":serviceName=" + pa.serviceName;
                 }
+                if (!pa.targetPort.empty()) {
+                    c += ":targetPort="s + pa.targetPort;
+                }
                 if (pa.ingress) {
                     c += ":ingress";
                     do_ingress = true;

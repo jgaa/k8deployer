@@ -106,7 +106,14 @@ Arguments from `args`
 
 
 **Ports argument**
-TBD
+|name                   |required |Purpose      |
+|-----------------------|---------|-------------|
+|port                   |no       |[Numeric] port to expose. Defaults to the first port exposed by the target.|
+|name                   |no       |The name of this service within this port. Can be referenced by some k8s components.|
+|serviceName            |no       |The DNS host-name (within the k8s namespace) for this port.|
+|serviceType            |no       |The service type, typically one of ClusterIp, NodePort, LoadBalancer|
+|targetPort             |no       |Port-name to the exposed target port (pods). Defaults to the same port as the target|
+
 
 **Ingress argument**
 Require an ingress controller (ex. *Traefik*) to be available in your k8s cluster. 

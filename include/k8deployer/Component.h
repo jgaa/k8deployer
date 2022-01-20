@@ -93,6 +93,7 @@ struct PortInfo {
     std::string name;
     std::string serviceName;
     std::string serviceType;
+    std::string targetPort = 0;
     bool ingress = false;
 
     std::string getName() const noexcept{
@@ -101,6 +102,13 @@ struct PortInfo {
         }
 
         return std::string{"port-"} + std::to_string(port);
+    }
+
+    std::string getTargetPort() const {
+        if (targetPort.empty()) {
+            return getName();
+        }
+        return targetPort;
     }
 
     std::string getServiceName(const std::string& baseName) const noexcept;

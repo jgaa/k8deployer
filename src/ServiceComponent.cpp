@@ -59,7 +59,7 @@ void ServiceComponent::prepareDeploy()
                         if (pi) {
                             sport.name = pi->getName();
                             sport.port = pi->port;
-                            sport.targetPort = pi->getName();
+                            sport.targetPort = pi->getTargetPort();
                             if (pi->nodePort) {
                               sport.nodePort = *pi->nodePort;
                               if (!getArg("service.type")) {

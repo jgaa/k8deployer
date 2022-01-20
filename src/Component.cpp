@@ -2107,7 +2107,8 @@ port_info_list_t parsePorts(const std::string& ports) {
         pi.name = get_if(args, "name");
         pi.protocol = get_if(args, "protocol", pi.protocol);
         pi.serviceName = get_if(args, "serviceName");
-        pi.serviceType = get_if(args, "serviceType");
+        pi.serviceType = get_if(args, "serviceType");        
+        pi.targetPort = get_if(args, "targetPort");
 
         if (auto it = args.find("ingress"); it != args.end()) {
             pi.ingress = true;
