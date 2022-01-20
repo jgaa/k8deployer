@@ -108,7 +108,7 @@ Arguments from `args`
 **Ports argument**
 |name                   |required |Purpose      |
 |-----------------------|---------|-------------|
-|port                   |no       |[Numeric] port to expose. Defaults to the first port exposed by the target.|
+|servicePort            |no       |The (numeric) port exposed by the service. Defaults to the same port that we biond to on  the target|
 |name                   |no       |The name of this service within this port. Can be referenced by some k8s components.|
 |serviceName            |no       |The DNS host-name (within the k8s namespace) for this port.|
 |serviceType            |no       |The service type, typically one of ClusterIp, NodePort, LoadBalancer|

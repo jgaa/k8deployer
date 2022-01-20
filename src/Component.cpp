@@ -2109,6 +2109,7 @@ port_info_list_t parsePorts(const std::string& ports) {
         pi.serviceName = get_if(args, "serviceName");
         pi.serviceType = get_if(args, "serviceType");        
         pi.targetPort = get_if(args, "targetPort");
+        pi.servicePort = stoul(get_if(args, "servicePort"));
 
         if (auto it = args.find("ingress"); it != args.end()) {
             pi.ingress = true;
@@ -2122,7 +2123,7 @@ port_info_list_t parsePorts(const std::string& ports) {
 
 std::optional<PortInfo> findPort(const port_info_list_t& pil, const std::string& name) {
     for(const auto& p : pil) {
-        if (p.getName() == name) {
+        if (p.getTargetPort() == name) {
             return p;
         }
     }

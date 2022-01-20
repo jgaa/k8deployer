@@ -87,13 +87,14 @@ std::string Base64Encode(const std::string &in);
 std::future<void> dummyReturnFuture();
 
 struct PortInfo {
-    uint16_t port = 0;
+    uint16_t port = 0; // Target port
     std::optional<uint16_t> nodePort;
     std::string protocol = "TCP";
     std::string name;
     std::string serviceName;
+    uint16_t servicePort = 0; // Port to expose from service
     std::string serviceType;
-    std::string targetPort = 0;
+    std::string targetPort;
     bool ingress = false;
 
     std::string getName() const noexcept{
@@ -101,14 +102,26 @@ struct PortInfo {
             return name;
         }
 
-        return std::string{"port-"} + std::to_string(port);
+        return std::string{"port-"} + std::to_string(getServicePort());
     }
 
     std::string getTargetPort() const {
         if (targetPort.empty()) {
-            return getName();
+            if (!name.empty()) {
+                return name;
+            }
+
+            return std::string{"port-"} + std::to_string(port);
         }
         return targetPort;
+    }
+
+    uint16_t getServicePort() const {
+        if (servicePort) {
+            return servicePort;
+        }
+
+        return port;
     }
 
     std::string getServiceName(const std::string& baseName) const noexcept;

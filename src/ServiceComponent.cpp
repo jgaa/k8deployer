@@ -58,7 +58,7 @@ void ServiceComponent::prepareDeploy()
                         auto pi = findPort(all_ports, dp.name);
                         if (pi) {
                             sport.name = pi->getName();
-                            sport.port = pi->port;
+                            sport.port = pi->getServicePort();
                             sport.targetPort = pi->getTargetPort();
                             if (pi->nodePort) {
                               sport.nodePort = *pi->nodePort;

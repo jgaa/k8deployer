@@ -82,7 +82,7 @@ void BaseComponent::basicPrepareDeploy()
                 for(const auto& port: ports) {
                     k8api::ContainerPort p;
                     p.containerPort = port.port;
-                    p.name = port.getName();
+                    p.name = port.getTargetPort();
                     p.protocol = port.protocol;
                     container.ports.emplace_back(p);
                 }
