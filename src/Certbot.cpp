@@ -69,16 +69,7 @@ void Certbot::scanForHostnames()
 
 void Certbot::prepareStorageDir()
 {
-    filesystem::path cbdir;
-    if (const auto home = getenv("HOME")) {
-        cbdir = home;
-    } else {
-        LOG_WARN << "No HOME environemnt variable is set. Using current dir as home-dir";
-        cbdir = filesystem::current_path();
-    }
-
-    cbdir /= ".k8deployer";
-    cbdir /= Engine::instance().getCluster(0)->getRootComponent().name;
+    auto cbdir = Engine::instance().getProjectPath();
     cbdir /= "certbot";
 
     if (!filesystem::is_directory(cbdir)) {

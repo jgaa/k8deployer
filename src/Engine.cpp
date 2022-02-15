@@ -159,6 +159,23 @@ string Engine::getClusterVar(size_t clusterIx, const string &varName)
     throw runtime_error{"No such cluster or var: "};
 }
 
+string Engine::getProjectName() const
+{
+    if (auto name = config().projectName; !name.empty()) {
+        return name;
+    }
+    return instance().getCluster(0)->getRootComponent().name;
+}
+
+filesystem::path Engine::getProjectPath() const
+{
+    auto pp = Engine::config().dir;
+    pp /= Engine::instance().getProjectName();
+    return pp;
+}
+
+
+
 void Engine::startPortForwardig()
 {
 //    for(auto& cluster : clusters_) {

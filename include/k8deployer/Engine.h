@@ -43,6 +43,10 @@ public:
 
     std::string getClusterVar(size_t clusterIx, const std::string& varName);
 
+    std::string getProjectName() const;
+
+    std::filesystem::path getProjectPath() const;
+
 private:
     void startPortForwardig();
 
