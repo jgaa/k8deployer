@@ -104,6 +104,11 @@ public:
 
     void listenForContainers();
 
+    Component& getRootComponent() {
+        assert(rootComponent_);
+        return *rootComponent_;
+    }
+
 private:
     using action_fn_t = std::function<std::future<void>()>;
     void loadKubeconfig();
