@@ -38,6 +38,7 @@ private:
     void cleanup();
     void init();
     std::string getEnv(std::string_view name);
+    std::string getHostname() const;
 
     const Config& config_;
     std::shared_ptr<restc_cpp::RestClient> client_;

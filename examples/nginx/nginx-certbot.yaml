@@ -4,6 +4,9 @@
 # We are also importing it's config file and a static 'index.html' 
 # to a ConfigMap that is mounted in the container
 
+# -c certbot-authenticator -l trace -d 'examples/nginx/nginx-certbot.yaml' -D 'dns/k8s.lastviking.eu.yaml'
+# --manage-namespace true -n dns-example -d examples/nginx/nginx-certbot.yaml -l trace -v hostname=nginx.k8s.lastviking.eu --dns-server-config=dns/k8s.lastviking.eu.yaml
+
 name: nginx
 kind: Deployment
 args:

@@ -22,6 +22,7 @@ private:
     void runCertbot();
     void createSecrets();
     void addSecretsToIngress();
+    static void makeIfNotExists(const std::filesystem::path& path);
 
     std::mutex mutex_;
     std::deque<BaseComponent *> components_;

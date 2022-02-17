@@ -25,10 +25,10 @@ void DnsMode::authenticator()
 
     assert(dns_);
 
-    const string hostname = getEnv("CERTBOT_DOMAIN");
+    const auto hostname = getHostname();
     const string validation = getEnv("CERTBOT_VALIDATION");
 
-    LOG_INFO << "Settinng TXT entry '" << validation << "' to " << hostname;
+    LOG_INFO << "Setting TXT entry '" << validation << "' to " << hostname;
 
     dns_->provisionHostname(hostname, validation, [&result_pr](bool success) {
         result_pr.set_value(success);
@@ -45,7 +45,7 @@ void DnsMode::cleanup()
 
     assert(dns_);
 
-    const string hostname = getEnv("CERTBOT_DOMAIN");
+    const string hostname = getHostname();
 
     // TODO: Delete the validation node
     LOG_INFO << "NOT Deleting entry " << hostname;
@@ -53,12 +53,15 @@ void DnsMode::cleanup()
 
 void DnsMode::init()
 {
-    if (const auto dnsc = getenv("DNS_CONFIG")) {
+    client_ = restc_cpp::RestClient::Create();
+    if (!config_.dnsServerConfig.empty()) {
+        dns_ = DnsProvisioner::create(config_.dnsServerConfig, client_->GetIoService());
+    } else if (const auto dnsc = getenv("DNS_CONFIG")) {
         dns_ = DnsProvisioner::create(dnsc, client_->GetIoService());
         assert(dns_);
+    } else {
+        throw runtime_error{"No DNS_CONFIG set"};
     }
-
-    throw runtime_error{"No DNS_CONFIG set"};
 }
 
 string DnsMode::getEnv(string_view name)
@@ -68,6 +71,15 @@ string DnsMode::getEnv(string_view name)
     }
 
     throw runtime_error{"Missing "s + string{name}};
+}
+
+string DnsMode::getHostname() const
+{
+    if (const auto h = getenv("CERTBOT_DOMAIN")) {
+        return "_acme-challenge."s + h;
+    }
+
+    throw runtime_error("Missing CERTBOT_DOMAIN variable!");
 }
 
 } // ns

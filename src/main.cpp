@@ -21,6 +21,8 @@ int main(int argc, char* argv[]) {
     }
 
     Config config;
+    config.appBinary = argv[0];
+
     {
         std::string log_level = "info";
 
