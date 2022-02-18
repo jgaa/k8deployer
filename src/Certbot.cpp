@@ -89,12 +89,9 @@ void Certbot::runCertbot()
     bindir /= "bin";
     makeIfNotExists(bindir);
 
-    const auto uuid = boost::uuids::to_string(boost::uuids::random_generator()());
-
     auto auth_hook = bindir;
     auth_hook /= ("auth_"s
                   + "hook"
-                  //+ uuid
                   + ".sh");
 
     const auto& conf = Engine::config();
@@ -105,14 +102,25 @@ void Certbot::runCertbot()
 
         out << "#!/bin/bash" << endl
             << conf.appBinary
-            << " -c certbot-authenticator -l trace -d '" << conf.definitionFile
+            << " -c certbot-authenticator -l debug -d '" << conf.definitionFile
             << "' -D '" << conf.dnsServerConfig
             << "'"  << endl;
     }
 
-    // TODO: Set up a scope to delete the scripts
+    auto clean_hook = bindir;
+    clean_hook /= ("clean_"s
+                  + "hook"
+                  + ".sh");
+    {
+        ofstream out{clean_hook, ios_base::out | ios_base::trunc};
+        filesystem::permissions(clean_hook, filesystem::perms::owner_read | filesystem::perms::owner_write | filesystem::perms::owner_exec);
 
-    // Setup environment variables
+        out << "#!/bin/bash" << endl
+            << conf.appBinary
+            << " -c certbot-cleanup -l debug -d '" << conf.definitionFile
+            << "' -D '" << conf.dnsServerConfig
+            << "'"  << endl;
+    }
 
     // Call certbot
 
@@ -128,16 +136,20 @@ void Certbot::runCertbot()
     auto cmd = "certbot -n certonly --test-cert --manual "
         "--preferred-challenges=dns "
         "--manual-auth-hook '"s + auth_hook.string()
+        + "' --manual-cleanup-hook '"s + clean_hook.string()
         + "' --work-dir '" + certbot_path_.string()
         + "' --logs-dir '" + certbot_path_.string()
         + "' --config-dir '" + certbot_path_.string()
         + "' --register-unsafely-without-email --agree-tos --manual-public-ip-logging-ok "
         + " -d " + domains;
 
-    LOG_DEBUG << "Executing shell command: " << cmd;
+    LOG_DEBUG << "Creating letsencrypt certificates for: " << domains;
+    LOG_INFO << "Executing shell command: " << cmd;
     auto result = system(cmd.data());
+
     if (result) {
-        LOG_ERROR << "Failed to create certs";
+        LOG_ERROR << "Failed to create certs: " << domains;
+        throw runtime_error{"Failed to create letsencrypt certificate"};
     }
 
     // TODO: Use the generated certs

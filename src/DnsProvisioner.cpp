@@ -17,6 +17,7 @@ BOOST_FUSION_ADAPT_STRUCT(k8deployer::DnsProvisionerVubercool::Config,
     (std::string, user)
     (std::string, passwd)
     (std::string, host)
+    (std::string, url)
     (size_t, retries)
     (size_t, retryDelaySecond)
 );

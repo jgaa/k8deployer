@@ -50,7 +50,7 @@ void DnsProvisionerVubercool::provisionHostname(const string &hostname, const st
 void DnsProvisionerVubercool::deleteHostname(const string &hostname, const cb_t& onDone)
 {
     client_->Process([this, hostname, onDone](Context& ctx) {
-        auto url = "https://"s + config_.host + "/zone/" + hostname;
+        auto url = getUrl() + "/zone/" + hostname;
 
         for(size_t i = 0; i < config_.retries; ++i) {
             if (i /* is retry */) {
@@ -86,7 +86,7 @@ void DnsProvisionerVubercool::patchDnsServer(const string &hostname, const Vuber
                                              const cb_t& onDone, bool onlyOnce)
 {
     client_->Process([this, hostname, req, onDone, onlyOnce](Context& ctx) {
-        auto url = "https://"s + config_.host + "/zone/" + hostname;
+        auto url = getUrl() + "/zone/" + hostname;
 
         for(size_t i = 0; i < config_.retries; ++i) {
             if (i /* is retry */) {
@@ -144,6 +144,23 @@ void DnsProvisionerVubercool::deleteHostname(const string &hostname)
     auto [m, s] = getHostStuff();
     lock_guard<mutex> lock(m);
     s.erase(hostname);
+}
+
+string DnsProvisionerVubercool::getUrl() const
+{
+    if (!config_.url.empty()) {
+        if (config_.url.back() != '/') {
+            return config_.url;
+        }
+        return config_.url.substr(0, config_.url.size() -1);
+    }
+
+    if (!config_.host.empty()) {
+        LOG_WARN << "The DNS config entry `host` will soon be deprecated. Use `url` in stead.";
+        return "https://"s + config_.host;
+    }
+
+    throw runtime_error{"No url for vUberdns is defined in the DNS configuration!"};
 }
 
 } // ns

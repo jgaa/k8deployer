@@ -47,8 +47,14 @@ void DnsMode::cleanup()
 
     const string hostname = getHostname();
 
-    // TODO: Delete the validation node
-    LOG_INFO << "NOT Deleting entry " << hostname;
+    LOG_INFO << "Deleting entry " << hostname;
+    dns_->deleteHostname(hostname, [&result_pr](bool success) {
+        result_pr.set_value(success);
+    });
+
+    if (!result_pr.get_future().get()) {
+        LOG_WARN << "Failed to delete: " << hostname;
+    }
 }
 
 void DnsMode::init()

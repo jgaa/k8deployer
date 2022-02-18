@@ -20,6 +20,7 @@ public:
       std::string user;
       std::string passwd;
       std::string host;
+      std::string url;
       size_t retries = 0;
       size_t retryDelaySecond = 1;
   };
@@ -44,6 +45,7 @@ private:
                         const cb_t& onDone, bool onlyOnce = true);
     bool addHostname(const std::string& hostname);
     void deleteHostname(const std::string& hostname);
+    std::string getUrl() const;
 
     const Config config_;
     std::shared_ptr<restc_cpp::RestClient> client_;
